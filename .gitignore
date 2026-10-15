@@ -1,0 +1,7 @@
+node_modules
+dist
+.tsbuild-node
+.env.local
+.env.*.local
+*.log
+*.tsbuildinfo

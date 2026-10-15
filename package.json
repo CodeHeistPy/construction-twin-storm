@@ -1,0 +1,30 @@
+{
+  "name": "construction-twin-storm",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "3D construction digital twin: schedule + scripted/live storm -> which of today's activities are postponed, told through the six ArcGIS Digital Twin building blocks.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@arcgis/core": "^5.1.27",
+    "@arcgis/map-components": "^5.1.27",
+    "@arcgis/map-components-react": "^5.1.27",
+    "@esri/calcite-components": "^5.1.2",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.4"
+  }
+}

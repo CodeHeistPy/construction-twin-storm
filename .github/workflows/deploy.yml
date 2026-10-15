@@ -1,0 +1,53 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+        env:
+          # Public, non-secret config. Set these as repository *variables*
+          # (Settings -> Secrets and variables -> Actions -> Variables).
+          VITE_WEBSCENE_ID: ${{ vars.VITE_WEBSCENE_ID }}
+          VITE_PORTAL_URL: ${{ vars.VITE_PORTAL_URL }}
+          VITE_ARCGIS_OAUTH_APP_ID: ${{ vars.VITE_ARCGIS_OAUTH_APP_ID }}
+          VITE_SITE_NAME: ${{ vars.VITE_SITE_NAME }}
+          VITE_SITE_LON: ${{ vars.VITE_SITE_LON }}
+          VITE_SITE_LAT: ${{ vars.VITE_SITE_LAT }}
+          VITE_SITE_TZ: ${{ vars.VITE_SITE_TZ }}
+          VITE_DEMO_DATE: ${{ vars.VITE_DEMO_DATE }}
+          VITE_UNITS: ${{ vars.VITE_UNITS }}
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
