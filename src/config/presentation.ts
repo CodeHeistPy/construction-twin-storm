@@ -1,85 +1,176 @@
 import type { BlockId } from "./buildingBlocks";
 
 // =============================================================================
-// DRAFT RUN OF SHOW — one step per beat. Narration is placeholder copy; replace
-// it with the agreed script once the storyboard is done. Each step can set the
-// clock, the camera, and which blocks are lit.
+// THE STORYLINE — the user's run of show (2026-10-16). Each beat sets what the
+// scene shows, which panels are up, the clock, the camera, and the lit blocks.
+// Narration is DRAFT copy for the presenter card; edit freely.
+//
+// Arc: existing site → proposed design → Building 1 progress → today's plan →
+// real-time weather → the work face → the call → re-plan + notify → outcome.
 // =============================================================================
 
-export type CameraPreset = "overview" | "site" | "storm" | "crane";
+export type CameraPreset = "site" | "development" | "building" | "overview" | "storm";
+
+/** How Building 1 renders. Not-yet-installed parts are hidden in every mode but "design". */
+export type BimMode =
+  | "design" // the full model as designed
+  | "progress" // installed before today only
+  | "scheduled" // + today's work highlighted, no weather call yet
+  | "decision" // today's work coloured by go / watch / postpone (violet once re-planned)
+  | "outcome"; // end of day: what ran is installed, what moved is violet
+
+/** Which of today's activities a work-face beat zooms to. */
+export type FocusTarget = "postponed" | "proceeding";
+
+export interface SceneMode {
+  /** Reality capture (ortho) + existing utilities and rail. */
+  existing: boolean;
+  /** Integrated mesh of current conditions (hidden once the design is shown). */
+  mesh: boolean;
+  /** Proposed buildings: none, all, or Building 1 only (plus the site). */
+  proposed: "none" | "all" | "focus";
+  bim: BimMode;
+  /** Storm cell overlay + rain/cloud effects. */
+  storm: boolean;
+  /** Activity markers. */
+  markers: boolean;
+  focus?: FocusTarget;
+}
 
 export interface PresentationStep {
   title: string;
-  /** Blocks that light up on the rail for this beat (cumulative is fine). */
   blocks: BlockId[];
-  /** Hour of the demo day to set the clock to; undefined = leave as is. */
-  hour?: number;
-  camera?: CameraPreset;
-  /** Show the crew-communication dialog. */
-  showComms?: boolean;
-  /** Apply the adapted plan (postponed work moved to its next window). */
-  replan?: boolean;
   narration: string;
+  scene: SceneMode;
+  /** Left panel content; omitted = hidden. */
+  left?: "progress" | "schedule";
+  /** Show weather decisions in the schedule (false before weather is introduced). */
+  decisions?: boolean;
+  /** Right panel (site conditions). */
+  conditions?: boolean;
+  /** Hour of the demo day to set the clock to. */
+  hour?: number;
+  camera?: CameraPreset | "focus";
+  /** Pop the incoming-weather alert. */
+  alert?: boolean;
+  replan?: boolean;
+  showComms?: boolean;
+  outcome?: boolean;
 }
+
+const B = {
+  start: ["foundation", "reality"] as BlockId[],
+  design: ["foundation", "reality", "integration"] as BlockId[],
+  plan: ["foundation", "reality", "integration", "analysis"] as BlockId[],
+  live: ["foundation", "reality", "integration", "analysis", "realtime"] as BlockId[],
+  all: ["foundation", "reality", "integration", "analysis", "realtime", "intelligence"] as BlockId[],
+};
+
+const EXISTING_ONLY: SceneMode = { existing: true, mesh: true, proposed: "none", bim: "design", storm: false, markers: false };
 
 export const PRESENTATION: PresentationStep[] = [
   {
-    title: "The site, this morning",
-    blocks: ["foundation"],
+    title: "The site today",
+    blocks: B.start,
+    scene: EXISTING_ONLY,
     hour: 7,
     camera: "site",
-    narration: "DRAFT — The twin: site, building and today's schedule in one place.",
+    narration:
+      "DRAFT — What's on the ground right now: reality capture, the rail line and the storm, electrical and sanitary networks. One trusted foundation.",
   },
   {
-    title: "What's on site right now",
-    blocks: ["foundation", "reality"],
+    title: "What we're building",
+    blocks: B.design,
+    scene: { ...EXISTING_ONLY, mesh: false, proposed: "all" },
+    camera: "development",
+    narration: "DRAFT — The proposed development: every building's design model, in place, in context.",
+  },
+  {
+    title: "Where Building 1 stands",
+    blocks: B.design,
+    scene: { ...EXISTING_ONLY, mesh: false, proposed: "focus", bim: "progress" },
+    left: "progress",
+    camera: "building",
+    narration: "DRAFT — Filtered to what's actually installed. Progress comes straight from the model.",
+  },
+  {
+    title: "Today's plan",
+    blocks: B.plan,
+    scene: { ...EXISTING_ONLY, mesh: false, proposed: "focus", bim: "scheduled", markers: true },
+    left: "schedule",
+    decisions: false,
+    camera: "building",
     hour: 7,
-    camera: "site",
-    narration: "DRAFT — Reality capture shows where the build actually is.",
+    narration: "DRAFT — What's scheduled today, and where. Next: what could change it.",
   },
   {
-    title: "Systems talking to each other",
-    blocks: ["foundation", "reality", "integration"],
-    hour: 8,
-    camera: "site",
-    narration: "DRAFT — The schedule and weather feed are joined to the model.",
-  },
-  {
-    title: "A storm is coming",
-    blocks: ["foundation", "reality", "integration", "realtime"],
-    hour: 9,
+    title: "Weather on the way",
+    blocks: B.live,
+    scene: { ...EXISTING_ONLY, mesh: false, proposed: "focus", bim: "scheduled", storm: true, markers: true },
+    left: "schedule",
+    decisions: false,
+    conditions: true,
+    alert: true,
     camera: "storm",
-    narration: "DRAFT — Live conditions plus the forecast: the storm reaches the site this afternoon.",
-  },
-  {
-    title: "Play the day forward",
-    blocks: ["foundation", "reality", "integration", "realtime", "analysis"],
-    hour: 15,
-    camera: "overview",
-    narration: "DRAFT — Simulate the storm through the day; every activity is tested against its limits.",
-  },
-  {
-    title: "The call",
-    blocks: ["foundation", "reality", "integration", "realtime", "analysis", "intelligence"],
     hour: 9,
-    camera: "crane",
-    narration: "DRAFT — What gets postponed, why, and when. Before the first gust arrives.",
+    narration: "DRAFT — Live conditions and the forecast: a storm reaches the site this afternoon.",
   },
   {
-    title: "Adapt the plan",
-    blocks: ["foundation", "reality", "integration", "realtime", "analysis", "intelligence"],
+    title: "At the work face",
+    blocks: B.live,
+    scene: { ...EXISTING_ONLY, mesh: false, proposed: "focus", bim: "decision", storm: true, markers: true, focus: "postponed" },
+    left: "schedule",
+    decisions: true,
+    conditions: true,
+    camera: "focus",
+    hour: 13,
+    narration: "DRAFT — Today's curtain wall install, on the exposed face, right when the gusts arrive.",
+  },
+  {
+    title: "It can't happen today",
+    blocks: B.all,
+    scene: { ...EXISTING_ONLY, mesh: false, proposed: "focus", bim: "decision", storm: true, markers: true, focus: "postponed" },
+    left: "schedule",
+    decisions: true,
+    conditions: true,
+    camera: "focus",
     hour: 9,
-    camera: "site",
+    narration: "DRAFT — The call, made in the morning: exceeds the limits, so it moves. Everything else carries on.",
+  },
+  {
+    title: "Re-plan and notify",
+    blocks: B.all,
+    scene: { ...EXISTING_ONLY, mesh: false, proposed: "focus", bim: "decision", storm: true, markers: true },
+    left: "schedule",
+    decisions: true,
+    conditions: true,
     replan: true,
-    narration: "DRAFT — Move the postponed work to the first window it can run, and see the knock-on to the rest of the build.",
-  },
-  {
-    title: "Tell the crews",
-    blocks: ["foundation", "reality", "integration", "realtime", "analysis", "intelligence"],
-    hour: 9,
-    camera: "site",
     showComms: true,
+    camera: "building",
+    hour: 9,
+    narration: "DRAFT — The schedule updates itself and every affected crew gets the new plan.",
+  },
+  {
+    title: "Ahead of the storm",
+    blocks: B.all,
+    scene: { ...EXISTING_ONLY, mesh: false, proposed: "focus", bim: "outcome", storm: false, markers: false },
+    left: "progress",
     replan: true,
-    narration: "DRAFT — One message to every affected crew, with the reasons attached.",
+    outcome: true,
+    camera: "building",
+    hour: 17,
+    narration:
+      "DRAFT — By bringing the building blocks together we saw it coming, understood the impact, and adjusted, with data behind every decision.",
   },
 ];
+
+/** Outside presentation mode: everything on. */
+export const FREE_MODE: PresentationStep = {
+  title: "Explore",
+  blocks: B.all,
+  scene: { existing: true, mesh: false, proposed: "all", bim: "decision", storm: true, markers: true },
+  left: "schedule",
+  decisions: true,
+  conditions: true,
+  narration: "",
+};

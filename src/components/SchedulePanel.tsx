@@ -13,9 +13,13 @@ interface Props {
   twin: Twin;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  /** Show weather decisions; false = just what's scheduled (before the weather is introduced). */
+  decisions?: boolean;
+  /** Activity the current beat is about. */
+  focusId?: string | null;
 }
 
-export default function SchedulePanel({ twin, selectedId, onSelect }: Props) {
+export default function SchedulePanel({ twin, selectedId, onSelect, decisions = true, focusId = null }: Props) {
   const by = (d: Decision) => twin.assessments.filter((a) => a.decision === d);
   const postponed = by("postpone");
   const deferred = postponed.reduce((n, a) => n + (a.activity.components ?? 0), 0);
@@ -33,6 +37,10 @@ export default function SchedulePanel({ twin, selectedId, onSelect }: Props) {
         </div>
       </header>
 
+      {!decisions ? (
+        <ScheduledOnly twin={twin} selectedId={selectedId ?? focusId} onSelect={onSelect} />
+      ) : (
+        <>
       <div className="summary">
         <div className="stat postpone">
           <b>{postponed.length}</b>
@@ -63,7 +71,7 @@ export default function SchedulePanel({ twin, selectedId, onSelect }: Props) {
                 <ActivityRow
                   key={a.activity.id}
                   a={a}
-                  selected={a.activity.id === selectedId}
+                  selected={a.activity.id === (selectedId ?? focusId)}
                   onSelect={onSelect}
                   movedTo={twin.replanned ? twin.replans.find((r) => r.original.activity.id === a.activity.id) : undefined}
                 />
@@ -72,6 +80,8 @@ export default function SchedulePanel({ twin, selectedId, onSelect }: Props) {
           ) : null,
         )}
       </div>
+        </>
+      )}
       <p className="footnote">
         BIM work from Building 1 install dates. Shift hours, sample items and stop-work limits are placeholders.
       </p>
@@ -120,5 +130,54 @@ function ActivityRow({
       )}
       {selected && <div className="source">Limit source: {THRESHOLDS[x.type].source}</div>}
     </button>
+  );
+}
+
+/** Before the weather is in the story: today's work, no calls yet. */
+function ScheduledOnly({
+  twin,
+  selectedId,
+  onSelect,
+}: {
+  twin: Twin;
+  selectedId: string | null;
+  onSelect: (id: string | null) => void;
+}) {
+  const parts = twin.assessments.reduce((n, a) => n + (a.activity.components ?? 0), 0);
+  return (
+    <>
+      <div className="summary summary-2">
+        <div className="stat scheduled">
+          <b>{twin.assessments.length}</b>
+          <span>activities today</span>
+        </div>
+        <div className="stat">
+          <b>{parts}</b>
+          <span>BIM parts to install</span>
+        </div>
+      </div>
+      <div className="activity-list">
+        <section>
+          <h3 className="group scheduled">Scheduled</h3>
+          {twin.assessments.map(({ activity: x }) => (
+            <button
+              key={x.id}
+              type="button"
+              className={`activity scheduled ${x.id === selectedId ? "selected" : ""}`}
+              onClick={() => onSelect(x.id === selectedId ? null : x.id)}
+            >
+              <div className="row1">
+                <span className="id">{x.id}</span>
+                <span className="name">{x.name}</span>
+                <span className={`src ${x.source}`}>{x.source === "bim" ? "BIM" : "Sample"}</span>
+              </div>
+              <div className="row2">
+                {ACTIVITY_LABELS[x.type]} · {x.zone} · {fmtTime(x.start)}–{fmtTime(x.end)}
+              </div>
+            </button>
+          ))}
+        </section>
+      </div>
+    </>
   );
 }

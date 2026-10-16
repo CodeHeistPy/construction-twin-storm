@@ -5,39 +5,48 @@ import Graphic from "@arcgis/core/Graphic";
 import GraphicsLayer from "@arcgis/core/layers/GraphicsLayer";
 import Point from "@arcgis/core/geometry/Point";
 import Polygon from "@arcgis/core/geometry/Polygon";
-import type Ground from "@arcgis/core/Ground";
 import type SceneView from "@arcgis/core/views/SceneView";
 import SunLighting from "@arcgis/core/views/3d/environment/SunLighting";
 import RainyWeather from "@arcgis/core/views/3d/environment/RainyWeather";
 import CloudyWeather from "@arcgis/core/views/3d/environment/CloudyWeather";
 import SunnyWeather from "@arcgis/core/views/3d/environment/SunnyWeather";
-import { SITE, WEBSCENE_ID } from "../config/site";
-import type { CameraPreset } from "../config/presentation";
-import type { Decision } from "../domain/types";
 import type BuildingSceneLayer from "@arcgis/core/layers/BuildingSceneLayer";
 import type BuildingComponentSublayer from "@arcgis/core/layers/buildingSublayers/BuildingComponentSublayer";
-import type WebScene from "@arcgis/core/WebScene";
+import WebScene from "@arcgis/core/WebScene";
 import UniqueValueRenderer from "@arcgis/core/renderers/UniqueValueRenderer";
-import { BIM_LAYER_TITLE, DATED_SUBLAYERS, statusArcade } from "../lib/bim";
+import { SITE, WEBSCENE_ID } from "../config/site";
+import type { CameraPreset, SceneMode } from "../config/presentation";
+import { roleOf } from "../config/layers";
+import type { Activity, Decision } from "../domain/types";
+import { BIM_LAYER_TITLE, BUILDING_1, DATED_SUBLAYERS, statusArcade, type TodayClass } from "../lib/bim";
 import { ellipseRing } from "../lib/geo";
 import type { Twin } from "../state/useTwin";
 
-/** Display status: a decision, or postponed work that has been re-planned. */
-export type Status = Decision | "rescheduled";
+/** Display status: a decision, postponed work that has been re-planned, or scheduled (no call yet). */
+export type Status = Decision | "rescheduled" | "scheduled";
 
 export const DECISION_COLORS: Record<Status, string> = {
+  scheduled: "#39d0ff",
   rescheduled: "#a78bfa",
   postpone: "#ff5a4e",
   watch: "#ffb547",
   go: "#3ddc84",
 };
 
+export interface CameraRequest {
+  preset: CameraPreset | "focus";
+  /** Bump to re-fly to the same preset. */
+  key: number;
+}
+
 interface Props {
   twin: Twin;
+  mode: SceneMode;
+  /** Activity the beat is about (work-face zoom + highlight). */
+  focusId: string | null;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
-  /** Bump `key` to re-fly to the same preset. */
-  camera: { preset: CameraPreset; key: number };
+  camera: CameraRequest;
 }
 
 const mesh = (color: number[], mix: "tint" | "replace" = "replace") => ({
@@ -47,23 +56,57 @@ const mesh = (color: number[], mix: "tint" | "replace" = "replace") => ({
 
 const hex = (h: string, a = 1) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)).concat(a);
 
+const INSTALLED = mesh([235, 238, 245, 1], "tint");
+const HIDDEN = mesh([0, 0, 0, 0]);
+
 function statusRenderer(valueExpression: string) {
+  const today = (c: TodayClass, symbol: ReturnType<typeof mesh>) => ({ value: `today-${c}`, symbol });
   return new UniqueValueRenderer({
     valueExpression,
-    defaultSymbol: mesh([235, 238, 245, 1], "tint"),
+    defaultSymbol: INSTALLED,
     uniqueValueInfos: [
-      { value: "installed", label: "Installed", symbol: mesh([235, 238, 245, 1], "tint") },
-      { value: "today-postpone", label: "Today: postponed", symbol: mesh(hex(DECISION_COLORS.postpone)) },
-      { value: "today-watch", label: "Today: watch", symbol: mesh(hex(DECISION_COLORS.watch)) },
-      { value: "today-go", label: "Today: proceed", symbol: mesh(hex(DECISION_COLORS.go)) },
-      { value: "today-rescheduled", label: "Today: re-planned", symbol: mesh(hex(DECISION_COLORS.rescheduled)) },
-      { value: "upcoming", label: "Not yet installed", symbol: mesh([120, 170, 255, 0.12]) },
+      { value: "installed", symbol: INSTALLED },
+      { value: "nodate", symbol: INSTALLED },
+      // Not installed yet: hidden, so the building reads as it stands.
+      { value: "upcoming", symbol: HIDDEN },
+      today("hidden", HIDDEN),
+      today("done", INSTALLED),
+      today("dim", mesh([200, 205, 215, 1], "tint")),
+      today("scheduled", mesh(hex(DECISION_COLORS.scheduled))),
+      today("postpone", mesh(hex(DECISION_COLORS.postpone))),
+      today("watch", mesh(hex(DECISION_COLORS.watch))),
+      today("go", mesh(hex(DECISION_COLORS.go))),
+      today("rescheduled", mesh(hex(DECISION_COLORS.rescheduled))),
     ],
   });
 }
 
+/** How one sublayer's "today" components show in a given mode. */
+function todayClass(mode: SceneMode, decision: Decision, replanned: boolean, inFocus: boolean, hasFocus: boolean): TodayClass {
+  switch (mode.bim) {
+    case "progress":
+      return "hidden";
+    case "scheduled":
+      return hasFocus && !inFocus ? "dim" : "scheduled";
+    case "outcome":
+      return decision === "postpone" ? "rescheduled" : "done";
+    default:
+      if (hasFocus && !inFocus) return "dim";
+      return replanned && decision === "postpone" ? "rescheduled" : decision;
+  }
+}
+
+/** Marker status for an activity in a given mode. */
+function markerStatus(mode: SceneMode, decision: Decision, replanned: boolean): Status {
+  if (mode.bim === "scheduled") return "scheduled";
+  return replanned && decision === "postpone" ? "rescheduled" : decision;
+}
+
+/** Envelope sublayers made see-through when the focus work is inside the building. */
+const ENVELOPE = ["Walls", "CurtainWallPanels", "CurtainWallMullions", "Roofs"];
+
 /** A point on the terrain surface (absolute z), for camera targets. */
-async function onGround(view: SceneView, longitude: number, latitude: number): Promise<Point> {
+async function onGround(view: SceneView, longitude: number, latitude: number, above = 0): Promise<Point> {
   const p = new Point({ longitude, latitude });
   const ground = view.map!.ground;
   // At startup the ground layers are still loading (and one, Roadway_Ground,
@@ -73,7 +116,7 @@ async function onGround(view: SceneView, longitude: number, latitude: number): P
     try {
       const sampled = await ground.queryElevation(p);
       const g = sampled.geometry as Point;
-      if (Number.isFinite(g.z)) return g;
+      if (Number.isFinite(g.z)) return new Point({ longitude, latitude, z: (g.z ?? 0) + above });
     } catch {
       // fall through to retry
     }
@@ -83,29 +126,55 @@ async function onGround(view: SceneView, longitude: number, latitude: number): P
   return p;
 }
 
-const CAMERAS: Record<CameraPreset, { scale: number; tilt: number; heading: number; offset?: [number, number] }> = {
-  site: { scale: 2200, tilt: 65, heading: 30 },
-  crane: { scale: 900, tilt: 70, heading: 10 },
-  overview: { scale: 60_000, tilt: 55, heading: 30 },
-  storm: { scale: 220_000, tilt: 50, heading: 225, offset: [-0.08, -0.06] },
+interface Shot {
+  at: { longitude: number; latitude: number };
+  /** Metres above ground to aim at. */
+  above?: number;
+  scale: number;
+  tilt: number;
+  heading: number;
+}
+
+const mid = (a: { longitude: number; latitude: number }, b: { longitude: number; latitude: number }) => ({
+  longitude: (a.longitude + b.longitude) / 2,
+  latitude: (a.latitude + b.latitude) / 2,
+});
+
+const SHOTS: Record<CameraPreset, Shot> = {
+  site: { at: SITE, scale: 3500, tilt: 60, heading: 20 },
+  development: { at: mid(SITE, BUILDING_1), scale: 2600, tilt: 62, heading: 340 },
+  building: { at: BUILDING_1, above: 30, scale: 900, tilt: 70, heading: 25 },
+  overview: { at: SITE, scale: 60_000, tilt: 55, heading: 30 },
+  storm: { at: { longitude: SITE.longitude - 0.08, latitude: SITE.latitude - 0.06 }, scale: 220_000, tilt: 50, heading: 225 },
 };
 
-export default function SceneCanvas({ twin, selectedId, onSelect, camera }: Props) {
+function shotFor(a: Activity): Shot {
+  // Wide enough to read the whole band of today's parts on the building.
+  return { at: a.location, above: a.location.z, scale: 1000, tilt: 66, heading: a.viewHeading ?? 30 };
+}
+
+export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect, camera }: Props) {
   const [view, setView] = useState<SceneView | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  // One WebScene for the life of the app. Letting <arcgis-scene> load it from
+  // item-id made it re-create (and abort) the map on re-renders.
+  const [map] = useState(() =>
+    WEBSCENE_ID
+      ? new WebScene({ portalItem: { id: WEBSCENE_ID } })
+      : new WebScene({ basemap: "dark-gray-vector", ground: "world-elevation" }),
+  );
   const layers = useRef<{ activities: GraphicsLayer; storm: GraphicsLayer } | null>(null);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
   const explorerRef = useRef<BuildingExplorerElement>(null);
+  const bimRef = useRef<{ layer: BuildingSceneLayer; dated: BuildingComponentSublayer[]; original: Map<BuildingComponentSublayer, BuildingComponentSublayer["renderer"]> } | null>(null);
 
-  // One-time layer setup once the view is ready.
+  // One-time setup once the view is ready: our layers, lighting, click.
   useEffect(() => {
-    if (!view) return;
+    if (!view || !map) return;
     const storm = new GraphicsLayer({ title: "Storm cell (scripted)", elevationInfo: { mode: "on-the-ground" } });
-    const activities = new GraphicsLayer({
-      title: "Today's activities",
-      elevationInfo: { mode: "relative-to-ground" },
-    });
-    view.map?.addMany([storm, activities]);
+    const activities = new GraphicsLayer({ title: "Today's activities", elevationInfo: { mode: "relative-to-ground" } });
+    map.addMany([storm, activities]);
     layers.current = { activities, storm };
     view.environment.lighting = new SunLighting({ directShadowsEnabled: true });
 
@@ -116,106 +185,108 @@ export default function SceneCanvas({ twin, selectedId, onSelect, camera }: Prop
     });
     return () => {
       handle.remove();
-      view.map?.removeMany([storm, activities]);
+      map.removeMany([storm, activities]);
       layers.current = null;
     };
-  }, [view]);
+  }, [view, map]);
 
-  // Building Explorer: give it every Building Scene Layer that loaded (the
-  // scene's Bridges layer isn't public and fails). Building 1 goes first.
+  // Wait for the web scene's layers (loadAll rejects if any layer fails, and
+  // some aren't public), then prepare Building 1 and the Building Explorer.
   useEffect(() => {
-    if (!view?.map) return;
-    const map = view.map;
+    if (!view || !map) return;
     let cancelled = false;
-    (map as WebScene).loadAll().catch(() => undefined).then(() => {
-      const explorer = explorerRef.current;
-      if (cancelled || !explorer) return;
+    (async () => {
+      await map.loadAll().catch(() => undefined);
+      const unmatched = map.layers
+        .filter((l) => l.type !== "graphics" && roleOf(l.title) === null)
+        .map((l) => l.title)
+        .toArray();
+      if (unmatched.length) console.info("[layers] not in LAYER_RULES (left as-is):", unmatched);
+
       const buildings = map.allLayers
         .filter((l) => l.type === "building-scene" && l.loadStatus === "loaded")
         .toArray() as BuildingSceneLayer[];
       buildings.sort((a, b) => Number(b.title === BIM_LAYER_TITLE) - Number(a.title === BIM_LAYER_TITLE));
-      explorer.layers = buildings;
-    });
+      if (explorerRef.current) explorerRef.current.layers = buildings;
+
+      const bsl = buildings.find((l) => l.title === BIM_LAYER_TITLE);
+      if (!bsl) console.warn(`[bim] layer "${BIM_LAYER_TITLE}" not found in the web scene`);
+      else {
+        const dated = bsl.allSublayers
+          .filter((s) => s.type === "building-component" && DATED_SUBLAYERS.includes(s.modelName ?? ""))
+          .toArray() as BuildingComponentSublayer[];
+        // Each sublayer must be loaded first, or loading overwrites the renderer.
+        await Promise.all(dated.map((s) => s.load()));
+        bimRef.current = { layer: bsl, dated, original: new Map(dated.map((s) => [s, s.renderer?.clone()])) };
+      }
+      if (!cancelled) setLoaded(true);
+    })();
     return () => {
       cancelled = true;
     };
-  }, [view]);
+  }, [view, map]);
 
-  // Pad the view so its corner UI (Layers, Building Explorer) and camera
-  // targets sit in the visible gap between the overlay panels.
+  // Which layers each beat shows.
   useEffect(() => {
-    if (!view) return;
-    const measure = () => {
-      const rect = (sel: string) => document.querySelector(sel)?.getBoundingClientRect();
-      const left = rect(".panel-left");
-      const right = rect(".panel-right");
-      const top = rect(".topbar");
-      const gap = 12;
-      const padding = {
-        left: left ? left.right + gap : 0,
-        right: right ? window.innerWidth - right.left + gap : 0,
-        top: top ? top.bottom + gap : 0,
-        bottom: 0,
-      };
-      view.padding = padding;
-      // Slotted components (the expands) ignore view.padding; offset via CSS.
-      const scene = document.querySelector<HTMLElement>(".scene");
-      scene?.style.setProperty("--ui-left", `${padding.left}px`);
-      scene?.style.setProperty("--ui-top", `${padding.top}px`);
-    };
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, [view]);
+    if (!map || !loaded) return;
+    map.layers.forEach((l) => {
+      if (l.type === "graphics") return;
+      switch (roleOf(l.title)) {
+        case "existing":
+          l.visible = mode.existing;
+          break;
+        case "mesh":
+          l.visible = mode.mesh;
+          break;
+        case "focusBuilding":
+        case "site":
+          l.visible = mode.proposed !== "none";
+          break;
+        case "proposed":
+          l.visible = mode.proposed === "all";
+          break;
+      }
+    });
+  }, [map, loaded, mode.existing, mode.mesh, mode.proposed]);
 
-  // Building 1 coloured by install status for the demo day: installed (as
-  // built), today's work (decision colour), upcoming (ghosted).
+  // Building 1: as designed, or filtered to progress and coloured by today's plan.
   useEffect(() => {
-    if (!view?.map) return;
-    const map = view.map;
+    const bim = bimRef.current;
+    if (!loaded || !bim) return;
+    const focus = twin.assessments.find((a) => a.activity.id === focusId)?.activity;
+    const focusSubs = new Set(focus?.bimSublayers ?? []);
     const decisionFor = new Map<string, Decision>();
     for (const { activity, decision } of twin.assessments)
       for (const s of activity.bimSublayers ?? []) decisionFor.set(s, decision);
 
-    let cancelled = false;
-    // The web scene adds its layers after the view is ready, so wait for them.
-    // loadAll() rejects if ANY layer fails (some scene layers aren't public),
-    // so carry on either way.
-    (map as WebScene).loadAll().catch(() => undefined).then(async () => {
-      const bsl = map.allLayers.find(
-        (l) => l.type === "building-scene" && l.title === BIM_LAYER_TITLE,
-      ) as BuildingSceneLayer | undefined;
-      if (!bsl) {
-        console.warn(`[bim] layer "${BIM_LAYER_TITLE}" not found in the web scene`);
-        return;
+    for (const sub of bim.dated) {
+      const name = sub.modelName ?? "";
+      if (mode.bim === "design") {
+        sub.renderer = bim.original.get(sub)?.clone() ?? null;
+        continue;
       }
-      await bsl.load();
-      const dated = bsl.allSublayers
-        .filter((s) => s.type === "building-component" && DATED_SUBLAYERS.includes(s.modelName ?? ""))
-        .toArray() as BuildingComponentSublayer[];
-      // Each sublayer must be loaded first, or loading overwrites the renderer.
-      await Promise.all(dated.map((s) => s.load()));
-      if (cancelled) return;
-      for (const sub of dated) {
-        const decision = decisionFor.get(sub.modelName ?? "") ?? "go";
-        const status: Status = twin.replanned && decision === "postpone" ? "rescheduled" : decision;
-        sub.renderer = statusRenderer(statusArcade(twin.day, status));
+      const cls = todayClass(mode, decisionFor.get(name) ?? "go", twin.replanned, focusSubs.has(name), !!focus);
+      sub.renderer = statusRenderer(statusArcade(twin.day, cls));
+    }
+    // Inside work: make the envelope see-through so the highlighted parts show.
+    const seeThrough = !!focus && focus.type === "interior";
+    bim.layer.allSublayers.forEach((s) => {
+      if (s.type === "building-component" && ENVELOPE.includes(s.modelName ?? "")) {
+        (s as BuildingComponentSublayer).opacity = seeThrough ? 0.15 : 1;
       }
     });
-    return () => {
-      cancelled = true;
-    };
-  }, [view, twin.assessments, twin.day, twin.replanned]);
+  }, [loaded, mode, focusId, twin.assessments, twin.day, twin.replanned]);
 
-  // Activity markers, coloured by decision.
+  // Activity markers.
   useEffect(() => {
     const layer = layers.current?.activities;
     if (!layer) return;
     layer.removeAll();
+    if (!mode.markers) return;
     layer.addMany(
       twin.assessments.map(({ activity: a, decision }) => {
-        const selected = a.id === selectedId;
-        const color = DECISION_COLORS[twin.replanned && decision === "postpone" ? "rescheduled" : decision];
+        const selected = a.id === selectedId || a.id === focusId;
+        const color = DECISION_COLORS[markerStatus(mode, decision, twin.replanned)];
         return new Graphic({
           geometry: new Point({ longitude: a.location.longitude, latitude: a.location.latitude, z: a.location.z }),
           attributes: { id: a.id },
@@ -226,7 +297,7 @@ export default function SceneCanvas({ twin, selectedId, onSelect, camera }: Prop
                 type: "icon",
                 resource: { primitive: "circle" },
                 size: selected ? 22 : 14,
-                material: { color: color },
+                material: { color },
                 outline: { color: selected ? "#ffffff" : "#0b1220", size: selected ? 3 : 1.5 },
               },
               {
@@ -239,12 +310,12 @@ export default function SceneCanvas({ twin, selectedId, onSelect, camera }: Prop
               },
             ],
             verticalOffset: { screenLength: 36, maxWorldLength: 120, minWorldLength: 8 },
-            callout: { type: "line", size: 1, color: color },
+            callout: { type: "line", size: 1, color },
           },
         });
       }),
     );
-  }, [view, twin.assessments, twin.replanned, selectedId]);
+  }, [map, mode, twin.assessments, twin.replanned, selectedId, focusId]);
 
   // Scripted storm cell: outer rain shield + core, moving with the clock.
   useEffect(() => {
@@ -252,7 +323,7 @@ export default function SceneCanvas({ twin, selectedId, onSelect, camera }: Prop
     if (!layer) return;
     layer.removeAll();
     const s = twin.storm;
-    if (!s) return;
+    if (!s || !mode.storm) return;
     const ring = (rx: number, ry: number) =>
       new Polygon({ rings: [ellipseRing(s.longitude, s.latitude, rx, ry, 90 - s.heading)], spatialReference: { wkid: 4326 } });
     layer.addMany([
@@ -271,16 +342,17 @@ export default function SceneCanvas({ twin, selectedId, onSelect, camera }: Prop
         },
       }),
     ]);
-  }, [view, twin.storm]);
+  }, [map, twin.storm, mode.storm]);
 
-  // Sun position follows the clock; scene weather follows conditions.
+  // Sun follows the clock; scene weather follows conditions (only once the storm is in the story).
   useEffect(() => {
     if (!view) return;
     const lighting = view.environment.lighting;
     if (lighting instanceof SunLighting) lighting.date = twin.clock;
     const w = twin.now;
-    if (!w) return;
-    if (w.precipitation >= 1) {
+    if (!w || !mode.storm) {
+      view.environment.weather = new SunnyWeather({ cloudCover: 0.2 });
+    } else if (w.precipitation >= 1) {
       view.environment.weather = new RainyWeather({
         cloudCover: Math.min(1, 0.6 + w.precipitation / 50),
         precipitation: Math.min(1, w.precipitation / 20),
@@ -290,50 +362,88 @@ export default function SceneCanvas({ twin, selectedId, onSelect, camera }: Prop
     } else {
       view.environment.weather = new SunnyWeather({ cloudCover: 0.2 });
     }
-  }, [view, twin.clock, twin.now]);
+  }, [view, twin.clock, twin.now, mode.storm]);
 
-  // Camera presets. A centre without z sits at sea level, ~1,600 m under
-  // Denver, so aim at the terrain height instead. The opening view (key 0) jumps.
+  // Camera: presets, or the beat's focus activity. Targets are terrain-sampled
+  // (a missing z means sea level, ~1,600 m under Denver). The first shot jumps.
   useEffect(() => {
     if (!view) return;
-    const c = CAMERAS[camera.preset];
-    const [dLon, dLat] = c.offset ?? [0, 0];
+    let shot: Shot | undefined;
+    if (camera.preset === "focus") {
+      const a = twin.assessments.find((x) => x.activity.id === focusId)?.activity;
+      shot = a ? shotFor(a) : SHOTS.building;
+    } else if (camera.preset === "storm" && twin.storm) {
+      // Frame the site and wherever the storm is right now, looking toward it.
+      const st = twin.storm;
+      const km = Math.max(20, Math.abs(st.distanceKm));
+      shot = { at: mid(SITE, st), scale: km * 1000 * 4.5, tilt: 52, heading: (st.heading + 180) % 360 };
+    } else shot = SHOTS[camera.preset];
+    const s = shot;
     let cancelled = false;
-    onGround(view, SITE.longitude + dLon, SITE.latitude + dLat).then((target) => {
+    onGround(view, s.at.longitude, s.at.latitude, s.above ?? 0).then((target) => {
       if (cancelled) return;
       view
-        .goTo(
-          { target, scale: c.scale, tilt: c.tilt, heading: c.heading },
-          camera.key === 0 ? { animate: false } : { duration: 2500 },
-        )
+        .goTo({ target, scale: s.scale, tilt: s.tilt, heading: s.heading }, camera.key === 0 ? { animate: false } : { duration: 2500 })
         .catch(() => undefined);
     });
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, camera]);
 
-  // Fly to a selected activity.
+  // Fly to an activity picked in the panel or on the map.
   useEffect(() => {
     if (!view || !selectedId) return;
     const a = twin.assessments.find((x) => x.activity.id === selectedId)?.activity;
     if (!a) return;
-    onGround(view, a.location.longitude, a.location.latitude).then((target) =>
-      view.goTo({ target, scale: 900, tilt: 68 }, { duration: 1500 }).catch(() => undefined),
+    const s = shotFor(a);
+    onGround(view, s.at.longitude, s.at.latitude, s.above).then((target) =>
+      view.goTo({ target, scale: s.scale, tilt: s.tilt, heading: s.heading }, { duration: 1500 }).catch(() => undefined),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, selectedId]);
 
+  // Pad the view so its corner UI and camera targets sit in the visible gap
+  // between the overlay panels. Re-measured when panels come and go.
+  useEffect(() => {
+    if (!view) return;
+    const measure = () => {
+      const rect = (sel: string) => document.querySelector(sel)?.getBoundingClientRect();
+      const left = rect(".panel-left");
+      const right = rect(".panel-right");
+      const top = rect(".topbar");
+      const presenter = rect(".presenter");
+      const gap = 12;
+      const padding = {
+        left: left ? left.right + gap : 0,
+        right: right ? window.innerWidth - right.left + gap : 0,
+        top: top ? top.bottom + gap : 0,
+        // Keep camera targets above the presenter card.
+        bottom: presenter ? window.innerHeight - presenter.top + gap : 0,
+      };
+      view.padding = padding;
+      // Slotted components (the expands) ignore view.padding; offset via CSS.
+      const scene = document.querySelector<HTMLElement>(".scene");
+      scene?.style.setProperty("--ui-left", `${padding.left}px`);
+      scene?.style.setProperty("--ui-top", `${padding.top}px`);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    document.querySelectorAll(".panel, .topbar").forEach((el) => ro.observe(el));
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  });
+
   return (
     <ArcgisScene
       className="scene calcite-mode-dark"
-      // The ground setter accepts "world-elevation" but the getter type is Ground.
-      {...(WEBSCENE_ID
-        ? { itemId: WEBSCENE_ID }
-        : { basemap: "dark-gray-vector", ground: "world-elevation" as unknown as Ground })}
+      map={map}
       // No camera props: they're re-applied on every render (snapping the camera
       // back), and a fixed altitude ends up underground at Denver's ~1,600 m.
-      // The opening view comes from the camera-preset effect instead.
       onArcgisViewReadyChange={(e) => {
         const el = e.target as unknown as { view: SceneView; ready: boolean };
         if (el.ready) setView(el.view);

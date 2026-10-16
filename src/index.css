@@ -164,3 +164,56 @@ button.ghost { background: transparent; }
 .replan .none { color: var(--watch); }
 .replan .knock { margin-left: 52px; color: var(--muted); font-size: 11px; }
 .activity .moved-to { margin-top: 6px; font-size: 12px; color: var(--rescheduled); font-weight: 600; }
+
+/* Scheduled (before the weather call) */
+.summary-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.stat.scheduled b, .group.scheduled { color: var(--accent); }
+.activity.scheduled { border-left-color: var(--accent); }
+
+/* Progress panel */
+.progress-hero { display: flex; gap: 14px; align-items: center; }
+.ring { --p: 0; width: 104px; height: 104px; border-radius: 50%; flex: none; display: grid; place-content: center; text-align: center;
+  background: radial-gradient(closest-side, #0c1220 78%, transparent 79%), conic-gradient(var(--go) calc(var(--p) * 1%), rgba(255, 255, 255, 0.08) 0); }
+.ring b { font-size: 20px; }
+.ring span { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.hero-facts { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+.hero-facts b { color: var(--text); }
+.hero-facts .today { color: var(--accent); }
+.hero-facts .up { color: var(--go); font-weight: 600; }
+.hero-facts .moved { color: var(--rescheduled); font-weight: 600; }
+.packages { display: flex; flex-direction: column; gap: 9px; overflow-y: auto; padding-right: 4px; }
+.pkg-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
+.pkg-row span:last-child { color: var(--muted); font-variant-numeric: tabular-nums; }
+.pkg .bar { display: flex; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
+.pkg .bar .done { background: var(--go); }
+.pkg .bar .today { background: var(--accent); }
+
+/* Weather alert */
+@keyframes alert-in { from { transform: translate(-50%, -20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+.weather-alert { position: absolute; top: 100px; left: 50%; transform: translateX(-50%); z-index: 4; width: min(520px, 92vw);
+  display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: var(--radius);
+  background: rgba(40, 12, 16, 0.94); border: 1px solid rgba(255, 90, 78, 0.7); box-shadow: 0 12px 40px rgba(255, 60, 60, 0.25);
+  animation: alert-in 0.45s ease-out; backdrop-filter: blur(10px); }
+.alert-icon { font-size: 26px; color: var(--postpone); line-height: 1; }
+.alert-body { flex: 1; }
+.alert-head { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.alert-head b { font-size: 15px; }
+.alert-body p { margin: 6px 0 0; font-size: 13px; color: #ffd7d3; }
+.alert-body .alert-impact { color: var(--text); font-weight: 600; }
+.alert-source { display: block; margin-top: 6px; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+/* Outcome */
+.outcome { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -55%); z-index: 3; width: min(760px, 92vw);
+  padding: 22px 24px; background: var(--panel); border: 1px solid rgba(57, 208, 255, 0.5); border-radius: var(--radius);
+  backdrop-filter: blur(12px); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5); }
+.outcome h2 { font-size: 24px; margin: 4px 0 14px; }
+.outcome-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.outcome-grid div { background: rgba(255, 255, 255, 0.04); border-radius: 10px; padding: 10px 12px; }
+.outcome-grid b { display: block; font-size: 22px; color: var(--accent); }
+.outcome-grid span { font-size: 12px; color: var(--muted); }
+.outcome-line { margin: 16px 0 10px; font-size: 16px; font-weight: 600; }
+.outcome-blocks { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; font-size: 12px; }
+.outcome-blocks li { display: flex; gap: 6px; align-items: center; color: var(--text); }
+.outcome-blocks .n { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: rgba(57, 208, 255, 0.35); font-size: 11px; font-weight: 700; }
+.app.presenting:has(.outcome) .presenter { left: auto; right: 24px; bottom: 24px; transform: none; width: min(380px, 40vw); min-width: 0; }
+.app.presenting:has(.outcome) .outcome { top: 46%; }

@@ -37,6 +37,8 @@ export interface Activity {
   source: "bim" | "sample";
   /** BIM sublayer names whose components make up this activity. */
   bimSublayers?: string[];
+  /** Camera heading that best frames the work (e.g. from the south for the south face). */
+  viewHeading?: number;
 }
 
 /** One hour of weather (observed or forecast). */

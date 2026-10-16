@@ -1,6 +1,9 @@
 import bimSchedule from "../data/bim-schedule.json";
 import { SITE } from "../config/site";
 import type { Activity, ActivityType, Decision } from "../domain/types";
+
+/** How today's components of a sublayer are shown (see SceneCanvas renderer). */
+export type TodayClass = Decision | "rescheduled" | "scheduled" | "hidden" | "done" | "dim";
 import { atHour } from "./time";
 
 // =============================================================================
@@ -26,30 +29,33 @@ interface WorkPackage {
  * ⚠️ ASSUMPTION: Doors are treated as interior; confirm whether any are exterior.
  */
 const PACKAGES: Record<string, WorkPackage> = {
-  CurtainWallPanels: { type: "curtain-wall", label: "Curtain wall", trade: "Glazing", z: 12 },
-  CurtainWallMullions: { type: "curtain-wall", label: "Curtain wall", trade: "Glazing", z: 12 },
-  Doors: { type: "interior", label: "Doors", trade: "Carpentry", z: 4 },
-  LightingFixtures: { type: "interior", label: "Lighting fixtures", trade: "Electrical", z: 6 },
-  PlumbingFixtures: { type: "interior", label: "Plumbing fixtures", trade: "Plumbing", z: 5 },
-  FireProtection: { type: "interior", label: "Fire protection", trade: "Fire protection", z: 7 },
-  SpecialtyEquipment: { type: "interior", label: "Specialty equipment", trade: "Specialties", z: 4 },
-  StairsRailing: { type: "interior", label: "Stair railings", trade: "Metals", z: 6 },
-  Furniture: { type: "interior", label: "Furniture", trade: "FF&E", z: 3 },
-  FurnitureSystems: { type: "interior", label: "Furniture systems", trade: "FF&E", z: 3 },
-  Casework: { type: "interior", label: "Casework", trade: "Millwork", z: 3 },
+  CurtainWallPanels: { type: "curtain-wall", label: "Curtain wall", trade: "Glazing", z: 30 },
+  CurtainWallMullions: { type: "curtain-wall", label: "Curtain wall", trade: "Glazing", z: 30 },
+  Doors: { type: "interior", label: "Doors", trade: "Carpentry", z: 70 },
+  LightingFixtures: { type: "interior", label: "Lighting fixtures", trade: "Electrical", z: 70 },
+  PlumbingFixtures: { type: "interior", label: "Plumbing fixtures", trade: "Plumbing", z: 70 },
+  FireProtection: { type: "interior", label: "Fire protection", trade: "Fire protection", z: 70 },
+  SpecialtyEquipment: { type: "interior", label: "Specialty equipment", trade: "Specialties", z: 70 },
+  StairsRailing: { type: "interior", label: "Stair railings", trade: "Metals", z: 70 },
+  Furniture: { type: "interior", label: "Furniture", trade: "FF&E", z: 70 },
+  FurnitureSystems: { type: "interior", label: "Furniture systems", trade: "FF&E", z: 70 },
+  Casework: { type: "interior", label: "Casework", trade: "Millwork", z: 70 },
 };
 
 /** ⚠️ ASSUMPTION: a standard 7:00–15:30 shift. The model has dates, not times. */
 const SHIFT = { from: 7, to: 15.5 };
 
-/** Plain metre offsets so packages don't stack on one point. Visual only. */
+/** Metre offsets from Building 1's centre so markers don't stack. Visual only. */
 const OFFSETS: Record<string, [number, number]> = {
-  "Curtain wall": [0, -18],
-  Doors: [-12, 0],
+  "Curtain wall": [0, 21], // north face, where today's install band reads best
+  Doors: [-10, 4],
   "Lighting fixtures": [8, 6],
   "Plumbing fixtures": [-6, 8],
-  "Fire protection": [12, -4],
+  "Fire protection": [10, -4],
 };
+
+/** Camera heading to frame each package (curtain wall: from the north). */
+const HEADINGS: Record<string, number> = { "Curtain wall": 170 };
 
 const PER_SUBLAYER_LABEL: Record<string, string> = {
   CurtainWallPanels: "panels",
@@ -57,6 +63,13 @@ const PER_SUBLAYER_LABEL: Record<string, string> = {
 };
 
 const M_PER_DEG = 111_320;
+
+/**
+ * Building 1 footprint centre, from the CurtainWallPanels sublayer extent
+ * (-104.99141..-104.99093, 39.69845..39.69882; z 1,592–1,659 m). The layer's own
+ * fullExtent is corrupt (reaches California), so do not use it.
+ */
+export const BUILDING_1 = { longitude: -104.99117, latitude: 39.698635, height: 67 };
 
 /** YYYY-MM-DD for a site-midnight instant. */
 export function dayKey(day: Date): string {
@@ -92,12 +105,13 @@ export function bimActivities(day: Date): Activity[] {
       end: atHour(day, SHIFT.to),
       components: total,
       location: {
-        longitude: SITE.longitude + east / (M_PER_DEG * Math.cos((SITE.latitude * Math.PI) / 180)),
-        latitude: SITE.latitude + north / M_PER_DEG,
+        longitude: BUILDING_1.longitude + east / (M_PER_DEG * Math.cos((BUILDING_1.latitude * Math.PI) / 180)),
+        latitude: BUILDING_1.latitude + north / M_PER_DEG,
         z: pkg.z,
       },
       source: "bim",
       bimSublayers: sublayers,
+      viewHeading: HEADINGS[pkg.label] ?? 30,
     };
   });
 }
@@ -111,7 +125,7 @@ export const DATED_SUBLAYERS = bimSchedule.sublayers.filter((s) => s.hasDate).ma
  * values found in the model (e.g. "2026.0425", "2026.7.02", "202604.03"),
  * mirroring normalise() in scripts/extract-bim-schedule.mjs.
  */
-export function statusArcade(day: Date, todayDecision: Decision | "rescheduled"): string {
+export function statusArcade(day: Date, todayClass: TodayClass): string {
   return `
 var s = Trim(Text($feature.${BIM_DATE_FIELD}));
 if (IsEmpty(s)) { return "nodate"; }
@@ -126,7 +140,7 @@ if (Count(p) == 3) {
 if (key == "") { return "nodate"; }
 var today = "${dayKey(day)}";
 if (key < today) { return "installed"; }
-if (key == today) { return "today-${todayDecision}"; }
+if (key == today) { return "today-${todayClass}"; }
 return "upcoming";
 `;
 }
@@ -156,4 +170,36 @@ export function remainingWork(sublayers: string[], day: Date): { installDays: nu
     }
   }
   return { installDays, parts };
+}
+
+export interface PackageProgress {
+  label: string;
+  total: number;
+  /** Installed before the demo day. */
+  installed: number;
+  /** Scheduled on the demo day. */
+  today: number;
+}
+
+/**
+ * Building 1 progress as of the start of the demo day, by work package.
+ * Counts only components that carry an install date (structure, walls,
+ * floors and roofs have none and are treated as in place).
+ */
+export function progressAsOf(day: Date): { packages: PackageProgress[]; total: number; installed: number; today: number } {
+  const key = dayKey(day);
+  const byLabel = new Map<string, PackageProgress>();
+  for (const [d, counts] of Object.entries(bimSchedule.byDay as Record<string, Record<string, number>>)) {
+    for (const [sublayer, n] of Object.entries(counts)) {
+      const label = PACKAGES[sublayer]?.label ?? sublayer;
+      const p = byLabel.get(label) ?? { label, total: 0, installed: 0, today: 0 };
+      p.total += n;
+      if (d < key) p.installed += n;
+      else if (d === key) p.today += n;
+      byLabel.set(label, p);
+    }
+  }
+  const packages = [...byLabel.values()].sort((a, b) => b.total - a.total);
+  const sum = (k: keyof Omit<PackageProgress, "label">) => packages.reduce((s, p) => s + p[k], 0);
+  return { packages, total: sum("total"), installed: sum("installed"), today: sum("today") };
 }

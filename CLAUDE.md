@@ -25,6 +25,18 @@ do we tell the crews?*
   Decision**. **Real-time Monitoring** and **Simulation** are new in this
   segment (`shownEarlier` in `config/buildingBlocks.ts`).
 
+## The storyline (user, 2026-10-16) — `config/presentation.ts`
+1 Site today (existing: ortho, mesh, rail, storm/electrical/sanitary; no proposed) → Foundation + Reality
+2 What we are building (all design models) → + Integration
+3 Where Building 1 stands (filtered to installed; unbuilt parts HIDDEN; progress panel)
+4 Today's plan (scheduled work highlighted, no weather call yet) → + Simulation
+5 Weather on the way (alert pop-up, conditions panel, storm) → + Real-time
+6 At the work face (zoom to today's curtain wall band) · 7 It can't happen today → + Decision
+8 Re-plan and notify (violet, crew notice) · 9 Ahead of the storm (outcome card, all six blocks)
+Main message: by bringing the building blocks together we anticipated, understood and adjusted.
+Each beat's `scene` (SceneMode) drives layer visibility (by title, `config/layers.ts`),
+Building 1 render mode, markers and storm. Explore mode (`FREE_MODE`) shows everything.
+
 ## Verified data facts (2026-10-16)
 | Item | Value |
 |---|---|
@@ -35,6 +47,7 @@ do we tell the crews?*
 | Range | 2026-03-16 → 2026-10-20, 144 install days, 10,664 dated components |
 | Weather-exposed work | Curtain wall panels + mullions only, Mar 16 – Jul 23 |
 | Malformed values | `202604.03`, `2026.7.02`, `2026.0425` (181 parts), normalised in code |
+| Missing from the scene | ortho, integrated mesh, storm/electrical/sanitary utilities (beat 1 needs them; user is supplying a new scene) |
 | Not public in the scene | `Bridges`, `Road_and_Rail`, `Roadway_Ground` (elevation): they fail to load |
 | Other BSLs | Buildings 2–4 and Office_Park_Site have **no** install-date field |
 
@@ -66,7 +79,9 @@ Re-run it after the model is republished.
 - `esriConfig.request.useIdentity = false` when no OAuth app is configured:
   the buildings' associated feature services are secured, and without it the
   SDK pops a sign-in prompt. Popups fall back to binary attributes.
-- `<arcgis-scene>` `ground` is typed as `Ground` but accepts `"world-elevation"`.
+- **Create the WebScene once and pass `map={map}`** to `<ArcgisScene>`. With
+  `itemId`, the component aborted and re-created the map on re-renders (an
+  endless load loop, and our layers landed on a discarded map).
 - SDK 5.x needs `defineCustomElements()` from each package's `/loader`.
 - tiles.arcgis.com returns gzip bodies **without** `Content-Encoding`, so
   gunzip manually in scripts.
