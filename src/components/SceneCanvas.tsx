@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ArcgisScene } from "@arcgis/map-components-react";
+import { ArcgisBuildingExplorer, ArcgisExpand, ArcgisLayerList, ArcgisScene } from "@arcgis/map-components-react";
+import type { ArcgisBuildingExplorer as BuildingExplorerElement } from "@arcgis/map-components/components/arcgis-building-explorer/customElement";
 import Graphic from "@arcgis/core/Graphic";
 import GraphicsLayer from "@arcgis/core/layers/GraphicsLayer";
 import Point from "@arcgis/core/geometry/Point";
@@ -89,6 +90,7 @@ export default function SceneCanvas({ twin, selectedId, onSelect, camera }: Prop
   const layers = useRef<{ activities: GraphicsLayer; storm: GraphicsLayer } | null>(null);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
+  const explorerRef = useRef<BuildingExplorerElement>(null);
 
   // One-time layer setup once the view is ready.
   useEffect(() => {
@@ -112,6 +114,53 @@ export default function SceneCanvas({ twin, selectedId, onSelect, camera }: Prop
       view.map?.removeMany([storm, activities]);
       layers.current = null;
     };
+  }, [view]);
+
+  // Building Explorer: give it every Building Scene Layer that loaded (the
+  // scene's Bridges layer isn't public and fails). Building 1 goes first.
+  useEffect(() => {
+    if (!view?.map) return;
+    const map = view.map;
+    let cancelled = false;
+    (map as WebScene).loadAll().catch(() => undefined).then(() => {
+      const explorer = explorerRef.current;
+      if (cancelled || !explorer) return;
+      const buildings = map.allLayers
+        .filter((l) => l.type === "building-scene" && l.loadStatus === "loaded")
+        .toArray() as BuildingSceneLayer[];
+      buildings.sort((a, b) => Number(b.title === BIM_LAYER_TITLE) - Number(a.title === BIM_LAYER_TITLE));
+      explorer.layers = buildings;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [view]);
+
+  // Pad the view so its corner UI (Layers, Building Explorer) and camera
+  // targets sit in the visible gap between the overlay panels.
+  useEffect(() => {
+    if (!view) return;
+    const measure = () => {
+      const rect = (sel: string) => document.querySelector(sel)?.getBoundingClientRect();
+      const left = rect(".panel-left");
+      const right = rect(".panel-right");
+      const top = rect(".topbar");
+      const gap = 12;
+      const padding = {
+        left: left ? left.right + gap : 0,
+        right: right ? window.innerWidth - right.left + gap : 0,
+        top: top ? top.bottom + gap : 0,
+        bottom: 0,
+      };
+      view.padding = padding;
+      // Slotted components (the expands) ignore view.padding; offset via CSS.
+      const scene = document.querySelector<HTMLElement>(".scene");
+      scene?.style.setProperty("--ui-left", `${padding.left}px`);
+      scene?.style.setProperty("--ui-top", `${padding.top}px`);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
   }, [view]);
 
   // Building 1 coloured by install status for the demo day: installed (as
@@ -270,7 +319,7 @@ export default function SceneCanvas({ twin, selectedId, onSelect, camera }: Prop
 
   return (
     <ArcgisScene
-      className="scene"
+      className="scene calcite-mode-dark"
       // The ground setter accepts "world-elevation" but the getter type is Ground.
       {...(WEBSCENE_ID
         ? { itemId: WEBSCENE_ID }
@@ -282,6 +331,14 @@ export default function SceneCanvas({ twin, selectedId, onSelect, camera }: Prop
         const el = e.target as unknown as { view: SceneView; ready: boolean };
         if (el.ready) setView(el.view);
       }}
-    />
+    >
+      {/* Native SDK widgets, collapsed to buttons; one open at a time. */}
+      <ArcgisExpand slot="top-left" group="scene-tools" expandIcon="layers" expandTooltip="Layers">
+        <ArcgisLayerList showHeading label="Layers" />
+      </ArcgisExpand>
+      <ArcgisExpand slot="top-left" group="scene-tools" expandIcon="organization" expandTooltip="Building Explorer">
+        <ArcgisBuildingExplorer ref={explorerRef} />
+      </ArcgisExpand>
+    </ArcgisScene>
   );
 }

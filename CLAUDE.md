@@ -71,3 +71,8 @@ Re-run it after the model is republished.
   in `SceneCanvas.tsx` (terrain-sampled target, retries while ground loads).
   Never pass `cameraPosition`/`cameraTilt` props to `<ArcgisScene>`: they're
   re-applied on every React render and snap the camera back.
+- **Native widgets** (`<arcgis-layer-list>`, `<arcgis-building-explorer>`) sit in
+  `<arcgis-expand>`s in the scene's `top-left` slot. Slotted components ignore
+  `view.padding`, so `SceneCanvas` measures the overlay panels and sets
+  `--ui-left`/`--ui-top` on `.scene` for CSS offsets. Building Explorer's
+  `layers` must be set imperatively (all loaded BSLs, Building 1 first).

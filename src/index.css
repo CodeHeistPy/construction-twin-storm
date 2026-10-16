@@ -142,3 +142,8 @@ button.ghost { background: transparent; }
 .activity .src { margin-left: auto; align-self: flex-start; font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 6px; border-radius: 999px; }
 .activity .src.bim { background: rgba(57, 208, 255, 0.18); color: var(--accent); }
 .activity .src.sample { background: rgba(255, 255, 255, 0.08); color: var(--muted); }
+
+/* Native SDK widgets: sit in the visible gap, clear of the overlay panels
+   (--ui-left / --ui-top are measured in SceneCanvas). */
+.scene arcgis-expand[slot="top-left"] { margin-left: calc(var(--ui-left, 0px) - 15px); }
+.scene arcgis-expand[slot="top-left"]:first-of-type { margin-top: calc(var(--ui-top, 0px) - 15px); }
