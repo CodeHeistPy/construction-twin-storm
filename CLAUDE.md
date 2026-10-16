@@ -66,3 +66,8 @@ Re-run it after the model is republished.
   gunzip manually in scripts.
 - In the Claude desktop browser pane, a hidden pane stops WebGL rendering and
   `goTo` animations never settle. Show the pane, or use `{ animate: false }`.
+- **Denver is ~1,600 m up.** Never give camera positions or `goTo` centres a
+  fixed or missing z (missing = sea level, i.e. underground). Use `onGround()`
+  in `SceneCanvas.tsx` (terrain-sampled target, retries while ground loads).
+  Never pass `cameraPosition`/`cameraTilt` props to `<ArcgisScene>`: they're
+  re-applied on every React render and snap the camera back.

@@ -56,6 +56,27 @@ function statusRenderer(valueExpression: string) {
   });
 }
 
+/** A point on the terrain surface (absolute z), for camera targets. */
+async function onGround(view: SceneView, longitude: number, latitude: number): Promise<Point> {
+  const p = new Point({ longitude, latitude });
+  const ground = view.map!.ground;
+  // At startup the ground layers are still loading (and one, Roadway_Ground,
+  // isn't public), so wait for them to settle and retry briefly.
+  await ground.loadAll().catch(() => undefined);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      const sampled = await ground.queryElevation(p);
+      const g = sampled.geometry as Point;
+      if (Number.isFinite(g.z)) return g;
+    } catch {
+      // fall through to retry
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  console.warn("[camera] terrain height unavailable; camera may sit too low");
+  return p;
+}
+
 const CAMERAS: Record<CameraPreset, { scale: number; tilt: number; heading: number; offset?: [number, number] }> = {
   site: { scale: 2200, tilt: 65, heading: 30 },
   crane: { scale: 900, tilt: 70, heading: 10 },
@@ -215,17 +236,25 @@ export default function SceneCanvas({ twin, selectedId, onSelect, camera }: Prop
     }
   }, [view, twin.clock, twin.now]);
 
-  // Camera presets.
+  // Camera presets. A centre without z sits at sea level, ~1,600 m under
+  // Denver, so aim at the terrain height instead. The opening view (key 0) jumps.
   useEffect(() => {
     if (!view) return;
     const c = CAMERAS[camera.preset];
     const [dLon, dLat] = c.offset ?? [0, 0];
-    view
-      .goTo(
-        { center: [SITE.longitude + dLon, SITE.latitude + dLat], scale: c.scale, tilt: c.tilt, heading: c.heading },
-        { duration: 2500 },
-      )
-      .catch(() => undefined);
+    let cancelled = false;
+    onGround(view, SITE.longitude + dLon, SITE.latitude + dLat).then((target) => {
+      if (cancelled) return;
+      view
+        .goTo(
+          { target, scale: c.scale, tilt: c.tilt, heading: c.heading },
+          camera.key === 0 ? { animate: false } : { duration: 2500 },
+        )
+        .catch(() => undefined);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [view, camera]);
 
   // Fly to a selected activity.
@@ -233,9 +262,9 @@ export default function SceneCanvas({ twin, selectedId, onSelect, camera }: Prop
     if (!view || !selectedId) return;
     const a = twin.assessments.find((x) => x.activity.id === selectedId)?.activity;
     if (!a) return;
-    view
-      .goTo({ center: [a.location.longitude, a.location.latitude, a.location.z], scale: 900, tilt: 68 }, { duration: 1500 })
-      .catch(() => undefined);
+    onGround(view, a.location.longitude, a.location.latitude).then((target) =>
+      view.goTo({ target, scale: 900, tilt: 68 }, { duration: 1500 }).catch(() => undefined),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, selectedId]);
 
@@ -246,9 +275,9 @@ export default function SceneCanvas({ twin, selectedId, onSelect, camera }: Prop
       {...(WEBSCENE_ID
         ? { itemId: WEBSCENE_ID }
         : { basemap: "dark-gray-vector", ground: "world-elevation" as unknown as Ground })}
-      cameraPosition={[SITE.longitude - 0.01, SITE.latitude - 0.012, 1200]}
-      cameraTilt={65}
-      cameraHeading={30}
+      // No camera props: they're re-applied on every render (snapping the camera
+      // back), and a fixed altitude ends up underground at Denver's ~1,600 m.
+      // The opening view comes from the camera-preset effect instead.
       onArcgisViewReadyChange={(e) => {
         const el = e.target as unknown as { view: SceneView; ready: boolean };
         if (el.ready) setView(el.view);
