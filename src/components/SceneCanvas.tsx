@@ -16,7 +16,9 @@ import WebScene from "@arcgis/core/WebScene";
 import UniqueValueRenderer from "@arcgis/core/renderers/UniqueValueRenderer";
 import { SITE, WEBSCENE_ID } from "../config/site";
 import type { CameraPreset, SceneMode } from "../config/presentation";
-import { roleOf } from "../config/layers";
+import { roleOf, UTILITY_STYLES } from "../config/layers";
+import type FeatureLayer from "@arcgis/core/layers/FeatureLayer";
+import SimpleRenderer from "@arcgis/core/renderers/SimpleRenderer";
 import type { Activity, Decision } from "../domain/types";
 import { BIM_LAYER_TITLE, BUILDING_1, DATED_SUBLAYERS, statusArcade, type TodayClass } from "../lib/bim";
 import { ellipseRing } from "../lib/geo";
@@ -203,6 +205,29 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
         .toArray();
       if (unmatched.length) console.info("[layers] not in LAYER_RULES (left as-is):", unmatched);
 
+      // Utilities: bold symbols, and sit them on the mesh/scene surface (draped
+      // on the terrain they hide under the integrated mesh).
+      map.allLayers.forEach((l) => {
+        if (l.type !== "feature" || roleOf(l.title) !== "utilities") return;
+        const style = UTILITY_STYLES.find((u) => u.match.test(l.title ?? ""));
+        if (!style) return;
+        const fl = l as FeatureLayer;
+        // The city data carries absolute z (~1,590 m); ignore it, or it is added
+        // as an offset and the network floats 1.6 km up.
+        fl.elevationInfo = { mode: "relative-to-scene", offset: 0.5, featureExpressionInfo: { expression: "0" } };
+        fl.renderer = new SimpleRenderer({
+          symbol:
+            fl.geometryType === "polyline"
+              ? { type: "line-3d", symbolLayers: [{ type: "line", size: 3, material: { color: style.color } }] }
+              : {
+                  type: "point-3d",
+                  symbolLayers: [
+                    { type: "icon", resource: { primitive: "circle" }, size: 7, material: { color: style.color }, outline: { color: "#0b1220", size: 1 } },
+                  ],
+                },
+        });
+      });
+
       const buildings = map.allLayers
         .filter((l) => l.type === "building-scene" && l.loadStatus === "loaded")
         .toArray() as BuildingSceneLayer[];
@@ -226,14 +251,18 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     };
   }, [view, map]);
 
-  // Which layers each beat shows.
+  // Which layers each beat shows. Group members follow their group (the
+  // scene ships the utilities group and its layers switched off).
   useEffect(() => {
     if (!map || !loaded) return;
-    map.layers.forEach((l) => {
+    map.allLayers.forEach((l) => {
       if (l.type === "graphics") return;
       switch (roleOf(l.title)) {
-        case "existing":
-          l.visible = mode.existing;
+        case "reality":
+          l.visible = mode.reality;
+          break;
+        case "utilities":
+          l.visible = mode.utilities;
           break;
         case "mesh":
           l.visible = mode.mesh;
@@ -247,7 +276,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
           break;
       }
     });
-  }, [map, loaded, mode.existing, mode.mesh, mode.proposed]);
+  }, [map, loaded, mode.reality, mode.utilities, mode.mesh, mode.proposed]);
 
   // Building 1: as designed, or filtered to progress and coloured by today's plan.
   useEffect(() => {

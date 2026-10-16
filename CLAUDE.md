@@ -40,14 +40,15 @@ Building 1 render mode, markers and storm. Explore mode (`FREE_MODE`) shows ever
 ## Verified data facts (2026-10-16)
 | Item | Value |
 |---|---|
-| Web scene | `7b4a2a0217b244568c74cbe636936c52` "Office_Park_GS", arcaec.maps.arcgis.com, **public** |
+| Web scene | `61a325c274ea4118999c9079c8b6e356` "Denver Office Park", arcaec.maps.arcgis.com, **public** (replaced 7b4a2a02… on 2026-10-16) |
+| Reality capture | "3D mesh" (IntegratedMeshLayer) + "Ortho" (tiled imagery), both public |
+| Utilities | "Denver Utilities" group: sanitary manholes/main, storm manholes/inlets/main (City of Denver open data). Thin default symbols, restyled in app. **No electrical layer.** |
 | Site | -104.991665, 39.699590 (Denver), `America/Denver` |
 | Building with install dates | `Office_Park_Building_1` (Building Scene Layer) |
 | Install field | `Installation_Date`, **string** `YYYY.MM.DD`, on 11 component sublayers |
 | Range | 2026-03-16 → 2026-10-20, 144 install days, 10,664 dated components |
 | Weather-exposed work | Curtain wall panels + mullions only, Mar 16 – Jul 23 |
 | Malformed values | `202604.03`, `2026.7.02`, `2026.0425` (181 parts), normalised in code |
-| Missing from the scene | ortho, integrated mesh, storm/electrical/sanitary utilities (beat 1 needs them; user is supplying a new scene) |
 | Not public in the scene | `Bridges`, `Road_and_Rail`, `Roadway_Ground` (elevation): they fail to load |
 | Other BSLs | Buildings 2–4 and Office_Park_Site have **no** install-date field |
 
@@ -63,7 +64,8 @@ Re-run it after the model is republished.
   work-shift hours (assumed 7:00–15:30), whether doors are exterior,
   storm timing and intensity, plenary length, presenter, and screen.
 - Whether to keep the two SAMPLE logistics activities (crane pick, delivery).
-- Sharing for the 3 non-public scene layers.
+- Sharing for the 3 non-public scene layers (Road_and_Rail = the rail beat 1 needs, Bridges, Roadway_Ground).
+- An electrical layer, if beat 1 should show one.
 
 ## Conventions
 - All weather in SI internally (m/s, mm/h). Convert only in `lib/units.ts`.

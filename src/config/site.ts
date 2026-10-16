@@ -3,7 +3,8 @@
 // real scene can be swapped in without code changes.
 //
 // Site confirmed by the user 2026-10-16: Office Park, Denver, at
-// -104.991665, 39.699590. Scene: public web scene 7b4a2a02… (arcaec org).
+// -104.991665, 39.699590. Scene: "Denver Office Park" 61a325c2… (arcaec org,
+// public since 2026-10-16; replaced 7b4a2a02…).
 // =============================================================================
 
 import { todayIn, zonedMidnight } from "../lib/time";
@@ -25,7 +26,7 @@ export const SITE = {
 };
 
 /** Portal item id of the WebScene (public, so no sign-in needed). */
-export const WEBSCENE_ID = env.VITE_WEBSCENE_ID?.trim() || "7b4a2a0217b244568c74cbe636936c52";
+export const WEBSCENE_ID = env.VITE_WEBSCENE_ID?.trim() || "61a325c274ea4118999c9079c8b6e356";
 
 export const PORTAL_URL = env.VITE_PORTAL_URL?.trim() || "https://arcaec.maps.arcgis.com";
 

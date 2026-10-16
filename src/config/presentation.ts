@@ -23,8 +23,10 @@ export type BimMode =
 export type FocusTarget = "postponed" | "proceeding";
 
 export interface SceneMode {
-  /** Reality capture (ortho) + existing utilities and rail. */
-  existing: boolean;
+  /** Reality capture imagery (ortho). */
+  reality: boolean;
+  /** Existing networks: storm, sanitary (and rail / electrical when available). */
+  utilities: boolean;
   /** Integrated mesh of current conditions (hidden once the design is shown). */
   mesh: boolean;
   /** Proposed buildings: none, all, or Building 1 only (plus the site). */
@@ -66,7 +68,7 @@ const B = {
   all: ["foundation", "reality", "integration", "analysis", "realtime", "intelligence"] as BlockId[],
 };
 
-const EXISTING_ONLY: SceneMode = { existing: true, mesh: true, proposed: "none", bim: "design", storm: false, markers: false };
+const EXISTING_ONLY: SceneMode = { reality: true, utilities: true, mesh: true, proposed: "none", bim: "design", storm: false, markers: false };
 
 export const PRESENTATION: PresentationStep[] = [
   {
@@ -76,7 +78,7 @@ export const PRESENTATION: PresentationStep[] = [
     hour: 7,
     camera: "site",
     narration:
-      "DRAFT — What's on the ground right now: reality capture, the rail line and the storm, electrical and sanitary networks. One trusted foundation.",
+      "DRAFT — What's on the ground right now: drone reality capture (mesh + ortho) and the existing storm and sanitary networks. One trusted foundation.",
   },
   {
     title: "What we're building",
@@ -88,7 +90,7 @@ export const PRESENTATION: PresentationStep[] = [
   {
     title: "Where Building 1 stands",
     blocks: B.design,
-    scene: { ...EXISTING_ONLY, mesh: false, proposed: "focus", bim: "progress" },
+    scene: { ...EXISTING_ONLY, mesh: false, utilities: false, proposed: "focus", bim: "progress" },
     left: "progress",
     camera: "building",
     narration: "DRAFT — Filtered to what's actually installed. Progress comes straight from the model.",
@@ -96,7 +98,7 @@ export const PRESENTATION: PresentationStep[] = [
   {
     title: "Today's plan",
     blocks: B.plan,
-    scene: { ...EXISTING_ONLY, mesh: false, proposed: "focus", bim: "scheduled", markers: true },
+    scene: { ...EXISTING_ONLY, mesh: false, utilities: false, proposed: "focus", bim: "scheduled", markers: true },
     left: "schedule",
     decisions: false,
     camera: "building",
@@ -106,7 +108,7 @@ export const PRESENTATION: PresentationStep[] = [
   {
     title: "Weather on the way",
     blocks: B.live,
-    scene: { ...EXISTING_ONLY, mesh: false, proposed: "focus", bim: "scheduled", storm: true, markers: true },
+    scene: { ...EXISTING_ONLY, mesh: false, utilities: false, proposed: "focus", bim: "scheduled", storm: true, markers: true },
     left: "schedule",
     decisions: false,
     conditions: true,
@@ -118,7 +120,7 @@ export const PRESENTATION: PresentationStep[] = [
   {
     title: "At the work face",
     blocks: B.live,
-    scene: { ...EXISTING_ONLY, mesh: false, proposed: "focus", bim: "decision", storm: true, markers: true, focus: "postponed" },
+    scene: { ...EXISTING_ONLY, mesh: false, utilities: false, proposed: "focus", bim: "decision", storm: true, markers: true, focus: "postponed" },
     left: "schedule",
     decisions: true,
     conditions: true,
@@ -129,7 +131,7 @@ export const PRESENTATION: PresentationStep[] = [
   {
     title: "It can't happen today",
     blocks: B.all,
-    scene: { ...EXISTING_ONLY, mesh: false, proposed: "focus", bim: "decision", storm: true, markers: true, focus: "postponed" },
+    scene: { ...EXISTING_ONLY, mesh: false, utilities: false, proposed: "focus", bim: "decision", storm: true, markers: true, focus: "postponed" },
     left: "schedule",
     decisions: true,
     conditions: true,
@@ -140,7 +142,7 @@ export const PRESENTATION: PresentationStep[] = [
   {
     title: "Re-plan and notify",
     blocks: B.all,
-    scene: { ...EXISTING_ONLY, mesh: false, proposed: "focus", bim: "decision", storm: true, markers: true },
+    scene: { ...EXISTING_ONLY, mesh: false, utilities: false, proposed: "focus", bim: "decision", storm: true, markers: true },
     left: "schedule",
     decisions: true,
     conditions: true,
@@ -153,7 +155,7 @@ export const PRESENTATION: PresentationStep[] = [
   {
     title: "Ahead of the storm",
     blocks: B.all,
-    scene: { ...EXISTING_ONLY, mesh: false, proposed: "focus", bim: "outcome", storm: false, markers: false },
+    scene: { ...EXISTING_ONLY, mesh: false, utilities: false, proposed: "focus", bim: "outcome", storm: false, markers: false },
     left: "progress",
     replan: true,
     outcome: true,
@@ -168,7 +170,7 @@ export const PRESENTATION: PresentationStep[] = [
 export const FREE_MODE: PresentationStep = {
   title: "Explore",
   blocks: B.all,
-  scene: { existing: true, mesh: false, proposed: "all", bim: "decision", storm: true, markers: true },
+  scene: { reality: true, utilities: false, mesh: false, proposed: "all", bim: "decision", storm: true, markers: true },
   left: "schedule",
   decisions: true,
   conditions: true,
