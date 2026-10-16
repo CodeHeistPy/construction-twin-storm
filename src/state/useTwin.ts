@@ -1,11 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
-import { demoDay } from "../config/site";
+import { SITE, demoDay } from "../config/site";
 import { sampleSchedule } from "../data/schedule.sample";
 import { scriptedWeather, stormCellAt } from "../data/storm.scripted";
 import { activitiesOnDay, assessSchedule, weatherAt } from "../domain/rules";
 import type { ActivityAssessment, WeatherHour, WeatherSource } from "../domain/types";
+import { bimActivities } from "../lib/bim";
 import { fetchLiveWeather } from "../lib/liveWeather";
-import { atHour, isSameDay } from "../lib/time";
+import { atHour, isSameDay, todayIn, zonedMidnight } from "../lib/time";
+
+/**
+ * Live mode: take today's real Denver forecast and lay it over the demo day
+ * hour-for-hour, so the (pinned) BIM schedule is tested against real weather.
+ */
+function shiftToDemoDay(live: WeatherHour[], day: Date): WeatherHour[] {
+  const [y, m, d] = todayIn(SITE.timeZone);
+  const realToday = zonedMidnight(y, m, d, SITE.timeZone);
+  const shift = day.getTime() - realToday.getTime();
+  return live
+    .filter((h) => isSameDay(realToday, h.time))
+    .map((h) => ({ ...h, time: new Date(h.time.getTime() + shift) }));
+}
 
 /** All derived twin state: clock, weather, schedule, decisions. */
 export function useTwin() {
@@ -31,13 +45,17 @@ export function useTwin() {
   }, [source, live]);
 
   const weather = useMemo(
-    () => (source === "live" && live ? live : scriptedWeather(day)),
+    () => (source === "live" && live ? shiftToDemoDay(live, day) : scriptedWeather(day)),
     [source, live, day],
   );
 
   const clock = useMemo(() => atHour(day, hour), [day, hour]);
 
-  const activities = useMemo(() => activitiesOnDay(sampleSchedule(day), day), [day]);
+  // BIM install work for the day, plus clearly-labelled sample logistics.
+  const activities = useMemo(
+    () => activitiesOnDay([...bimActivities(day), ...sampleSchedule(day)], day),
+    [day],
+  );
 
   // Decisions use the full-day forecast: the call is made in the morning,
   // before the weather arrives.
@@ -61,11 +79,6 @@ export function useTwin() {
     setSource,
     liveError: source === "live" ? liveError : null,
     liveLoading: source === "live" && !live && !liveError,
-    /** Live forecast only covers yesterday..tomorrow; a pinned demo day may fall outside. */
-    liveOutOfRange:
-      source === "live" &&
-      !!live &&
-      !live.some((h) => isSameDay(day, h.time)),
     weather,
     now,
     storm,

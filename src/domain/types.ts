@@ -22,7 +22,10 @@ export interface Activity {
   zone: string;
   start: Date;
   end: Date;
-  crewSize: number;
+  /** Crew size if known (the BIM model has none). */
+  crewSize?: number;
+  /** BIM components installed by this activity. */
+  components?: number;
   /** WGS84 position of the work face; z is metres above ground. */
   location: { longitude: number; latitude: number; z: number };
   /**
@@ -30,6 +33,10 @@ export interface Activity {
    * building scene layer. Unused until the real scene + schedule link exist.
    */
   componentFilter?: string;
+  /** Where the activity comes from: the BIM install dates, or invented sample data. */
+  source: "bim" | "sample";
+  /** BIM sublayer names whose components make up this activity. */
+  bimSublayers?: string[];
 }
 
 /** One hour of weather (observed or forecast). */

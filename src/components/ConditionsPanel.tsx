@@ -35,9 +35,6 @@ export default function ConditionsPanel({ twin }: { twin: Twin }) {
       </div>
       {twin.liveLoading && <p className="note">Loading live forecast…</p>}
       {twin.liveError && <p className="note warn">Live forecast unavailable ({twin.liveError}). Showing scripted storm.</p>}
-      {twin.liveOutOfRange && (
-        <p className="note warn">Live forecast doesn't cover the pinned demo date. Clear VITE_DEMO_DATE for live mode.</p>
-      )}
 
       {w && (
         <div className="readings">
@@ -84,7 +81,9 @@ export default function ConditionsPanel({ twin }: { twin: Twin }) {
         </div>
       </div>
       <p className="footnote">
-        {twin.source === "scripted" ? "Scripted storm for the demo, not a real forecast." : "Open-Meteo forecast."}
+        {twin.source === "scripted"
+          ? "Scripted storm for the demo, not a real forecast."
+          : "Today's real Denver forecast (Open-Meteo), applied to the demo day hour by hour."}
       </p>
     </aside>
   );

@@ -47,7 +47,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <div className="eyebrow">Construction digital twin</div>
-          <h1>Storm readiness{SITE.isPlaceholder ? " · Denver" : ` · ${SITE.name}`}</h1>
+          <h1>Storm readiness{` · ${SITE.name}`}</h1>
         </div>
         <BlocksRail lit={lit} />
         <div className="topbar-actions">

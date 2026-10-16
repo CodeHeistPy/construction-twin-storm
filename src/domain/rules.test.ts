@@ -26,6 +26,7 @@ const activity = (from: number, to: number, type: Activity["type"] = "crane-lift
   end: at(to),
   crewSize: 1,
   location: { longitude: 0, latitude: 0, z: 0 },
+  source: "sample",
 });
 
 const T: Record<string, Threshold> = {

@@ -28,5 +28,10 @@ export function initArcgis(): void {
     IdentityManager.registerOAuthInfos([
       new OAuthInfo({ appId: OAUTH_APP_ID, portalUrl: PORTAL_URL, popup: false, flowType: "auto" }),
     ]);
+  } else {
+    // The web scene is public, but each building layer links to a feature
+    // service that is not. Without this the SDK pops a sign-in prompt mid-demo;
+    // with it, popups fall back to the scene layer's own attributes.
+    esriConfig.request.useIdentity = false;
   }
 }

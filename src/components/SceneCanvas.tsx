@@ -13,6 +13,11 @@ import SunnyWeather from "@arcgis/core/views/3d/environment/SunnyWeather";
 import { SITE, WEBSCENE_ID } from "../config/site";
 import type { CameraPreset } from "../config/presentation";
 import type { Decision } from "../domain/types";
+import type BuildingSceneLayer from "@arcgis/core/layers/BuildingSceneLayer";
+import type BuildingComponentSublayer from "@arcgis/core/layers/buildingSublayers/BuildingComponentSublayer";
+import type WebScene from "@arcgis/core/WebScene";
+import UniqueValueRenderer from "@arcgis/core/renderers/UniqueValueRenderer";
+import { BIM_LAYER_TITLE, DATED_SUBLAYERS, statusArcade } from "../lib/bim";
 import { ellipseRing } from "../lib/geo";
 import type { Twin } from "../state/useTwin";
 
@@ -28,6 +33,27 @@ interface Props {
   onSelect: (id: string | null) => void;
   /** Bump `key` to re-fly to the same preset. */
   camera: { preset: CameraPreset; key: number };
+}
+
+const mesh = (color: number[], mix: "tint" | "replace" = "replace") => ({
+  type: "mesh-3d" as const,
+  symbolLayers: [{ type: "fill" as const, material: { color, colorMixMode: mix } }],
+});
+
+const hex = (h: string, a = 1) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)).concat(a);
+
+function statusRenderer(valueExpression: string) {
+  return new UniqueValueRenderer({
+    valueExpression,
+    defaultSymbol: mesh([235, 238, 245, 1], "tint"),
+    uniqueValueInfos: [
+      { value: "installed", label: "Installed", symbol: mesh([235, 238, 245, 1], "tint") },
+      { value: "today-postpone", label: "Today: postponed", symbol: mesh(hex(DECISION_COLORS.postpone)) },
+      { value: "today-watch", label: "Today: watch", symbol: mesh(hex(DECISION_COLORS.watch)) },
+      { value: "today-go", label: "Today: proceed", symbol: mesh(hex(DECISION_COLORS.go)) },
+      { value: "upcoming", label: "Not yet installed", symbol: mesh([120, 170, 255, 0.12]) },
+    ],
+  });
 }
 
 const CAMERAS: Record<CameraPreset, { scale: number; tilt: number; heading: number; offset?: [number, number] }> = {
@@ -66,6 +92,44 @@ export default function SceneCanvas({ twin, selectedId, onSelect, camera }: Prop
       layers.current = null;
     };
   }, [view]);
+
+  // Building 1 coloured by install status for the demo day: installed (as
+  // built), today's work (decision colour), upcoming (ghosted).
+  useEffect(() => {
+    if (!view?.map) return;
+    const map = view.map;
+    const decisionFor = new Map<string, Decision>();
+    for (const { activity, decision } of twin.assessments)
+      for (const s of activity.bimSublayers ?? []) decisionFor.set(s, decision);
+
+    let cancelled = false;
+    // The web scene adds its layers after the view is ready, so wait for them.
+    // loadAll() rejects if ANY layer fails (some scene layers aren't public),
+    // so carry on either way.
+    (map as WebScene).loadAll().catch(() => undefined).then(async () => {
+      const bsl = map.allLayers.find(
+        (l) => l.type === "building-scene" && l.title === BIM_LAYER_TITLE,
+      ) as BuildingSceneLayer | undefined;
+      if (!bsl) {
+        console.warn(`[bim] layer "${BIM_LAYER_TITLE}" not found in the web scene`);
+        return;
+      }
+      await bsl.load();
+      const dated = bsl.allSublayers
+        .filter((s) => s.type === "building-component" && DATED_SUBLAYERS.includes(s.modelName ?? ""))
+        .toArray() as BuildingComponentSublayer[];
+      // Each sublayer must be loaded first, or loading overwrites the renderer.
+      await Promise.all(dated.map((s) => s.load()));
+      if (cancelled) return;
+      for (const sub of dated) {
+        const decision = decisionFor.get(sub.modelName ?? "") ?? "go";
+        sub.renderer = statusRenderer(statusArcade(twin.day, decision));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [view, twin.assessments, twin.day]);
 
   // Activity markers, coloured by decision.
   useEffect(() => {

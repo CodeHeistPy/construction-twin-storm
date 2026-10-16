@@ -1,0 +1,794 @@
+{
+  "source": {
+    "webSceneId": "7b4a2a0217b244568c74cbe636936c52",
+    "layerTitle": "Office_Park_Building_1",
+    "layerUrl": "https://tiles.arcgis.com/tiles/hAJQfubNy25iblZJ/arcgis/rest/services/Office_Park_Building_1/SceneServer/layers/0",
+    "field": "Installation_Date"
+  },
+  "extractedAt": "2026-10-16T14:27:19.070Z",
+  "extent": {
+    "xmin": -116.11188967249983,
+    "ymin": 34.63776087682935,
+    "xmax": -104.99090277665498,
+    "ymax": 39.69994643914416,
+    "zmin": -23.52599461458333,
+    "zmax": 5443.426613124997,
+    "spatialReference": {
+      "wkid": 4326,
+      "latestWkid": 4326,
+      "vcsWkid": 5773,
+      "latestVcsWkid": 5773
+    }
+  },
+  "sublayers": [
+    {
+      "id": 18,
+      "name": "StructuralColumns",
+      "hasDate": false
+    },
+    {
+      "id": 17,
+      "name": "FireProtection",
+      "hasDate": true
+    },
+    {
+      "id": 16,
+      "name": "LightingFixtures",
+      "hasDate": true
+    },
+    {
+      "id": 15,
+      "name": "Walls",
+      "hasDate": false
+    },
+    {
+      "id": 14,
+      "name": "Stairs",
+      "hasDate": false
+    },
+    {
+      "id": 13,
+      "name": "SpecialtyEquipment",
+      "hasDate": true
+    },
+    {
+      "id": 12,
+      "name": "Rooms",
+      "hasDate": false
+    },
+    {
+      "id": 11,
+      "name": "Roofs",
+      "hasDate": false
+    },
+    {
+      "id": 10,
+      "name": "StairsRailing",
+      "hasDate": true
+    },
+    {
+      "id": 9,
+      "name": "PlumbingFixtures",
+      "hasDate": true
+    },
+    {
+      "id": 8,
+      "name": "FurnitureSystems",
+      "hasDate": true
+    },
+    {
+      "id": 7,
+      "name": "Furniture",
+      "hasDate": true
+    },
+    {
+      "id": 6,
+      "name": "Floors",
+      "hasDate": false
+    },
+    {
+      "id": 5,
+      "name": "Doors",
+      "hasDate": true
+    },
+    {
+      "id": 4,
+      "name": "CurtainWallMullions",
+      "hasDate": true
+    },
+    {
+      "id": 3,
+      "name": "CurtainWallPanels",
+      "hasDate": true
+    },
+    {
+      "id": 2,
+      "name": "Ceilings",
+      "hasDate": false
+    },
+    {
+      "id": 1,
+      "name": "Casework",
+      "hasDate": true
+    }
+  ],
+  "malformed": [
+    {
+      "sublayer": "CurtainWallMullions",
+      "value": "202604.03",
+      "count": 63,
+      "normalisedTo": "2026-04-03"
+    },
+    {
+      "sublayer": "CurtainWallMullions",
+      "value": "2026.7.02",
+      "count": 46,
+      "normalisedTo": "2026-07-02"
+    },
+    {
+      "sublayer": "CurtainWallMullions",
+      "value": "2026.0425",
+      "count": 42,
+      "normalisedTo": "2026-04-25"
+    },
+    {
+      "sublayer": "CurtainWallPanels",
+      "value": "2026.7.02",
+      "count": 30,
+      "normalisedTo": "2026-07-02"
+    }
+  ],
+  "byDay": {
+    "2026-03-16": {
+      "CurtainWallMullions": 77,
+      "CurtainWallPanels": 30
+    },
+    "2026-03-18": {
+      "CurtainWallMullions": 69,
+      "CurtainWallPanels": 28
+    },
+    "2026-03-20": {
+      "CurtainWallMullions": 79,
+      "CurtainWallPanels": 34
+    },
+    "2026-03-22": {
+      "CurtainWallMullions": 157,
+      "CurtainWallPanels": 58
+    },
+    "2026-03-24": {
+      "CurtainWallMullions": 136,
+      "CurtainWallPanels": 60
+    },
+    "2026-03-26": {
+      "CurtainWallMullions": 126,
+      "CurtainWallPanels": 60
+    },
+    "2026-03-28": {
+      "CurtainWallMullions": 84,
+      "CurtainWallPanels": 40
+    },
+    "2026-03-30": {
+      "CurtainWallMullions": 73,
+      "CurtainWallPanels": 30
+    },
+    "2026-04-01": {
+      "LightingFixtures": 14,
+      "Doors": 7,
+      "CurtainWallMullions": 63,
+      "CurtainWallPanels": 30
+    },
+    "2026-04-02": {
+      "LightingFixtures": 14,
+      "Doors": 3
+    },
+    "2026-04-03": {
+      "LightingFixtures": 32,
+      "Doors": 7,
+      "CurtainWallMullions": 63,
+      "CurtainWallPanels": 29
+    },
+    "2026-04-05": {
+      "CurtainWallMullions": 41,
+      "CurtainWallPanels": 20
+    },
+    "2026-04-06": {
+      "LightingFixtures": 32,
+      "Doors": 3
+    },
+    "2026-04-07": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 73,
+      "CurtainWallPanels": 30
+    },
+    "2026-04-08": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-04-09": {
+      "LightingFixtures": 32,
+      "Doors": 4,
+      "CurtainWallMullions": 42,
+      "CurtainWallPanels": 20
+    },
+    "2026-04-10": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-04-11": {
+      "CurtainWallMullions": 63,
+      "CurtainWallPanels": 30
+    },
+    "2026-04-13": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 73,
+      "CurtainWallPanels": 30
+    },
+    "2026-04-14": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-04-15": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 63,
+      "CurtainWallPanels": 30
+    },
+    "2026-04-16": {
+      "LightingFixtures": 32,
+      "Doors": 2
+    },
+    "2026-04-17": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 63,
+      "CurtainWallPanels": 30
+    },
+    "2026-04-19": {
+      "CurtainWallMullions": 42,
+      "CurtainWallPanels": 20
+    },
+    "2026-04-20": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-04-21": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 73,
+      "CurtainWallPanels": 30
+    },
+    "2026-04-22": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-04-23": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 63,
+      "CurtainWallPanels": 30
+    },
+    "2026-04-24": {
+      "LightingFixtures": 32,
+      "Doors": 3
+    },
+    "2026-04-25": {
+      "CurtainWallMullions": 42,
+      "CurtainWallPanels": 21
+    },
+    "2026-04-27": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 73,
+      "CurtainWallPanels": 30
+    },
+    "2026-04-28": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-04-29": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 63,
+      "CurtainWallPanels": 30
+    },
+    "2026-04-30": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-05-01": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 63,
+      "CurtainWallPanels": 30
+    },
+    "2026-05-03": {
+      "CurtainWallMullions": 115,
+      "CurtainWallPanels": 50
+    },
+    "2026-05-04": {
+      "LightingFixtures": 32,
+      "Doors": 2
+    },
+    "2026-05-05": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 63,
+      "CurtainWallPanels": 30
+    },
+    "2026-05-06": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-05-07": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 42,
+      "CurtainWallPanels": 20
+    },
+    "2026-05-08": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-05-09": {
+      "CurtainWallMullions": 98,
+      "CurtainWallPanels": 30
+    },
+    "2026-05-11": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 100,
+      "CurtainWallPanels": 32
+    },
+    "2026-05-12": {
+      "LightingFixtures": 32,
+      "Doors": 1
+    },
+    "2026-05-13": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 73,
+      "CurtainWallPanels": 30
+    },
+    "2026-05-14": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-05-15": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 63,
+      "CurtainWallPanels": 30
+    },
+    "2026-05-17": {
+      "CurtainWallMullions": 63,
+      "CurtainWallPanels": 30
+    },
+    "2026-05-18": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-05-19": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 42,
+      "CurtainWallPanels": 20
+    },
+    "2026-05-20": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-05-21": {
+      "LightingFixtures": 32,
+      "Doors": 5,
+      "CurtainWallMullions": 73,
+      "CurtainWallPanels": 30
+    },
+    "2026-05-22": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-05-23": {
+      "CurtainWallMullions": 63,
+      "CurtainWallPanels": 30
+    },
+    "2026-05-25": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 42,
+      "CurtainWallPanels": 20
+    },
+    "2026-05-26": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-05-27": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 73,
+      "CurtainWallPanels": 30
+    },
+    "2026-05-28": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-05-29": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 63,
+      "CurtainWallPanels": 30
+    },
+    "2026-05-31": {
+      "CurtainWallMullions": 63,
+      "CurtainWallPanels": 30
+    },
+    "2026-06-01": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-06-02": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 42,
+      "CurtainWallPanels": 20
+    },
+    "2026-06-03": {
+      "LightingFixtures": 32,
+      "Doors": 5
+    },
+    "2026-06-04": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 73,
+      "CurtainWallPanels": 30
+    },
+    "2026-06-05": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-06-06": {
+      "CurtainWallMullions": 63,
+      "CurtainWallPanels": 30
+    },
+    "2026-06-08": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 42,
+      "CurtainWallPanels": 20
+    },
+    "2026-06-09": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-06-10": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 73,
+      "CurtainWallPanels": 30
+    },
+    "2026-06-11": {
+      "LightingFixtures": 32,
+      "Doors": 4
+    },
+    "2026-06-12": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 63,
+      "CurtainWallPanels": 30
+    },
+    "2026-06-14": {
+      "CurtainWallMullions": 63,
+      "CurtainWallPanels": 30
+    },
+    "2026-06-15": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-06-16": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 42,
+      "CurtainWallPanels": 20
+    },
+    "2026-06-17": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-06-18": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 73,
+      "CurtainWallPanels": 30
+    },
+    "2026-06-19": {
+      "LightingFixtures": 32,
+      "Doors": 2
+    },
+    "2026-06-20": {
+      "CurtainWallMullions": 63,
+      "CurtainWallPanels": 30
+    },
+    "2026-06-22": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 42,
+      "CurtainWallPanels": 20
+    },
+    "2026-06-23": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-06-24": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 73,
+      "CurtainWallPanels": 30
+    },
+    "2026-06-25": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-06-26": {
+      "LightingFixtures": 32,
+      "Doors": 6,
+      "CurtainWallMullions": 63,
+      "CurtainWallPanels": 30
+    },
+    "2026-06-28": {
+      "CurtainWallMullions": 63,
+      "CurtainWallPanels": 30
+    },
+    "2026-06-29": {
+      "LightingFixtures": 32,
+      "Doors": 6
+    },
+    "2026-06-30": {
+      "LightingFixtures": 10,
+      "Doors": 6,
+      "CurtainWallMullions": 42,
+      "CurtainWallPanels": 20
+    },
+    "2026-07-01": {
+      "Doors": 6
+    },
+    "2026-07-02": {
+      "Doors": 6,
+      "CurtainWallMullions": 46,
+      "CurtainWallPanels": 30
+    },
+    "2026-07-03": {
+      "Doors": 6
+    },
+    "2026-07-04": {
+      "CurtainWallMullions": 36,
+      "CurtainWallPanels": 30
+    },
+    "2026-07-06": {
+      "Doors": 6,
+      "CurtainWallMullions": 24,
+      "CurtainWallPanels": 20
+    },
+    "2026-07-07": {
+      "Doors": 3
+    },
+    "2026-07-08": {
+      "Doors": 6,
+      "CurtainWallMullions": 45,
+      "CurtainWallPanels": 18
+    },
+    "2026-07-09": {
+      "Doors": 6
+    },
+    "2026-07-10": {
+      "Doors": 6,
+      "CurtainWallMullions": 32,
+      "CurtainWallPanels": 12
+    },
+    "2026-07-12": {
+      "CurtainWallMullions": 45,
+      "CurtainWallPanels": 18
+    },
+    "2026-07-13": {
+      "Doors": 6
+    },
+    "2026-07-14": {
+      "Doors": 5,
+      "CurtainWallMullions": 30,
+      "CurtainWallPanels": 12
+    },
+    "2026-07-15": {
+      "Doors": 6
+    },
+    "2026-07-16": {
+      "Doors": 6,
+      "CurtainWallMullions": 45,
+      "CurtainWallPanels": 18
+    },
+    "2026-07-17": {
+      "Doors": 1
+    },
+    "2026-07-18": {
+      "CurtainWallMullions": 28,
+      "CurtainWallPanels": 12
+    },
+    "2026-07-20": {
+      "CurtainWallMullions": 45,
+      "CurtainWallPanels": 18
+    },
+    "2026-07-22": {
+      "CurtainWallMullions": 42,
+      "CurtainWallPanels": 16
+    },
+    "2026-07-23": {
+      "CurtainWallMullions": 32,
+      "CurtainWallPanels": 12
+    },
+    "2026-08-02": {
+      "StairsRailing": 7
+    },
+    "2026-08-03": {
+      "StairsRailing": 6
+    },
+    "2026-08-04": {
+      "FireProtection": 7,
+      "StairsRailing": 6
+    },
+    "2026-08-05": {
+      "FireProtection": 7,
+      "StairsRailing": 6,
+      "PlumbingFixtures": 20
+    },
+    "2026-08-06": {
+      "FireProtection": 7,
+      "PlumbingFixtures": 30
+    },
+    "2026-08-07": {
+      "FireProtection": 6,
+      "StairsRailing": 6,
+      "PlumbingFixtures": 10,
+      "Furniture": 4
+    },
+    "2026-08-08": {
+      "FireProtection": 6,
+      "StairsRailing": 6,
+      "PlumbingFixtures": 10,
+      "FurnitureSystems": 234,
+      "Furniture": 4
+    },
+    "2026-08-09": {
+      "FireProtection": 6,
+      "SpecialtyEquipment": 2,
+      "StairsRailing": 7,
+      "PlumbingFixtures": 20
+    },
+    "2026-08-10": {
+      "FireProtection": 6,
+      "SpecialtyEquipment": 2,
+      "StairsRailing": 17,
+      "PlumbingFixtures": 20
+    },
+    "2026-08-11": {
+      "FireProtection": 6,
+      "SpecialtyEquipment": 3,
+      "StairsRailing": 6,
+      "PlumbingFixtures": 20
+    },
+    "2026-08-12": {
+      "FireProtection": 7,
+      "SpecialtyEquipment": 3,
+      "StairsRailing": 7,
+      "PlumbingFixtures": 10,
+      "FurnitureSystems": 346,
+      "Furniture": 2
+    },
+    "2026-08-13": {
+      "FireProtection": 7,
+      "SpecialtyEquipment": 13,
+      "StairsRailing": 2
+    },
+    "2026-08-14": {
+      "FireProtection": 6,
+      "SpecialtyEquipment": 23,
+      "FurnitureSystems": 129
+    },
+    "2026-08-15": {
+      "FireProtection": 6,
+      "SpecialtyEquipment": 23
+    },
+    "2026-08-16": {
+      "FireProtection": 6,
+      "SpecialtyEquipment": 13,
+      "FurnitureSystems": 261
+    },
+    "2026-08-17": {
+      "FireProtection": 6,
+      "SpecialtyEquipment": 13,
+      "FurnitureSystems": 152
+    },
+    "2026-08-18": {
+      "FireProtection": 6,
+      "SpecialtyEquipment": 25
+    },
+    "2026-08-19": {
+      "FireProtection": 4,
+      "SpecialtyEquipment": 24,
+      "FurnitureSystems": 110
+    },
+    "2026-08-20": {
+      "SpecialtyEquipment": 24
+    },
+    "2026-08-21": {
+      "SpecialtyEquipment": 14
+    },
+    "2026-08-22": {
+      "SpecialtyEquipment": 4,
+      "FurnitureSystems": 254
+    },
+    "2026-08-23": {
+      "SpecialtyEquipment": 4
+    },
+    "2026-08-24": {
+      "SpecialtyEquipment": 4,
+      "Furniture": 5
+    },
+    "2026-08-25": {
+      "SpecialtyEquipment": 1
+    },
+    "2026-08-26": {
+      "SpecialtyEquipment": 1
+    },
+    "2026-08-27": {
+      "SpecialtyEquipment": 1
+    },
+    "2026-08-28": {
+      "SpecialtyEquipment": 1
+    },
+    "2026-08-29": {
+      "SpecialtyEquipment": 1
+    },
+    "2026-08-30": {
+      "SpecialtyEquipment": 1
+    },
+    "2026-09-01": {
+      "SpecialtyEquipment": 1,
+      "PlumbingFixtures": 8,
+      "Casework": 8
+    },
+    "2026-09-02": {
+      "SpecialtyEquipment": 1,
+      "PlumbingFixtures": 16,
+      "Casework": 16
+    },
+    "2026-09-03": {
+      "PlumbingFixtures": 16,
+      "Casework": 16
+    },
+    "2026-09-04": {
+      "PlumbingFixtures": 8,
+      "Casework": 8
+    },
+    "2026-09-05": {
+      "PlumbingFixtures": 8,
+      "Casework": 8
+    },
+    "2026-09-06": {
+      "PlumbingFixtures": 16,
+      "Casework": 16
+    },
+    "2026-09-07": {
+      "PlumbingFixtures": 24,
+      "Casework": 24
+    },
+    "2026-09-08": {
+      "PlumbingFixtures": 16,
+      "Casework": 16
+    },
+    "2026-09-15": {
+      "StairsRailing": 1
+    },
+    "2026-10-20": {
+      "StairsRailing": 2
+    }
+  }
+}

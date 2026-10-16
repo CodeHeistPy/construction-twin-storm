@@ -14,12 +14,12 @@ export default function CommsDialog({ twin, onClose }: { twin: Twin; onClose: ()
     const postponed = twin.assessments.filter((a) => a.decision === "postpone");
     const watch = twin.assessments.filter((a) => a.decision === "watch");
     const lines = [
-      `WEATHER STAND-DOWN: ${SITE.name}, ${twin.day.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`,
+      `WEATHER STAND-DOWN: ${SITE.name}, ${twin.day.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: SITE.timeZone })}`,
       "",
       `${postponed.length} activities postponed:`,
       ...postponed.map(
         (a) =>
-          `• ${a.activity.id} ${a.activity.name} (${a.activity.trade}, ${a.activity.crewSize} crew), ${fmtTime(a.activity.start)}–${fmtTime(a.activity.end)}\n   ${a.reasons.map(fmtReason).join("; ")}`,
+          `• ${a.activity.id} ${a.activity.name} (${a.activity.trade}), ${fmtTime(a.activity.start)}–${fmtTime(a.activity.end)}\n   ${a.reasons.map(fmtReason).join("; ")}`,
       ),
     ];
     if (watch.length) {

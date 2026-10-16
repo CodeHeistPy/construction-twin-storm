@@ -17,9 +17,10 @@ npm install
 npm run dev
 ```
 
-Dev server runs at http://localhost:5180. With no `.env.local`, the app runs on a
-basemap of downtown Denver with sample data. Copy `.env.example` to
-`.env.local` to point it at the real scene and site.
+Dev server runs at http://localhost:5180. It loads the public Office Park web
+scene (Denver) with no sign-in. Optional overrides go in `.env.local`
+(copy `.env.example`).
+
 
 ```bash
 npm test
@@ -29,8 +30,8 @@ npm test
 
 | Piece | File | Status |
 |---|---|---|
-| 3D scene, markers, storm cell, sun and weather | `src/components/SceneCanvas.tsx` | Working; real WebScene not yet connected |
-| Today's schedule | `src/data/schedule.sample.ts` | **Sample data**, replace with the real export |
+| 3D scene, markers, storm cell, sun and weather | `src/components/SceneCanvas.tsx` | Office Park web scene; Building 1 coloured by install status |
+| Today's schedule | `src/lib/bim.ts` + `src/data/bim-schedule.json` | From Building 1 `Installation_Date`; 2 sample logistics items in `schedule.sample.ts` |
 | Scripted storm | `src/data/storm.scripted.ts` | Invented curve, tune to the story |
 | Live forecast (optional) | `src/lib/liveWeather.ts` | Open-Meteo, no key |
 | Postponement rules | `src/domain/rules.ts` + `src/config/thresholds.ts` | Engine tested; **limits are placeholders** |

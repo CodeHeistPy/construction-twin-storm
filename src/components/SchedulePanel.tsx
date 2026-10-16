@@ -1,3 +1,4 @@
+import { SITE } from "../config/site";
 import { ACTIVITY_LABELS, THRESHOLDS } from "../config/thresholds";
 import type { ActivityAssessment, Decision } from "../domain/types";
 import { fmtReason, fmtTime, fmtWatch } from "../lib/units";
@@ -16,8 +17,8 @@ interface Props {
 export default function SchedulePanel({ twin, selectedId, onSelect }: Props) {
   const by = (d: Decision) => twin.assessments.filter((a) => a.decision === d);
   const postponed = by("postpone");
-  const crews = postponed.reduce((n, a) => n + a.activity.crewSize, 0);
-  const dateLabel = twin.day.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+  const deferred = postponed.reduce((n, a) => n + (a.activity.components ?? 0), 0);
+  const dateLabel = twin.day.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: SITE.timeZone });
 
   return (
     <aside className="panel panel-left">
@@ -46,8 +47,8 @@ export default function SchedulePanel({ twin, selectedId, onSelect }: Props) {
           <span>proceed</span>
         </div>
         <div className="stat">
-          <b>{crews}</b>
-          <span>workers affected</span>
+          <b>{deferred}</b>
+          <span>BIM parts deferred</span>
         </div>
       </div>
 
@@ -63,7 +64,9 @@ export default function SchedulePanel({ twin, selectedId, onSelect }: Props) {
           ) : null,
         )}
       </div>
-      <p className="footnote">Sample schedule and placeholder limits — not project data.</p>
+      <p className="footnote">
+        BIM work from Building 1 install dates. Shift hours, sample items and stop-work limits are placeholders.
+      </p>
     </aside>
   );
 }
@@ -87,9 +90,11 @@ function ActivityRow({
       <div className="row1">
         <span className="id">{x.id}</span>
         <span className="name">{x.name}</span>
+        <span className={`src ${x.source}`}>{x.source === "bim" ? "BIM" : "Sample"}</span>
       </div>
       <div className="row2">
-        {ACTIVITY_LABELS[x.type]} · {x.zone} · {fmtTime(x.start)}–{fmtTime(x.end)} · {x.crewSize} crew
+        {ACTIVITY_LABELS[x.type]} · {x.zone} · {fmtTime(x.start)}–{fmtTime(x.end)}
+        {x.crewSize ? ` · ${x.crewSize} crew` : ""}
       </div>
       {reasons.length > 0 && (
         <ul className="reasons">
