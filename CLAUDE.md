@@ -13,6 +13,14 @@ do we tell the crews?*
 - Decisions: **deterministic rules engine** (`src/domain/rules.ts`) plus an AI
   *explanation* layer. Which AI approach is still open; don't add
   `@arcgis/ai-components` until the user decides.
+- **Dates are irrelevant to the story** (user, 2026-10-16): the point is tracking
+  progress and adapting to change. The UI says "Today"/"Tomorrow", never a
+  date. `DEFAULT_DEMO_DATE` (2026-05-11) just picks a day with exterior + interior
+  work; it is settled, not an open question.
+- **Adapt the plan** (`domain/replan.ts`): postponed work moves to its first
+  workable window (same shift, later day, no limit tripped). The knock-on
+  assumes one crew per package, so the package completion slips by the same
+  days. The scripted forecast includes a cleared "tomorrow".
 - Earlier plenary segments already showed **Foundation, Reality, Integration,
   Decision**. **Real-time Monitoring** and **Simulation** are new in this
   segment (`shownEarlier` in `config/buildingBlocks.ts`).
@@ -38,8 +46,6 @@ The install schedule is pre-extracted by `scripts/extract-bim-schedule.mjs` →
 Re-run it after the model is republished.
 
 ## Still waiting on the user
-- The demo "today" date (`DEFAULT_DEMO_DATE` in `config/site.ts`, provisional
-  2026-05-11). The real date shows a finished building.
 - Real stop-work limits (every value in `config/thresholds.ts` is a PLACEHOLDER),
   work-shift hours (assumed 7:00–15:30), whether doors are exterior,
   storm timing and intensity, plenary length, presenter, and screen.

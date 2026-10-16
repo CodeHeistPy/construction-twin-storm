@@ -31,6 +31,7 @@ export default function App() {
       if (s.hour !== undefined) twin.setHour(s.hour);
       if (s.camera) fly(s.camera);
       setShowComms(!!s.showComms);
+      twin.setReplanned(!!s.replan);
     },
     [twin, fly],
   );

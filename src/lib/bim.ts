@@ -107,11 +107,11 @@ export const DATED_SUBLAYERS = bimSchedule.sublayers.filter((s) => s.hasDate).ma
 
 /**
  * Arcade that classifies a component against the demo day:
- * installed | today-<decision> | upcoming | nodate. Normalises the malformed
+ * installed | today-<decision|rescheduled> | upcoming | nodate. Normalises the malformed
  * values found in the model (e.g. "2026.0425", "2026.7.02", "202604.03"),
  * mirroring normalise() in scripts/extract-bim-schedule.mjs.
  */
-export function statusArcade(day: Date, todayDecision: Decision): string {
+export function statusArcade(day: Date, todayDecision: Decision | "rescheduled"): string {
   return `
 var s = Trim(Text($feature.${BIM_DATE_FIELD}));
 if (IsEmpty(s)) { return "nodate"; }
@@ -136,3 +136,24 @@ export const BIM_RANGE = (() => {
   const days = Object.keys(bimSchedule.byDay);
   return { first: days[0], last: days[days.length - 1] };
 })();
+
+/**
+ * What's left of a work package from the demo day on (inclusive): install days
+ * and parts. Used for the knock-on of a postponement.
+ * ⚠️ ASSUMPTION: one crew works the package sequentially, so moving today's
+ * work N days pushes the rest of the package (and its completion) N days.
+ */
+export function remainingWork(sublayers: string[], day: Date): { installDays: number; parts: number } {
+  const today = dayKey(day);
+  let installDays = 0;
+  let parts = 0;
+  for (const [key, counts] of Object.entries(bimSchedule.byDay as Record<string, Record<string, number>>)) {
+    if (key < today) continue;
+    const n = sublayers.reduce((sum, s) => sum + (counts[s] ?? 0), 0);
+    if (n > 0) {
+      installDays++;
+      parts += n;
+    }
+  }
+  return { installDays, parts };
+}

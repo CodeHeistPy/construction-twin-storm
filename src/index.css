@@ -147,3 +147,20 @@ button.ghost { background: transparent; }
    (--ui-left / --ui-top are measured in SceneCanvas). */
 .scene arcgis-expand[slot="top-left"] { margin-left: calc(var(--ui-left, 0px) - 15px); }
 .scene arcgis-expand[slot="top-left"]:first-of-type { margin-top: calc(var(--ui-top, 0px) - 15px); }
+
+/* Adapt the plan */
+:root { --rescheduled: #a78bfa; }
+.replan { border: 1px solid rgba(167, 139, 250, 0.35); background: rgba(167, 139, 250, 0.08); border-radius: 10px; padding: 10px; }
+.replan.on { border-color: rgba(167, 139, 250, 0.7); background: rgba(167, 139, 250, 0.14); }
+.replan header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.replan .eyebrow { color: var(--rescheduled); }
+.replan b { font-size: 13px; }
+.replan-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.replan-actions button.primary { background: rgba(167, 139, 250, 0.3); border-color: var(--rescheduled); }
+.replan ul { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+.replan .move { display: flex; gap: 8px; }
+.replan .move .id { color: var(--muted); }
+.replan .move b { color: var(--rescheduled); }
+.replan .none { color: var(--watch); }
+.replan .knock { margin-left: 52px; color: var(--muted); font-size: 11px; }
+.activity .moved-to { margin-top: 6px; font-size: 12px; color: var(--rescheduled); font-weight: 600; }

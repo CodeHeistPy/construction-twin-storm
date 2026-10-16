@@ -3,6 +3,7 @@ import { SITE } from "../config/site";
 import { fmtReason, fmtTime } from "../lib/units";
 import type { Twin } from "../state/useTwin";
 import { BlockTag } from "./BlocksRail";
+import { whenLabel } from "./ReplanCard";
 
 /**
  * Drafts the crew notice from the rules output. Nothing is sent: the
@@ -14,20 +15,24 @@ export default function CommsDialog({ twin, onClose }: { twin: Twin; onClose: ()
     const postponed = twin.assessments.filter((a) => a.decision === "postpone");
     const watch = twin.assessments.filter((a) => a.decision === "watch");
     const lines = [
-      `WEATHER STAND-DOWN: ${SITE.name}, ${twin.day.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: SITE.timeZone })}`,
+      `WEATHER STAND-DOWN: ${SITE.name}, today`,
       "",
       `${postponed.length} activities postponed:`,
-      ...postponed.map(
-        (a) =>
-          `• ${a.activity.id} ${a.activity.name} (${a.activity.trade}), ${fmtTime(a.activity.start)}–${fmtTime(a.activity.end)}\n   ${a.reasons.map(fmtReason).join("; ")}`,
-      ),
+      ...postponed.map((a) => {
+        const r = twin.replanned ? twin.replans.find((x) => x.original.activity.id === a.activity.id) : undefined;
+        const next =
+          r?.moved && r.daysLater !== null
+            ? `\n   NEW TIME: ${whenLabel(r.daysLater)}, ${fmtTime(r.moved.start)}–${fmtTime(r.moved.end)}`
+            : "";
+        return `• ${a.activity.id} ${a.activity.name} (${a.activity.trade}), ${fmtTime(a.activity.start)}–${fmtTime(a.activity.end)}\n   ${a.reasons.map(fmtReason).join("; ")}${next}`;
+      }),
     ];
     if (watch.length) {
       lines.push("", "Monitor (near limits):", ...watch.map((a) => `• ${a.activity.id} ${a.activity.name}`));
     }
     lines.push("", "Secure loose materials and laydown areas before the storm arrives.");
     return lines.join("\n");
-  }, [twin.assessments, twin.day]);
+  }, [twin.assessments, twin.replans, twin.replanned]);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>

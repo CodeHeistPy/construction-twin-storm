@@ -1,9 +1,10 @@
-import { SITE } from "../config/site";
 import { ACTIVITY_LABELS, THRESHOLDS } from "../config/thresholds";
+import type { Rescheduled } from "../domain/replan";
 import type { ActivityAssessment, Decision } from "../domain/types";
 import { fmtReason, fmtTime, fmtWatch } from "../lib/units";
 import type { Twin } from "../state/useTwin";
 import { BlockTag } from "./BlocksRail";
+import ReplanCard, { whenLabel } from "./ReplanCard";
 
 const ORDER: Decision[] = ["postpone", "watch", "go"];
 const LABEL: Record<Decision, string> = { postpone: "Postpone", watch: "Watch", go: "Proceed" };
@@ -18,14 +19,13 @@ export default function SchedulePanel({ twin, selectedId, onSelect }: Props) {
   const by = (d: Decision) => twin.assessments.filter((a) => a.decision === d);
   const postponed = by("postpone");
   const deferred = postponed.reduce((n, a) => n + (a.activity.components ?? 0), 0);
-  const dateLabel = twin.day.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: SITE.timeZone });
 
   return (
     <aside className="panel panel-left">
       <header className="panel-head">
         <div>
-          <div className="eyebrow">Today's schedule</div>
-          <h2>{dateLabel}</h2>
+          <div className="eyebrow">Site schedule</div>
+          <h2>Today</h2>
         </div>
         <div className="tags">
           <BlockTag id="integration" />
@@ -52,13 +52,21 @@ export default function SchedulePanel({ twin, selectedId, onSelect }: Props) {
         </div>
       </div>
 
+      <ReplanCard twin={twin} />
+
       <div className="activity-list">
         {ORDER.map((d) =>
           by(d).length ? (
             <section key={d}>
               <h3 className={`group ${d}`}>{LABEL[d]}</h3>
               {by(d).map((a) => (
-                <ActivityRow key={a.activity.id} a={a} selected={a.activity.id === selectedId} onSelect={onSelect} />
+                <ActivityRow
+                  key={a.activity.id}
+                  a={a}
+                  selected={a.activity.id === selectedId}
+                  onSelect={onSelect}
+                  movedTo={twin.replanned ? twin.replans.find((r) => r.original.activity.id === a.activity.id) : undefined}
+                />
               ))}
             </section>
           ) : null,
@@ -75,10 +83,12 @@ function ActivityRow({
   a,
   selected,
   onSelect,
+  movedTo,
 }: {
   a: ActivityAssessment;
   selected: boolean;
   onSelect: (id: string | null) => void;
+  movedTo?: Rescheduled;
 }) {
   const { activity: x, decision, reasons } = a;
   return (
@@ -102,6 +112,11 @@ function ActivityRow({
             <li key={r.metric}>{decision === "postpone" ? fmtReason(r) : fmtWatch(r)}</li>
           ))}
         </ul>
+      )}
+      {movedTo?.moved && movedTo.daysLater !== null && (
+        <div className="moved-to">
+          Re-planned: {whenLabel(movedTo.daysLater)}, {fmtTime(movedTo.moved.start)}–{fmtTime(movedTo.moved.end)}
+        </div>
       )}
       {selected && <div className="source">Limit source: {THRESHOLDS[x.type].source}</div>}
     </button>

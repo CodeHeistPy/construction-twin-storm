@@ -17,6 +17,8 @@ export interface PresentationStep {
   camera?: CameraPreset;
   /** Show the crew-communication dialog. */
   showComms?: boolean;
+  /** Apply the adapted plan (postponed work moved to its next window). */
+  replan?: boolean;
   narration: string;
 }
 
@@ -64,11 +66,20 @@ export const PRESENTATION: PresentationStep[] = [
     narration: "DRAFT — What gets postponed, why, and when. Before the first gust arrives.",
   },
   {
+    title: "Adapt the plan",
+    blocks: ["foundation", "reality", "integration", "realtime", "analysis", "intelligence"],
+    hour: 9,
+    camera: "site",
+    replan: true,
+    narration: "DRAFT — Move the postponed work to the first window it can run, and see the knock-on to the rest of the build.",
+  },
+  {
     title: "Tell the crews",
     blocks: ["foundation", "reality", "integration", "realtime", "analysis", "intelligence"],
     hour: 9,
     camera: "site",
     showComms: true,
+    replan: true,
     narration: "DRAFT — One message to every affected crew, with the reasons attached.",
   },
 ];

@@ -22,7 +22,11 @@ import { BIM_LAYER_TITLE, DATED_SUBLAYERS, statusArcade } from "../lib/bim";
 import { ellipseRing } from "../lib/geo";
 import type { Twin } from "../state/useTwin";
 
-export const DECISION_COLORS: Record<Decision, string> = {
+/** Display status: a decision, or postponed work that has been re-planned. */
+export type Status = Decision | "rescheduled";
+
+export const DECISION_COLORS: Record<Status, string> = {
+  rescheduled: "#a78bfa",
   postpone: "#ff5a4e",
   watch: "#ffb547",
   go: "#3ddc84",
@@ -52,6 +56,7 @@ function statusRenderer(valueExpression: string) {
       { value: "today-postpone", label: "Today: postponed", symbol: mesh(hex(DECISION_COLORS.postpone)) },
       { value: "today-watch", label: "Today: watch", symbol: mesh(hex(DECISION_COLORS.watch)) },
       { value: "today-go", label: "Today: proceed", symbol: mesh(hex(DECISION_COLORS.go)) },
+      { value: "today-rescheduled", label: "Today: re-planned", symbol: mesh(hex(DECISION_COLORS.rescheduled)) },
       { value: "upcoming", label: "Not yet installed", symbol: mesh([120, 170, 255, 0.12]) },
     ],
   });
@@ -193,13 +198,14 @@ export default function SceneCanvas({ twin, selectedId, onSelect, camera }: Prop
       if (cancelled) return;
       for (const sub of dated) {
         const decision = decisionFor.get(sub.modelName ?? "") ?? "go";
-        sub.renderer = statusRenderer(statusArcade(twin.day, decision));
+        const status: Status = twin.replanned && decision === "postpone" ? "rescheduled" : decision;
+        sub.renderer = statusRenderer(statusArcade(twin.day, status));
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [view, twin.assessments, twin.day]);
+  }, [view, twin.assessments, twin.day, twin.replanned]);
 
   // Activity markers, coloured by decision.
   useEffect(() => {
@@ -209,6 +215,7 @@ export default function SceneCanvas({ twin, selectedId, onSelect, camera }: Prop
     layer.addMany(
       twin.assessments.map(({ activity: a, decision }) => {
         const selected = a.id === selectedId;
+        const color = DECISION_COLORS[twin.replanned && decision === "postpone" ? "rescheduled" : decision];
         return new Graphic({
           geometry: new Point({ longitude: a.location.longitude, latitude: a.location.latitude, z: a.location.z }),
           attributes: { id: a.id },
@@ -219,7 +226,7 @@ export default function SceneCanvas({ twin, selectedId, onSelect, camera }: Prop
                 type: "icon",
                 resource: { primitive: "circle" },
                 size: selected ? 22 : 14,
-                material: { color: DECISION_COLORS[decision] },
+                material: { color: color },
                 outline: { color: selected ? "#ffffff" : "#0b1220", size: selected ? 3 : 1.5 },
               },
               {
@@ -232,12 +239,12 @@ export default function SceneCanvas({ twin, selectedId, onSelect, camera }: Prop
               },
             ],
             verticalOffset: { screenLength: 36, maxWorldLength: 120, minWorldLength: 8 },
-            callout: { type: "line", size: 1, color: DECISION_COLORS[decision] },
+            callout: { type: "line", size: 1, color: color },
           },
         });
       }),
     );
-  }, [view, twin.assessments, selectedId]);
+  }, [view, twin.assessments, twin.replanned, selectedId]);
 
   // Scripted storm cell: outer rain shield + core, moving with the clock.
   useEffect(() => {

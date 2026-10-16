@@ -37,11 +37,26 @@ const CURVE: [number, number, number, number, boolean, number][] = [
   [3, 5, 290, 0, false, 15],
 ];
 
+// Tomorrow: the storm has cleared. Light NW wind, dry. Gives the re-plan a
+// workable window to move postponed work into.
+const TOMORROW: [number, number, number, number, boolean, number][] = Array.from({ length: 24 }, (_, h) => {
+  const daytime = h >= 9 && h <= 17;
+  return [daytime ? 5 : 3, daytime ? 8 : 5, 300, 0, false, daytime ? 19 : 13];
+});
+
+/** Today (the storm) followed by tomorrow (cleared), hourly. */
 export function scriptedWeather(day: Date): WeatherHour[] {
-  return CURVE.map(([windSpeed, windGust, windDirection, precipitation, lightning, temperature], h) => {
-    const time = atHour(day, h);
-    return { time, windSpeed, windGust, windDirection, precipitation, lightning, temperature };
-  });
+  return [...CURVE, ...TOMORROW].map(
+    ([windSpeed, windGust, windDirection, precipitation, lightning, temperature], h) => ({
+      time: atHour(day, h),
+      windSpeed,
+      windGust,
+      windDirection,
+      precipitation,
+      lightning,
+      temperature,
+    }),
+  );
 }
 
 /** Storm cell centre at a time: approaches from the SW, passes over ~15:00. */
