@@ -1,68 +1,81 @@
 import bimSchedule from "../data/bim-schedule.json";
-import { SITE } from "../config/site";
+import { SITE, demoDay } from "../config/site";
 import type { Activity, ActivityType, Decision } from "../domain/types";
+import { atHour, zonedMidnight } from "./time";
 
 /** How today's components of a sublayer are shown (see SceneCanvas renderer). */
 export type TodayClass = Decision | "rescheduled" | "scheduled" | "hidden" | "done" | "dim";
-import { atHour, zonedMidnight } from "./time";
 
 // =============================================================================
-// Today's activities come from the BIM model: every component in
-// Office_Park_Building_1 carries an Installation_Date (string, YYYY.MM.DD).
-// Components dated "today" = today's install work. Counts are pre-extracted by
-// scripts/extract-bim-schedule.mjs into src/data/bim-schedule.json.
+// LEVEL-DRIVEN SCHEDULE for Office_Park_Building_1 (user, 2026-10-20: "keep
+// building level in mind for the sequencing, everything going up to only
+// level 8"). The model's own Installation_Date values don't follow the levels
+// (and ~3,600 elements have none), so the 4D build-out, progress and today's
+// work all come from this model instead:
+//
+//   The structure rises one level at a time from the build start; on the demo
+//   day ("today") it is working level 8. Each trade follows a fixed number of
+//   levels behind it:
+//     structure, curtain wall .... level 8 today   (0 behind)
+//     interior walls, railings ... level 7         (1)
+//     doors, ceilings, MEP ....... level 6         (2)
+//     specialty, casework ........ level 5         (3)
+//     furniture .................. level 4         (4)
+//   Nothing above level 8 exists today.
+//
+// Element counts per level come from the model's BldgLevel statistics
+// (scripts/extract-bim-schedule.mjs -> levels). Today's real curtain wall
+// parts do sit at level 8 (~31-35 m up), which this model matches.
 // =============================================================================
 
 export const BIM_LAYER_TITLE = bimSchedule.source.layerTitle;
 export const BIM_DATE_FIELD = bimSchedule.source.field;
+export const BIM_MALFORMED = bimSchedule.malformed;
+/** The model's own install-date range (reference only; sequencing is by level). */
+export const BIM_RANGE = (() => {
+  const days = Object.keys(bimSchedule.byDay);
+  return { first: days[0], last: days[days.length - 1] };
+})();
 
-interface WorkPackage {
-  type: ActivityType;
+export const MAX_LEVEL = 16;
+/** The structure's working level on the demo day. */
+export const TODAY_LEVEL = 8;
+
+interface Trade {
+  key: string;
   label: string;
-  trade: string;
-  /** Height of the work face above ground, metres (for the 3D marker only). */
-  z: number;
+  /** Activity name fragment, e.g. "curtain wall". */
+  work: string;
+  type: ActivityType;
+  crew: string;
+  /** Levels behind the structure. */
+  lag: number;
+  sublayers: string[];
 }
 
-/**
- * Sublayer → work package. Curtain wall is the weather-exposed work.
- * ⚠️ ASSUMPTION: Doors are treated as interior; confirm whether any are exterior.
- */
-const PACKAGES: Record<string, WorkPackage> = {
-  CurtainWallPanels: { type: "curtain-wall", label: "Curtain wall", trade: "Glazing", z: 30 },
-  CurtainWallMullions: { type: "curtain-wall", label: "Curtain wall", trade: "Glazing", z: 30 },
-  Doors: { type: "interior", label: "Doors", trade: "Carpentry", z: 70 },
-  LightingFixtures: { type: "interior", label: "Lighting fixtures", trade: "Electrical", z: 70 },
-  PlumbingFixtures: { type: "interior", label: "Plumbing fixtures", trade: "Plumbing", z: 70 },
-  FireProtection: { type: "interior", label: "Fire protection", trade: "Fire protection", z: 70 },
-  SpecialtyEquipment: { type: "interior", label: "Specialty equipment", trade: "Specialties", z: 70 },
-  StairsRailing: { type: "interior", label: "Stair railings", trade: "Metals", z: 70 },
-  Furniture: { type: "interior", label: "Furniture", trade: "FF&E", z: 70 },
-  FurnitureSystems: { type: "interior", label: "Furniture systems", trade: "FF&E", z: 70 },
-  Casework: { type: "interior", label: "Casework", trade: "Millwork", z: 70 },
-};
+/** ⚠️ ASSUMPTION: trade order and lags are a standard high-rise sequence. */
+export const TRADES: Trade[] = [
+  { key: "structure", label: "Structure", work: "structural frame", type: "steel-erection", crew: "Ironworkers", lag: 0, sublayers: ["StructuralColumns", "Floors", "Stairs", "Roofs"] },
+  { key: "envelope", label: "Curtain wall", work: "curtain wall", type: "curtain-wall", crew: "Glazing", lag: 0, sublayers: ["CurtainWallPanels", "CurtainWallMullions"] },
+  { key: "walls", label: "Interior walls", work: "interior walls and stair railings", type: "interior", crew: "Drywall / framing", lag: 1, sublayers: ["Walls", "StairsRailing"] },
+  { key: "finishes", label: "Doors & ceilings", work: "doors and ceilings", type: "interior", crew: "Carpentry / ceilings", lag: 2, sublayers: ["Doors", "Ceilings"] },
+  { key: "mep", label: "MEP fixtures", work: "lighting, fire protection and plumbing", type: "interior", crew: "MEP", lag: 2, sublayers: ["LightingFixtures", "FireProtection", "PlumbingFixtures"] },
+  { key: "specialty", label: "Specialty & casework", work: "specialty equipment and casework", type: "interior", crew: "Millwork / specialties", lag: 3, sublayers: ["SpecialtyEquipment", "Casework"] },
+  { key: "furniture", label: "Furniture", work: "furniture", type: "interior", crew: "FF&E", lag: 4, sublayers: ["Furniture", "FurnitureSystems"] },
+];
 
-/** ⚠️ ASSUMPTION: a standard 7:00–15:30 shift. The model has dates, not times. */
+const tradeOf = new Map(TRADES.flatMap((t) => t.sublayers.map((s) => [s, t] as const)));
+const ALL_TRADE_SUBLAYERS = TRADES.flatMap((t) => t.sublayers);
+
+/** Sublayers that carry the install-date field (the renderer handles these and the structure). */
+export const DATED_SUBLAYERS = bimSchedule.sublayers.filter((s) => s.hasDate).map((s) => s.name);
+/** Everything else in a trade (structure, walls, ceilings...). */
+export const STRUCTURE_SUBLAYERS = ALL_TRADE_SUBLAYERS.filter((s) => !DATED_SUBLAYERS.includes(s));
+/** Room volumes: hidden while the building goes up. */
+export const HIDE_DURING_BUILD = ["Rooms"];
+
+/** ⚠️ ASSUMPTION: a standard 7:00–15:30 shift. */
 const SHIFT = { from: 7, to: 15.5 };
-
-/** Metre offsets from Building 1's centre so markers don't stack. Visual only. */
-const OFFSETS: Record<string, [number, number]> = {
-  "Curtain wall": [0, 21], // north face, where today's install band reads best
-  Doors: [-10, 4],
-  "Lighting fixtures": [8, 6],
-  "Plumbing fixtures": [-6, 8],
-  "Fire protection": [10, -4],
-};
-
-/** Camera heading to frame each package (curtain wall: from the north). */
-const HEADINGS: Record<string, number> = { "Curtain wall": 170 };
-
-const PER_SUBLAYER_LABEL: Record<string, string> = {
-  CurtainWallPanels: "panels",
-  CurtainWallMullions: "mullions",
-};
-
-const M_PER_DEG = 111_320;
 
 /**
  * Building 1 footprint centre, from the CurtainWallPanels sublayer extent
@@ -70,336 +83,155 @@ const M_PER_DEG = 111_320;
  * fullExtent is corrupt (reaches California), so do not use it.
  */
 export const BUILDING_1 = { longitude: -104.99117, latitude: 39.698635, height: 67 };
+/** Approximate storey height (BldgLevel_Elev spans 5,222–5,417 ft over 15 levels). */
+const LEVEL_HEIGHT_M = 3.96;
+
+const DAY_MS = 86_400_000;
 
 /** YYYY-MM-DD for a site-midnight instant. */
 export function dayKey(day: Date): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: SITE.timeZone }).format(day);
 }
 
-/** Install counts per sublayer for a day. */
-export function installsOn(day: Date): Record<string, number> {
-  return (bimSchedule.byDay as Record<string, Record<string, number>>)[dayKey(day)] ?? {};
-}
-
-/** Today's BIM work packages as schedule activities. */
-export function bimActivities(day: Date): Activity[] {
-  const grouped = new Map<string, { pkg: WorkPackage; sublayers: string[]; parts: string[]; total: number }>();
-  for (const [sublayer, count] of Object.entries(installsOn(day))) {
-    const pkg = PACKAGES[sublayer];
-    if (!pkg) continue;
-    const g = grouped.get(pkg.label) ?? { pkg, sublayers: [], parts: [], total: 0 };
-    g.sublayers.push(sublayer);
-    g.total += count;
-    g.parts.push(`${count} ${PER_SUBLAYER_LABEL[sublayer] ?? "units"}`);
-    grouped.set(pkg.label, g);
-  }
-  return [...grouped.values()].map(({ pkg, sublayers, parts, total }, i) => {
-    const [east, north] = OFFSETS[pkg.label] ?? [((i % 3) - 1) * 10, 12];
-    return {
-      id: `BIM-${String(i + 1).padStart(2, "0")}`,
-      name: `Install ${pkg.label.toLowerCase()} (${parts.join(", ")})`,
-      type: pkg.type,
-      trade: pkg.trade,
-      zone: "Building 1",
-      start: atHour(day, SHIFT.from),
-      end: atHour(day, SHIFT.to),
-      components: total,
-      location: {
-        longitude: BUILDING_1.longitude + east / (M_PER_DEG * Math.cos((BUILDING_1.latitude * Math.PI) / 180)),
-        latitude: BUILDING_1.latitude + north / M_PER_DEG,
-        z: pkg.z,
-      },
-      source: "bim",
-      bimSublayers: sublayers,
-      viewHeading: HEADINGS[pkg.label] ?? 30,
-    };
-  });
-}
-
-/** Sublayers that carry the install-date field. */
-export const DATED_SUBLAYERS = bimSchedule.sublayers.filter((s) => s.hasDate).map((s) => s.name);
-
-/**
- * Arcade that classifies a component against the demo day:
- * installed | today-<decision|rescheduled> | upcoming | nodate. Normalises the malformed
- * values found in the model (e.g. "2026.0425", "2026.7.02", "202604.03"),
- * mirroring normalise() in scripts/extract-bim-schedule.mjs.
- */
-export function statusArcade(day: Date, todayClass: TodayClass, sublayer?: string): string {
-  const table = sublayer ? derivedTable(sublayer) : null;
-  const decode = table
-    ? `Decode(lv, ${table.map((k, l) => `${l}, "${k}"`).join(", ")}, "${table[table.length - 1]}")`
-    : '""';
-  return `
-var key = "";
-if (HasKey($feature, "${BIM_DATE_FIELD}")) {
-  var s = Trim(DefaultValue(Text($feature.${BIM_DATE_FIELD}), ""));
-  var p = Split(s, ".");
-  if (Count(p) == 3) {
-    key = Text(Number(p[0]), "0000") + "-" + Text(Number(p[1]), "00") + "-" + Text(Number(p[2]), "00");
-  } else if (s != "") {
-    var d = Replace(s, ".", "");
-    if (Count(d) == 8) { key = Left(d, 4) + "-" + Mid(d, 4, 2) + "-" + Right(d, 2); }
-  }
-}
-if (key == "") {
-  var lv = IIf(HasKey($feature, "BldgLevel"), DefaultValue($feature.BldgLevel, 0), 0);
-  key = ${decode};
-}
-if (key == "") { return "nodate"; }
-var today = "${dayKey(day)}";
-if (key < today) { return "installed"; }
-if (key == today) { return "today-${todayClass}"; }
-return "upcoming";
-`;
-}
-
-export const BIM_MALFORMED = bimSchedule.malformed;
-export const BIM_RANGE = (() => {
-  const days = Object.keys(bimSchedule.byDay);
-  return { first: days[0], last: days[days.length - 1] };
-})();
-
-/**
- * What's left of a work package from the demo day on (inclusive): install days
- * and parts. Used for the knock-on of a postponement.
- * ⚠️ ASSUMPTION: one crew works the package sequentially, so moving today's
- * work N days pushes the rest of the package (and its completion) N days.
- */
-export function remainingWork(sublayers: string[], day: Date): { installDays: number; parts: number } {
-  const today = dayKey(day);
-  let installDays = 0;
-  let parts = 0;
-  for (const [key, counts] of Object.entries(bimSchedule.byDay as Record<string, Record<string, number>>)) {
-    if (key < today) continue;
-    const n = sublayers.reduce((sum, s) => sum + (counts[s] ?? 0), 0);
-    if (n > 0) {
-      installDays++;
-      parts += n;
-    }
-  }
-  return { installDays, parts };
-}
-
-export interface PackageProgress {
-  label: string;
-  total: number;
-  /** Installed before the demo day. */
-  installed: number;
-  /** Scheduled on the demo day. */
-  today: number;
-}
-
-/**
- * Building 1 progress as of the start of the demo day, by work package.
- * Counts only components that carry an install date (structure, walls,
- * floors and roofs have none and are treated as in place).
- */
-export function progressAsOf(day: Date): { packages: PackageProgress[]; total: number; installed: number; today: number } {
-  const key = dayKey(day);
-  const byLabel = new Map<string, PackageProgress>();
-  const add = (sublayer: string, d: string, n: number) => {
-    const label = PACKAGES[sublayer]?.label ?? DERIVED_LABELS[sublayer] ?? sublayer;
-    const p = byLabel.get(label) ?? { label, total: 0, installed: 0, today: 0 };
-    p.total += n;
-    if (d < key) p.installed += n;
-    else if (d === key) p.today += n;
-    byLabel.set(label, p);
-  };
-  for (const [d, counts] of Object.entries(bimSchedule.byDay as Record<string, Record<string, number>>))
-    for (const [sublayer, n] of Object.entries(counts)) add(sublayer, d, n);
-  for (const { sublayer, key: d, count } of derivedCounts()) add(sublayer, d, count);
-  const packages = [...byLabel.values()].sort((a, b) => b.total - a.total);
-  const sum = (k: keyof Omit<PackageProgress, "label">) => packages.reduce((s, p) => s + p[k], 0);
-  return { packages, total: sum("total"), installed: sum("installed"), today: sum("today") };
-}
-
-// -----------------------------------------------------------------------------
-// Ground-up build for the 4D timeline. The structure (floors, columns, walls,
-// stairs, roof, ceilings) carries NO install dates in the model, so it is
-// sequenced by its BldgLevel (0-16, verified 2026-10-19) over the weeks before
-// the first dated install. DERIVED, not scheduled: say so if asked.
-// -----------------------------------------------------------------------------
-
-export const STRUCTURE_SUBLAYERS = ["Floors", "StructuralColumns", "Walls", "Stairs", "Roofs", "Ceilings"];
-/** Room volumes: hidden while the building goes up. */
-export const HIDE_DURING_BUILD = ["Rooms"];
-export const MAX_LEVEL = 16;
-const STRUCTURE_WEEKS = 8;
-
-const firstInstall = (): Date => {
-  const [y, m, d] = BIM_RANGE.first.split("-").map(Number);
-  return zonedMidnight(y, m, d, SITE.timeZone);
-};
-
-/** When the timeline starts: the structure's first level, before any dated work. */
-export function buildStart(): Date {
-  return new Date(firstInstall().getTime() - STRUCTURE_WEEKS * 7 * 86_400_000);
-}
-
-/** Highest structural level standing on a date: -1 (nothing) to MAX_LEVEL. */
-export function levelAt(day: Date): number {
-  const s = buildStart().getTime();
-  const f = firstInstall().getTime();
-  if (day.getTime() >= f) return MAX_LEVEL;
-  const frac = (day.getTime() - s) / (f - s);
-  return Math.min(MAX_LEVEL, Math.floor(frac * (MAX_LEVEL + 1)) - 1);
-}
-
-/** Arcade for structure: levels up to `level` stand, the next one is going up now. */
-export function levelArcade(level: number): string {
-  return `
-var l = DefaultValue($feature.BldgLevel, 0);
-if (l <= ${level}) { return "installed"; }
-if (l == ${level + 1}) { return "today-scheduled"; }
-return "upcoming";
-`;
-}
-
-// -----------------------------------------------------------------------------
-// DERIVED install dates for elements the model leaves undated (user, 2026-10-20:
-// "fill them in so they fit the rest of the schedule"). ~3,600 elements: the
-// structure (no dates at all), ~1,100 curtain wall parts and ~70 furniture.
-// Standard high-rise sequence, by BldgLevel:
-//   structure rises level by level (before the first dated install), then each
-//   floor's curtain wall closes it in, then interior walls / doors / ceilings,
-//   then MEP fixtures, casework, and furniture last.
-// Real dates always win; these only fill gaps. DERIVED, not scheduled.
-// -----------------------------------------------------------------------------
-
-const DAY_MS = 86_400_000;
-const STRUCTURE_TRADES = new Set(["StructuralColumns", "Floors", "Stairs", "Roofs"]);
-
-/** Days after a floor's curtain wall starts that each trade follows. */
-const TRADE_LAG_DAYS: Record<string, number> = {
-  CurtainWallPanels: 0,
-  CurtainWallMullions: 0,
-  Walls: 7,
-  StairsRailing: 14,
-  Doors: 21,
-  Ceilings: 28,
-  LightingFixtures: 35,
-  FireProtection: 35,
-  PlumbingFixtures: 35,
-  SpecialtyEquipment: 42,
-  Casework: 49,
-  Furniture: 63,
-  FurnitureSystems: 63,
-};
-
-const DERIVED_LABELS: Record<string, string> = {
-  StructuralColumns: "Structure",
-  Floors: "Structure",
-  Stairs: "Structure",
-  Roofs: "Structure",
-  Walls: "Interior walls",
-  Ceilings: "Ceilings",
-};
-
 const keyToDay = (key: string) => {
   const [y, m, d] = key.split("-").map(Number);
   return zonedMidnight(y, m, d, SITE.timeZone);
 };
 
-/** First and last curtain wall install days in the model. */
-const CW_RANGE = (() => {
-  const days = Object.entries(bimSchedule.byDay as Record<string, Record<string, number>>)
-    .filter(([, c]) => c.CurtainWallPanels || c.CurtainWallMullions)
-    .map(([d]) => d)
-    .sort();
-  return { first: keyToDay(days[0]), last: keyToDay(days[days.length - 1]) };
-})();
+/** When the timeline starts: the structure's first level (8 weeks before the model's first date). */
+export function buildStart(): Date {
+  return new Date(keyToDay(BIM_RANGE.first).getTime() - 8 * 7 * DAY_MS);
+}
+
+/** Days per level, set so the structure is mid-way through level 8 on the demo day. */
+function daysPerLevel(): number {
+  return (demoDay().getTime() - buildStart().getTime()) / DAY_MS / (TODAY_LEVEL + 0.5);
+}
+
+/** Levels of structure progress at a date (fractional). */
+function progressLevels(day: Date): number {
+  return (day.getTime() - buildStart().getTime()) / DAY_MS / daysPerLevel();
+}
+
+/** The level a trade is working on at a date (below = done, above = not started). */
+export function workingLevel(tradeKey: string, day: Date): number {
+  const t = TRADES.find((x) => x.key === tradeKey)!;
+  return Math.floor(progressLevels(day)) - t.lag;
+}
+
+/** Highest structural level standing on a date: -1 (nothing) to MAX_LEVEL. */
+export function levelAt(day: Date): number {
+  return Math.min(MAX_LEVEL, workingLevel("structure", day));
+}
+
+/** When the last trade (furniture) finishes the top level. */
+export function buildFinish(): Date {
+  const maxLag = Math.max(...TRADES.map((t) => t.lag));
+  return new Date(buildStart().getTime() + (MAX_LEVEL + maxLag + 1) * daysPerLevel() * DAY_MS);
+}
+
+/** Element counts per level for a sublayer (model statistics). */
+const levelCounts = (sublayer: string): Record<string, number> =>
+  ((bimSchedule as { levels?: Record<string, Record<string, number>> }).levels ?? {})[sublayer] ?? {};
 
 /**
- * When a floor's curtain wall starts: spread across levels 2-15 from the first
- * to the last curtain wall day (bottom-up). ASSUMPTION: the model has no
- * per-level dates to read this from.
+ * Arcade classifying an element by its level against the trade's working level
+ * on `day`: installed (below) | today-<class> (the working level) | upcoming.
+ * Plain number comparisons, so the 4D steps re-render quickly.
  */
-function closeIn(level: number): Date {
-  const lo = 2;
-  const hi = 15;
-  const t = Math.max(0, Math.min(1, (level - lo) / (hi - lo)));
-  return new Date(CW_RANGE.first.getTime() + t * (CW_RANGE.last.getTime() - CW_RANGE.first.getTime()));
+export function statusArcade(day: Date, todayClass: TodayClass, sublayer?: string): string {
+  const trade = sublayer ? tradeOf.get(sublayer) : undefined;
+  if (!trade) return `return "nodate";`;
+  const working = workingLevel(trade.key, day);
+  return `
+var lv = IIf(HasKey($feature, "BldgLevel"), DefaultValue($feature.BldgLevel, 0), 0);
+if (lv < ${working}) { return "installed"; }
+if (lv == ${working}) { return "today-${todayClass}"; }
+return "upcoming";
+`;
 }
 
-/** Derived date key for an undated element of a sublayer at a level. */
-export function derivedKey(sublayer: string, level: number): string | null {
-  if (STRUCTURE_TRADES.has(sublayer)) {
-    const s = buildStart().getTime();
-    const f = firstInstall().getTime();
-    return dayKey(new Date(s + ((level + 0.5) / (MAX_LEVEL + 1)) * (f - s)));
-  }
-  const lag = TRADE_LAG_DAYS[sublayer];
-  if (lag === undefined) return null;
-  return dayKey(new Date(closeIn(level).getTime() + lag * DAY_MS));
+export interface PackageProgress {
+  label: string;
+  total: number;
+  /** Installed before the date. */
+  installed: number;
+  /** On the working level that day. */
+  today: number;
 }
 
-/** Level 0..MAX_LEVEL -> derived key, for the Arcade Decode table. */
-function derivedTable(sublayer: string): string[] | null {
-  if (derivedKey(sublayer, 0) === null) return null;
-  return Array.from({ length: MAX_LEVEL + 1 }, (_, l) => derivedKey(sublayer, l)!);
+/** Building 1 progress at a date, by trade, from element counts per level. */
+export function progressAsOf(day: Date): { packages: PackageProgress[]; total: number; installed: number; today: number } {
+  const packages = TRADES.map((t) => {
+    const working = workingLevel(t.key, day);
+    const p: PackageProgress = { label: t.label, total: 0, installed: 0, today: 0 };
+    for (const sub of t.sublayers)
+      for (const [lvl, n] of Object.entries(levelCounts(sub))) {
+        const l = Number(lvl);
+        p.total += n;
+        if (l < working) p.installed += n;
+        else if (l === working) p.today += n;
+      }
+    return p;
+  }).filter((p) => p.total > 0);
+  const sum = (k: keyof Omit<PackageProgress, "label">) => packages.reduce((s, p) => s + p[k], 0);
+  return { packages, total: sum("total"), installed: sum("installed"), today: sum("today") };
 }
 
 /**
- * Undated element counts by derived day, for progress. Per sublayer, undated =
- * elements per level (from the model's BldgLevel statistics) minus dated ones,
- * spread across levels in proportion.
+ * Today's Building 1 work: each trade on its working level. Markers are
+ * placed on the actual components (SceneCanvas queries `bimWhere`).
  */
-function derivedCounts(): { sublayer: string; key: string; count: number; level: number }[] {
-  const levels = (bimSchedule as { levels?: Record<string, Record<string, number>> }).levels ?? {};
-  const dated = new Map<string, number>();
-  for (const counts of Object.values(bimSchedule.byDay as Record<string, Record<string, number>>))
-    for (const [sub, n] of Object.entries(counts)) dated.set(sub, (dated.get(sub) ?? 0) + n);
-  const out: { sublayer: string; key: string; count: number; level: number }[] = [];
-  for (const [sub, byLevel] of Object.entries(levels)) {
-    const total = Object.values(byLevel).reduce((a, b) => a + b, 0);
-    const undated = Math.max(0, total - (dated.get(sub) ?? 0));
-    if (!undated || !total) continue;
-    for (const [lvl, n] of Object.entries(byLevel)) {
-      const key = derivedKey(sub, Number(lvl));
-      if (!key) continue;
-      const count = Math.round((n * undated) / total);
-      if (count) out.push({ sublayer: sub, key, count, level: Number(lvl) });
-    }
-  }
+export function bimActivities(day: Date): Activity[] {
+  const out: Activity[] = [];
+  TRADES.forEach((t) => {
+    const level = workingLevel(t.key, day);
+    if (level < 0 || level > MAX_LEVEL) return;
+    const subs = t.sublayers.filter((s) => (levelCounts(s)[String(level)] ?? 0) > 0);
+    const count = subs.reduce((n, s) => n + (levelCounts(s)[String(level)] ?? 0), 0);
+    if (!count) return;
+    out.push({
+      id: `L${level}-${t.key.slice(0, 3).toUpperCase()}`,
+      name: `${t.key === "structure" ? "Erect" : "Install"} ${t.work}, level ${level} (${count} parts)`,
+      type: t.type,
+      trade: t.crew,
+      zone: `Building 1, level ${level}`,
+      start: atHour(day, SHIFT.from),
+      end: atHour(day, SHIFT.to),
+      components: count,
+      location: { longitude: BUILDING_1.longitude, latitude: BUILDING_1.latitude, z: (level + 0.5) * LEVEL_HEIGHT_M },
+      source: "bim",
+      bimSublayers: subs,
+      bimWhere: `BldgLevel = ${level}`,
+      viewHeading: t.key === "envelope" ? 170 : 30,
+    });
+  });
   return out;
 }
 
-const DERIVED_WORK: Record<string, { type: ActivityType; label: string; trade: string }> = {
-  Walls: { type: "interior", label: "interior walls", trade: "Drywall / framing" },
-  Ceilings: { type: "interior", label: "ceilings", trade: "Ceilings" },
-  CurtainWallPanels: { type: "curtain-wall", label: "curtain wall panels", trade: "Glazing" },
-  CurtainWallMullions: { type: "curtain-wall", label: "curtain wall mullions", trade: "Glazing" },
-  Furniture: { type: "interior", label: "furniture", trade: "FF&E" },
-};
+/** Superseded by the level model (kept so callers don't break). */
+export function derivedActivities(_day: Date): Activity[] {
+  return [];
+}
 
 /**
- * Today's DERIVED work: undated elements whose derived date is the demo day
- * (e.g. level 7 interior walls). Each activity can find its own components
- * via `bimWhere` (by level, no date). Tagged "Derived" in the UI.
+ * What's left of a trade from the demo day on: levels and parts. For the
+ * knock-on of a postponement.
+ * ⚠️ ASSUMPTION: one crew works the trade level by level, so moving today's
+ * work N days pushes the rest of the trade (and its completion) N days.
  */
-export function derivedActivities(day: Date): Activity[] {
-  const today = dayKey(day);
-  const hasDate = new Set(DATED_SUBLAYERS);
-  return derivedCounts()
-    .filter((d) => d.key === today && DERIVED_WORK[d.sublayer])
-    .map((d, i) => {
-      const w = DERIVED_WORK[d.sublayer];
-      return {
-        id: `DER-${String(i + 1).padStart(2, "0")}`,
-        name: `Install ${w.label}, level ${d.level} (${d.count} units)`,
-        type: w.type,
-        trade: w.trade,
-        zone: `Building 1, level ${d.level}`,
-        start: atHour(day, SHIFT.from),
-        end: atHour(day, SHIFT.to),
-        components: d.count,
-        location: { longitude: BUILDING_1.longitude, latitude: BUILDING_1.latitude, z: 30 },
-        source: "derived" as const,
-        bimSublayers: [d.sublayer],
-        bimWhere: hasDate.has(d.sublayer)
-          ? `(${BIM_DATE_FIELD} IS NULL OR ${BIM_DATE_FIELD} = '') AND BldgLevel = ${d.level}`
-          : `BldgLevel = ${d.level}`,
-      };
-    });
+export function remainingWork(sublayers: string[], day: Date): { installDays: number; parts: number } {
+  const trade = sublayers.map((s) => tradeOf.get(s)).find(Boolean);
+  if (!trade) return { installDays: 0, parts: 0 };
+  const working = workingLevel(trade.key, day);
+  let parts = 0;
+  let levels = 0;
+  for (let l = Math.max(0, working); l <= MAX_LEVEL; l++) {
+    const n = trade.sublayers.reduce((sum, s) => sum + (levelCounts(s)[String(l)] ?? 0), 0);
+    if (n) {
+      parts += n;
+      levels++;
+    }
+  }
+  return { installDays: Math.round(levels * daysPerLevel()), parts };
 }

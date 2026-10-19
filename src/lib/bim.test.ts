@@ -1,40 +1,54 @@
 import { describe, expect, it } from "vitest";
-import { BIM_RANGE, derivedKey, MAX_LEVEL, progressAsOf } from "./bim";
-import { zonedMidnight } from "./time";
+import { demoDay } from "../config/site";
+import { bimActivities, buildFinish, buildStart, levelAt, MAX_LEVEL, progressAsOf, TODAY_LEVEL, TRADES, workingLevel } from "./bim";
 
-describe("derived install dates", () => {
-  it("raises the structure level by level, before the first dated install", () => {
-    const keys = Array.from({ length: MAX_LEVEL + 1 }, (_, l) => derivedKey("Floors", l)!);
-    expect([...keys].sort()).toEqual(keys); // bottom-up
-    expect(keys[MAX_LEVEL] < BIM_RANGE.first).toBe(true);
+const DAY = 86_400_000;
+const today = demoDay();
+
+describe("level-driven schedule", () => {
+  it("has the structure working level 8 today, and nothing higher", () => {
+    expect(levelAt(today)).toBe(TODAY_LEVEL);
+    for (const t of TRADES) expect(workingLevel(t.key, today)).toBeLessThanOrEqual(TODAY_LEVEL);
   });
 
-  it("follows the trade sequence on each floor", () => {
-    for (const level of [3, 8, 14]) {
-      const walls = derivedKey("Walls", level)!;
-      const ceilings = derivedKey("Ceilings", level)!;
-      const furniture = derivedKey("Furniture", level)!;
-      expect(derivedKey("Floors", level)! < walls).toBe(true);
-      expect(walls < ceilings).toBe(true);
-      expect(ceilings < furniture).toBe(true);
-    }
+  it("puts each trade the right number of levels behind the structure", () => {
+    expect(workingLevel("envelope", today)).toBe(8);
+    expect(workingLevel("walls", today)).toBe(7);
+    expect(workingLevel("finishes", today)).toBe(6);
+    expect(workingLevel("mep", today)).toBe(6);
+    expect(workingLevel("specialty", today)).toBe(5);
+    expect(workingLevel("furniture", today)).toBe(4);
   });
 
-  it("moves upward floor by floor", () => {
-    expect(derivedKey("Walls", 3)! < derivedKey("Walls", 12)!).toBe(true);
+  it("starts from the ground and rises over time", () => {
+    expect(levelAt(buildStart())).toBe(0);
+    const later = new Date(today.getTime() + 60 * DAY);
+    expect(levelAt(later)).toBeGreaterThan(TODAY_LEVEL);
   });
 
-  it("leaves unknown trades undated", () => {
-    expect(derivedKey("Rooms", 4)).toBeNull();
+  it("finishes with every element installed", () => {
+    const after = new Date(buildFinish().getTime() + DAY);
+    expect(levelAt(after)).toBe(MAX_LEVEL);
+    const p = progressAsOf(after);
+    expect(p.installed).toBe(p.total);
   });
 });
 
-describe("progress with derived dates", () => {
-  it("counts the structure and reaches 100% after the last install", () => {
-    const [y, m, d] = BIM_RANGE.last.split("-").map(Number);
-    const after = new Date(zonedMidnight(y, m, d, "America/Denver").getTime() + 120 * 86_400_000);
-    const p = progressAsOf(after);
-    expect(p.packages.some((k) => k.label === "Structure")).toBe(true);
-    expect(p.installed).toBe(p.total);
+describe("today's work", () => {
+  it("is one activity per trade, on its working level, at or below level 8", () => {
+    const acts = bimActivities(today);
+    expect(acts.length).toBeGreaterThanOrEqual(5);
+    for (const a of acts) {
+      const level = Number(a.bimWhere?.match(/BldgLevel = (\d+)/)?.[1]);
+      expect(level).toBeLessThanOrEqual(TODAY_LEVEL);
+      expect(a.name).toContain(`level ${level}`);
+    }
+    expect(acts.find((a) => a.type === "curtain-wall")?.name).toContain("level 8");
+  });
+
+  it("counts progress below each trade's working level", () => {
+    const p = progressAsOf(today);
+    expect(p.installed).toBeGreaterThan(0);
+    expect(p.installed).toBeLessThan(p.total);
   });
 });

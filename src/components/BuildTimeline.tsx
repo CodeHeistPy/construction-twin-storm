@@ -1,13 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { SITE } from "../config/site";
-import { BIM_RANGE, buildStart } from "../lib/bim";
-import { zonedMidnight } from "../lib/time";
+import { buildFinish, buildStart } from "../lib/bim";
 
 const DAY = 86_400_000;
-const midnight = (key: string) => {
-  const [y, m, d] = key.split("-").map(Number);
-  return zonedMidnight(y, m, d, SITE.timeZone);
-};
 
 /** Weeks relative to today, never a calendar date (dates aren't the story). */
 function relLabel(day: Date, today: Date): string {
@@ -35,7 +29,7 @@ interface Props {
 export default function BuildTimeline({ today, value, onChange, autoplay = true, onPlayingChange }: Props) {
   // From the first structural level (ground up), not the first dated install.
   const start = useMemo(() => buildStart(), []);
-  const end = useMemo(() => midnight(BIM_RANGE.last), []);
+  const end = useMemo(() => buildFinish(), []);
   const total = Math.round((end.getTime() - start.getTime()) / DAY);
   const at = Math.round((value.getTime() - start.getTime()) / DAY);
   const todayAt = Math.round((today.getTime() - start.getTime()) / DAY);

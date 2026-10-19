@@ -45,7 +45,7 @@ export default function ProgressPanel({ twin, endOfDay = false, asOf }: { twin: 
             <b>{installed.toLocaleString()}</b> of {p.total.toLocaleString()} tracked parts
           </div>
           {asOf && levelAt(asOf) < MAX_LEVEL && (
-            <div className="today">Structure rising: level {Math.max(0, levelAt(asOf) + 1)} of {MAX_LEVEL}</div>
+            <div className="today">Structure rising: level {Math.max(0, levelAt(asOf))} of {MAX_LEVEL}</div>
           )}
           {endOfDay ? (
             <>

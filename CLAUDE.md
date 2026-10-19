@@ -42,18 +42,20 @@ conflicts; ground stays opaque, the presenter uses the **Slice** tool) →
 camera; orbit keeps its framing) → *What could change it* (inserted by the app,
 no slide: camera and layers stay, just the weather notification) → **Schedule
 Adjustment** (decision: 11 activities, re-plan + notify). No weather slider.
-Activities: real BIM dates (4), today's DERIVED work (interior walls L7) and 7
+Activities: one per trade on its working level (levels 4-8) and 7
 SAMPLE site activities placed on real assets (Building 1 faces/core, podium,
 storm MH 2835760). BIM markers are placed on their components by client-side
 sublayer queries once the view settles (4 s timeout, fallback offsets).
 4D pace: 3 days per 1.1 s (~40 s to Today); space bar pauses.
-4D: ~3,600 Building 1 elements have NO install date (all structure, ~1,100
-curtain wall, ~70 furniture). The app DERIVES one by BldgLevel + trade
-(`lib/bim.ts` derivedKey; user 2026-10-20, standard high-rise sequence:
-structure level by level over 8 weeks before the first dated install, then each
-floor: curtain wall close-in, walls +7d, rails +14d, doors +21d, ceilings +28d,
-MEP +35d, specialty +42d, casework +49d, furniture +63d). Real dates always win.
-Used by the 4D, renderers and progress %. DERIVED: say so if asked.
+4D is LEVEL-DRIVEN (user, 2026-10-20: "keep building level in mind ...
+everything going up to only level 8"). `lib/bim.ts` TRADES: the structure rises
+a level at a time and is on **level 8 today** (demo day); each trade follows a
+fixed number of levels behind (curtain wall 0, interior walls/railings 1,
+doors/ceilings/MEP 2, specialty/casework 3, furniture 4). Nothing above level 8
+today. The model's Installation_Date values are NOT used for sequencing (they
+don't follow the levels); counts per level come from the BldgLevel statistics.
+Today's BIM activities = each trade on its working level (bimWhere
+`BldgLevel = n`). Today's real curtain wall parts do sit at level 8.
 Pacing: a week per step every 0.9 s, gentle orbit (faster starves redraws;
 one renderer step takes ~0.45 s to settle).
 Every block must tie to an outcome (user: "keep me honest").

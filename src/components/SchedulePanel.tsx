@@ -78,7 +78,7 @@ export default function SchedulePanel({ twin, selectedId, onSelect, decisions = 
         </>
       )}
       <p className="footnote">
-        BIM work from Building 1 install dates. Shift hours, sample items and stop-work limits are placeholders.
+        Building 1 work follows a level-by-level sequence (structure on level 8 today). Shift hours, sample items and stop-work limits are placeholders.
       </p>
     </aside>
   );
