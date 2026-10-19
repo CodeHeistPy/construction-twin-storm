@@ -3,13 +3,14 @@ import { buildFinish, buildStart } from "../lib/bim";
 
 const DAY = 86_400_000;
 
-/** Weeks relative to today, never a calendar date (dates aren't the story). */
-function relLabel(day: Date, today: Date): string {
-  const days = Math.round((day.getTime() - today.getTime()) / DAY);
-  if (days === 0) return "Today";
-  const w = Math.round(Math.abs(days) / 7);
-  if (w === 0) return days < 0 ? `${-days} days ago` : `In ${days} days`;
-  return days < 0 ? `${w} wk ago` : `In ${w} wk`;
+/**
+ * Days elapsed since the build started: counts forward, so the build-out
+ * reads as progress (user, 2026-10-20), never a calendar date.
+ */
+function elapsedLabel(day: Date, start: Date, today: Date): string {
+  const n = Math.max(0, Math.round((day.getTime() - start.getTime()) / DAY));
+  const isToday = Math.round((day.getTime() - today.getTime()) / DAY) === 0;
+  return `${n} day${n === 1 ? "" : "s"} elapsed${isToday ? " · Today" : ""}`;
 }
 
 interface Props {
@@ -115,7 +116,7 @@ export default function BuildTimeline({ today, value, onChange, autoplay = true,
           <span>Finish</span>
         </div>
       </div>
-      <div className="when">{relLabel(value, today)}</div>
+      <div className="when">{elapsedLabel(value, start, today)}</div>
     </div>
   );
 }

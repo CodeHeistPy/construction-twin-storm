@@ -237,7 +237,7 @@ button.ghost { background: transparent; }
 .build-timeline input { width: 100%; accent-color: var(--accent); }
 .build-timeline .today-mark { position: absolute; top: -6px; width: 2px; height: 22px; background: var(--go); box-shadow: 0 0 8px var(--go); pointer-events: none; }
 .build-timeline .ends { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
-.build-timeline .when { min-width: 86px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.build-timeline .when { min-width: 170px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* ---- Utility conflicts ---- */
 .conflict-hero { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 12px;
