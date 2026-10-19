@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type SceneView from "@arcgis/core/views/SceneView";
 import type WebScene from "@arcgis/core/WebScene";
 import type Slide from "@arcgis/core/webscene/Slide";
@@ -53,6 +53,10 @@ export default function App() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [index, setIndex] = useState(-1);
   const [behaviour, setBehaviour] = useState<StopBehaviour>(PLAIN);
+  // What the 3D scene shows. Applied only once a slide's camera has landed, so
+  // re-rendering the building / pipes / markers never stutters the flight.
+  const [sceneMode, setSceneMode] = useState(PLAIN.scene);
+  const goToken = useRef(0);
   const [applyLayers, setApplyLayers] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [camera, setCamera] = useState<CameraRequest>({ preset: "site", key: 0 });
@@ -111,17 +115,28 @@ export default function App() {
       if (b.hour !== undefined) twin.setHour(b.hour);
       if (b.replan !== undefined) twin.setReplanned(b.replan);
       if (b.scene.bim !== "timeline") setTimelineDay(twin.day);
+      const token = ++goToken.current;
       if (e.slide) {
-        // The slide owns camera, layers and ground; we re-show our own overlays.
+        // The slide owns camera, layers, ground and lighting, and flies at the
+        // SDK's own adaptive pace (as in Scene Viewer). We re-show our overlays
+        // and apply our scene changes once it lands.
         setApplyLayers(false);
-        e.slide
-          .applyTo(view, { duration: 3500 })
-          .then(() => restoreAppLayers(view))
-          .catch(() => undefined);
         restoreAppLayers(view);
+        e.slide
+          // A deliberate glide (the default is near-instant for short hops).
+          .applyTo(view, { speedFactor: 0.45, maxDuration: 4500 })
+          .then(() => {
+            restoreAppLayers(view);
+            if (goToken.current === token) setSceneMode(b.scene);
+          })
+          .catch(() => {
+            // Interrupted by the next click: that stop takes over.
+            if (goToken.current === token) setSceneMode(b.scene);
+          });
       } else if (e.rule) {
         // A camera-less stop (weather) leaves the previous slide's layers alone too.
         setApplyLayers(e.rule.builtIn.camera !== "none");
+        setSceneMode(b.scene);
         fly(e.rule.builtIn.camera);
       }
     },
@@ -142,13 +157,14 @@ export default function App() {
     return pick?.activity.id ?? null;
   }, [behaviour, twin.assessments]);
 
-  const timeline = behaviour.scene.bim === "timeline";
+  // The 4D build-out starts once the schedule slide has landed.
+  const timeline = sceneMode.bim === "timeline";
 
   return (
     <div className="app">
       <SceneCanvas
         twin={twin}
-        mode={behaviour.scene}
+        mode={sceneMode}
         focusId={focusId}
         selectedId={selectedId}
         onSelect={setSelectedId}
@@ -157,7 +173,7 @@ export default function App() {
         timelineDay={timelineDay}
         onView={setView}
         onConflicts={setConflicts}
-        orbit={building && behaviour.scene.bim === "timeline"}
+        orbit={building && timeline}
       />
 
       <header className="topbar">

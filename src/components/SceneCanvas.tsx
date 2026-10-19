@@ -630,7 +630,9 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
 
   // Sun follows the clock; scene weather follows conditions (only once the storm is in the story).
   useEffect(() => {
-    if (!view) return;
+    // Authored slides bring their own lighting and weather: don't override
+    // them (the sun used to jump to the app's clock on every slide).
+    if (!view || !applyLayers) return;
     const lighting = view.environment.lighting;
     if (lighting instanceof SunLighting) lighting.date = twin.clock;
     const w = twin.now;
@@ -646,7 +648,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     } else {
       view.environment.weather = new SunnyWeather({ cloudCover: 0.2 });
     }
-  }, [view, twin.clock, twin.now, mode.storm]);
+  }, [view, twin.clock, twin.now, mode.storm, applyLayers]);
 
   // Camera: presets, or the beat's focus activity. Targets are terrain-sampled
   // (a missing z means sea level, ~1,600 m under Denver). The first shot jumps.
@@ -735,7 +737,9 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
         // Keep camera targets above the presenter card.
         bottom: presenter ? window.innerHeight - presenter.top + gap : 0,
       };
-      view.padding = padding;
+      // Authored slides were framed full-screen in Scene Viewer: padding would
+      // shift that framing (and re-centre mid-flight as panels come and go).
+      view.padding = applyLayers ? padding : { left: 0, right: 0, top: 0, bottom: 0 };
       // Slotted components (the expands) ignore view.padding; offset via CSS.
       const scene = document.querySelector<HTMLElement>(".scene");
       scene?.style.setProperty("--ui-left", `${padding.left}px`);
