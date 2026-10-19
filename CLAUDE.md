@@ -7,7 +7,10 @@ do we tell the crews?*
 
 ## Decisions made (with the user)
 - New standalone repo, Vite + React + TS, SDK 5.1.27, deploys to GitHub Pages
-  via `.github/workflows/deploy.yml`.
+  via `.github/workflows/deploy.yml` on every push to main (~2-3 min).
+  **Live:** https://codeheistpy.github.io/construction-twin-storm/ (repo
+  github.com/CodeHeistPy/construction-twin-storm, public; first published 2026-10-19).
+  Push only with the user's OK: every push goes live.
 - Storm: **scripted by default** (repeatable on stage); live Open-Meteo forecast
   is an optional toggle, applied hour-for-hour to the demo day.
 - Decisions: **deterministic rules engine** (`src/domain/rules.ts`) plus an AI
