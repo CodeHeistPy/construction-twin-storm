@@ -52,12 +52,19 @@ sublayer queries once the view settles (4 s timeout, fallback offsets).
 4D is LEVEL-DRIVEN (user, 2026-10-20: "keep building level in mind ...
 everything going up to only level 8"). `lib/bim.ts` TRADES: the structure rises
 a level at a time and is on **level 8 today** (demo day); each trade follows a
-fixed number of levels behind (curtain wall 0, interior walls/railings 1,
-doors/ceilings/MEP 2, specialty/casework 3, furniture 4). Nothing above level 8
+fixed number of levels behind (curtain wall 1, so a storey is clad only once
+its floor is in (user); interior walls/railings 1, doors/ceilings/MEP 2,
+specialty/casework 3, furniture 4). Nothing above level 8
 today. The model's Installation_Date values are NOT used for sequencing (they
 don't follow the levels); counts per level come from the BldgLevel statistics.
+**Curtain wall exception:** multi-storey curtain walls are tagged to their BASE
+level (769 panels on "level 3" span 3-7, 776 on "level 9" span 9-13), so panels
+and mullions use their REAL storey, measured from geometry (client-side extents
+vs. floor slab heights) into `src/data/curtain-wall-storeys.json` (OBJECTID_1
+runs; the renderer binary-searches them in Arcade). Re-measure if the model is
+republished. `InstanceElev`/`BldgLevel_Elev` give the wall's base, not the panel's.
 Today's BIM activities = each trade on its working level (bimWhere
-`BldgLevel = n`). Today's real curtain wall parts do sit at level 8.
+`BldgLevel = n`); today's curtain wall is level 7.
 Pacing: a week per step every 0.9 s, gentle orbit (faster starves redraws;
 one renderer step takes ~0.45 s to settle).
 Every block must tie to an outcome (user: "keep me honest").

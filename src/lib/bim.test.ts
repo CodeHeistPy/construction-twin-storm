@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { demoDay } from "../config/site";
+import curtainWallStoreys from "../data/curtain-wall-storeys.json";
 import { bimActivities, buildFinish, buildStart, levelAt, MAX_LEVEL, progressAsOf, TODAY_LEVEL, TRADES, workingLevel } from "./bim";
 
 const DAY = 86_400_000;
@@ -12,12 +13,30 @@ describe("level-driven schedule", () => {
   });
 
   it("puts each trade the right number of levels behind the structure", () => {
-    expect(workingLevel("envelope", today)).toBe(8);
+    expect(workingLevel("envelope", today)).toBe(7);
     expect(workingLevel("walls", today)).toBe(7);
     expect(workingLevel("finishes", today)).toBe(6);
     expect(workingLevel("mep", today)).toBe(6);
     expect(workingLevel("specialty", today)).toBe(5);
     expect(workingLevel("furniture", today)).toBe(4);
+  });
+
+  it("only clads a storey once its floor is in", () => {
+    for (let d = buildStart().getTime(); d < buildFinish().getTime(); d += 3 * DAY) {
+      const day = new Date(d);
+      // Curtain wall installed on storey s => the structure is past s.
+      expect(workingLevel("envelope", day)).toBeLessThan(workingLevel("structure", day));
+    }
+  });
+
+  it("counts the curtain wall by its real storey, nothing lost", () => {
+    const after = new Date(buildFinish().getTime() + DAY);
+    const cw = progressAsOf(after).packages.find((p) => p.label === "Curtain wall")!;
+    expect(cw.total).toBe(1994 + 5057); // panels + mullions
+    // Spread up the building, not 769 panels on "level 3" and 776 on "level 9".
+    const panels = curtainWallStoreys.sublayers.CurtainWallPanels.counts as Record<string, number>;
+    expect(Math.max(...Object.values(panels))).toBeLessThan(200);
+    expect(panels["7"]).toBeGreaterThan(100);
   });
 
   it("starts from the ground and rises over time", () => {
@@ -43,7 +62,7 @@ describe("today's work", () => {
       expect(level).toBeLessThanOrEqual(TODAY_LEVEL);
       expect(a.name).toContain(`level ${level}`);
     }
-    expect(acts.find((a) => a.type === "curtain-wall")?.name).toContain("level 8");
+    expect(acts.find((a) => a.type === "curtain-wall")?.name).toContain("level 7");
   });
 
   it("counts progress below each trade's working level", () => {

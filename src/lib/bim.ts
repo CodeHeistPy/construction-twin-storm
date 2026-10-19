@@ -1,4 +1,5 @@
 import bimSchedule from "../data/bim-schedule.json";
+import curtainWallStoreys from "../data/curtain-wall-storeys.json";
 import { SITE, demoDay } from "../config/site";
 import type { Activity, ActivityType, Decision } from "../domain/types";
 import { atHour, zonedMidnight } from "./time";
@@ -16,7 +17,9 @@ export type TodayClass = Decision | "rescheduled" | "scheduled" | "hidden" | "do
 //   The structure rises one level at a time from the build start; on the demo
 //   day ("today") it is working level 8. Each trade follows a fixed number of
 //   levels behind it:
-//     structure, curtain wall .... level 8 today   (0 behind)
+//     structure .................. level 8 today   (0 behind)
+//     curtain wall ............... level 7         (1: a storey's panels go
+//                                                  on once its floor is in)
 //     interior walls, railings ... level 7         (1)
 //     doors, ceilings, MEP ....... level 6         (2)
 //     specialty, casework ........ level 5         (3)
@@ -24,8 +27,11 @@ export type TodayClass = Decision | "rescheduled" | "scheduled" | "hidden" | "do
 //   Nothing above level 8 exists today.
 //
 // Element counts per level come from the model's BldgLevel statistics
-// (scripts/extract-bim-schedule.mjs -> levels). Today's real curtain wall
-// parts do sit at level 8 (~31-35 m up), which this model matches.
+// (scripts/extract-bim-schedule.mjs -> levels). The curtain wall is the
+// exception: its multi-storey walls are tagged to their BASE level (769 panels
+// on "level 3" really span levels 3-7, likewise "level 9" spans 9-13), so each
+// panel and mullion uses the storey it actually sits on, measured from its
+// geometry (data/curtain-wall-storeys.json).
 // =============================================================================
 
 export const BIM_LAYER_TITLE = bimSchedule.source.layerTitle;
@@ -56,7 +62,7 @@ interface Trade {
 /** ⚠️ ASSUMPTION: trade order and lags are a standard high-rise sequence. */
 export const TRADES: Trade[] = [
   { key: "structure", label: "Structure", work: "structural frame", type: "steel-erection", crew: "Ironworkers", lag: 0, sublayers: ["StructuralColumns", "Floors", "Stairs", "Roofs"] },
-  { key: "envelope", label: "Curtain wall", work: "curtain wall", type: "curtain-wall", crew: "Glazing", lag: 0, sublayers: ["CurtainWallPanels", "CurtainWallMullions"] },
+  { key: "envelope", label: "Curtain wall", work: "curtain wall", type: "curtain-wall", crew: "Glazing", lag: 1, sublayers: ["CurtainWallPanels", "CurtainWallMullions"] },
   { key: "walls", label: "Interior walls", work: "interior walls and stair railings", type: "interior", crew: "Drywall / framing", lag: 1, sublayers: ["Walls", "StairsRailing"] },
   { key: "finishes", label: "Doors & ceilings", work: "doors and ceilings", type: "interior", crew: "Carpentry / ceilings", lag: 2, sublayers: ["Doors", "Ceilings"] },
   { key: "mep", label: "MEP fixtures", work: "lighting, fire protection and plumbing", type: "interior", crew: "MEP", lag: 2, sublayers: ["LightingFixtures", "FireProtection", "PlumbingFixtures"] },
@@ -130,9 +136,37 @@ export function buildFinish(): Date {
   return new Date(buildStart().getTime() + (MAX_LEVEL + maxLag + 1) * daysPerLevel() * DAY_MS);
 }
 
-/** Element counts per level for a sublayer (model statistics). */
+type StoreyTable = { idField: string; counts: Record<string, number>; runs: [number, number, number][] };
+/** Curtain wall parts by their real storey (measured), keyed by sublayer. */
+const STOREYS = curtainWallStoreys.sublayers as unknown as Record<string, StoreyTable>;
+
+/** Element counts per level for a sublayer (model statistics; curtain wall by real storey). */
 const levelCounts = (sublayer: string): Record<string, number> =>
-  ((bimSchedule as { levels?: Record<string, Record<string, number>> }).levels ?? {})[sublayer] ?? {};
+  STOREYS[sublayer]?.counts ?? ((bimSchedule as { levels?: Record<string, Record<string, number>> }).levels ?? {})[sublayer] ?? {};
+
+/**
+ * Arcade setting `lv` to a curtain wall part's real storey: a binary search of
+ * the measured id runs, falling back to BldgLevel for parts within one storey.
+ * Built once per sublayer; only the working level changes per 4D step.
+ */
+const storeyArcade = new Map(
+  Object.entries(STOREYS).map(([name, t]) => [
+    name,
+    `
+var S = [${t.runs.map((r) => r[0]).join(",")}];
+var E = [${t.runs.map((r) => r[1]).join(",")}];
+var L = [${t.runs.map((r) => r[2]).join(",")}];
+var id = $feature.${t.idField};
+var lo = 0;
+var hi = Count(S) - 1;
+while (lo <= hi) {
+  var mid = Floor((lo + hi) / 2);
+  if (id < S[mid]) { hi = mid - 1; }
+  else if (id > E[mid]) { lo = mid + 1; }
+  else { lv = L[mid]; break; }
+}`,
+  ]),
+);
 
 /**
  * Arcade classifying an element by its level against the trade's working level
@@ -150,7 +184,7 @@ export function statusArcade(day: Date, todayClass: TodayClass, sublayer?: strin
   return `
 var lv = null;
 if (HasKey($feature, "BldgLevel")) { lv = $feature.BldgLevel; }
-if (IsEmpty(lv)) { return "upcoming"; }
+if (IsEmpty(lv)) { return "upcoming"; }${storeyArcade.get(sublayer!) ?? ""}
 if (lv < ${working}) { return "installed"; }
 if (lv == ${working}) { return "today-${todayClass}"; }
 return "upcoming";
