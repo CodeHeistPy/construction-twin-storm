@@ -16,6 +16,7 @@ import type BuildingSceneLayer from "@arcgis/core/layers/BuildingSceneLayer";
 import type BuildingComponentSublayer from "@arcgis/core/layers/buildingSublayers/BuildingComponentSublayer";
 import WebScene from "@arcgis/core/WebScene";
 import UniqueValueRenderer from "@arcgis/core/renderers/UniqueValueRenderer";
+import * as webMercatorUtils from "@arcgis/core/geometry/support/webMercatorUtils";
 import * as reactiveUtils from "@arcgis/core/core/reactiveUtils";
 import { SITE, WEBSCENE_ID } from "../config/site";
 import type { CameraPreset, SceneMode } from "../config/tour";
@@ -133,6 +134,9 @@ function markerStatus(mode: SceneMode, decision: Decision, replanned: boolean): 
   return replanned && decision === "postpone" ? "rescheduled" : decision;
 }
 
+/** How far below grade a saved horizontal slice is dropped on the utilities stop (m). */
+const SLICE_BELOW_GRADE_M = 1.5;
+
 /** Envelope sublayers made see-through when the focus work is inside the building. */
 const ENVELOPE = ["Walls", "CurtainWallPanels", "CurtainWallMullions", "Roofs"];
 
@@ -209,6 +213,8 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
   onSelectRef.current = onSelect;
   const explorerRef = useRef<BuildingExplorerElement>(null);
   const sliceRef = useRef<SliceElement>(null);
+  const undergroundRef = useRef(mode.underground);
+  undergroundRef.current = mode.underground;
 
   // A slide can carry its own slice (Scene Viewer saves it in the slide's
   // elements). Hand that slice to the Slice tool so the presenter can move /
@@ -227,11 +233,48 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       for (const l of utilitiesRef.current) {
         if (!slice.excludedLayers.includes(l)) slice.excludedLayers.add(l);
       }
+      // On the utilities stop, drop a horizontal saved slice to just below
+      // grade (user, 2026-10-20): the slide's plane sat ~15 m up, cutting the
+      // buildings but not the ground. Footprint, heading and size are kept.
+      const shape = slice.shape;
+      if (undergroundRef.current && shape?.position && Math.abs(shape.tilt) < 5 && !lowered.has(slice)) {
+        lowered.add(slice);
+        const pos = shape.position;
+        // The ground slopes across the footprint, so sample a 3x3 grid over the
+        // plane (its width/height are in the position's map units, rotated by
+        // its heading) and go just under the LOWEST point.
+        const r = ((shape.heading ?? 0) * Math.PI) / 180;
+        const samples: Promise<Point>[] = [];
+        for (const u of [-0.5, 0, 0.5])
+          for (const w of [-0.5, 0, 0.5]) {
+            const dx = u * shape.width;
+            const dy = w * shape.height;
+            const pt = pos.clone();
+            pt.x = pos.x + dx * Math.cos(r) + dy * Math.sin(r);
+            pt.y = pos.y - dx * Math.sin(r) + dy * Math.cos(r);
+            const ll = webMercatorUtils.webMercatorToGeographic(pt) as Point;
+            samples.push(onGround(view, ll.longitude!, ll.latitude!, 0));
+          }
+        Promise.all(samples).then((pts) => {
+          const zs = pts.map((g) => g.z).filter((z): z is number => z !== undefined && Number.isFinite(z));
+          if (!zs.length) return;
+          const lowest = Math.min(...zs);
+          if ((pos.z ?? 0) < lowest - SLICE_BELOW_GRADE_M) return; // already below grade
+          const next = shape.clone();
+          const p = pos.clone();
+          p.z = lowest - SLICE_BELOW_GRADE_M;
+          next.position = p;
+          slice.shape = next;
+        });
+      }
     };
+    const lowered = new WeakSet<object>();
     sync();
     const h = view.analyses.on("change", sync);
     return () => h.remove();
-  }, [view, loaded]);
+    // Re-run on entering the utilities stop too (the slide may add its slice
+    // first); the "already below grade" check makes repeats harmless.
+  }, [view, loaded, mode.underground]);
   /** Activity id -> where its components actually are in Building 1 (client-side query). */
   const [placed, setPlaced] = useState<Map<string, Activity["location"]>>(new Map());
   const located = (a: Activity): Activity => ({ ...a, location: placed.get(a.id) ?? a.location });

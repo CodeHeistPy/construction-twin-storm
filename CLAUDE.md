@@ -131,3 +131,8 @@ Re-run it after the model is republished.
   goTo animate:false every frame and would strand a flight mid-way).
 - Per-sublayer BldgLevel counts come from the layer statistics (extraction
   script `levels`). The tile index featureCount overcounts; don't use it.
+- **Utilities slide slice:** the slide's saved slice (elements.analyses) is handed to
+  the Slice tool; utility layers are in its excludedLayers (a slice hides everything
+  on the cut side); a horizontal saved plane is dropped to 1.5 m under the LOWEST
+  ground across its footprint (3x3 samples), keeping footprint and heading.
+  Utility site-copies keep the original layer ids (slides list layers by id).
