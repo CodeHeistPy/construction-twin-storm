@@ -74,11 +74,6 @@ export default function ConditionsPanel({ twin }: { twin: Twin }) {
           <span>12a</span>
         </div>
       </div>
-      <p className="footnote">
-        {twin.source === "scripted"
-          ? "Scripted storm for the demo, not a real forecast."
-          : "Today's real Denver forecast (Open-Meteo), applied to the demo day hour by hour."}
-      </p>
     </aside>
   );
 }

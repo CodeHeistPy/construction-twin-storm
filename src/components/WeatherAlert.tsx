@@ -5,8 +5,9 @@ import { fmtHour, fmtPrecip, fmtWind } from "../lib/units";
 import type { Twin } from "../state/useTwin";
 
 /**
- * Incoming-weather alert, built from the forecast the app is using (scripted
- * or live). Not an official warning, and labelled as such.
+ * Incoming-weather alert, built from the forecast the app is using (the
+ * scripted storm). Not an official warning. The on-screen "scripted" notes
+ * were removed at the user's request (2026-10-20).
  */
 export default function WeatherAlert({ twin, onClose }: { twin: Twin; onClose: () => void }) {
   const alert = useMemo(() => {
@@ -45,7 +46,6 @@ export default function WeatherAlert({ twin, onClose }: { twin: Twin; onClose: (
         <p className="alert-impact">
           {alert.atRisk} of today's {twin.assessments.length} activities at risk.
         </p>
-        <span className="alert-source">{twin.source === "scripted" ? "Scripted demo forecast" : "Open-Meteo forecast"}</span>
       </div>
       <button type="button" className="ghost" onClick={onClose} aria-label="Dismiss alert">
         ✕
