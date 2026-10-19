@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { ArcgisBuildingExplorer, ArcgisExpand, ArcgisLayerList, ArcgisScene, ArcgisSlice } from "@arcgis/map-components-react";
 import type { ArcgisBuildingExplorer as BuildingExplorerElement } from "@arcgis/map-components/components/arcgis-building-explorer/customElement";
+import type { ArcgisSlice as SliceElement } from "@arcgis/map-components/components/arcgis-slice/customElement";
+import type SliceAnalysis from "@arcgis/core/analysis/SliceAnalysis";
 import Graphic from "@arcgis/core/Graphic";
 import GraphicsLayer from "@arcgis/core/layers/GraphicsLayer";
 import Point from "@arcgis/core/geometry/Point";
@@ -206,6 +208,22 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
   const explorerRef = useRef<BuildingExplorerElement>(null);
+  const sliceRef = useRef<SliceElement>(null);
+
+  // A slide can carry its own slice (Scene Viewer saves it in the slide's
+  // elements). Hand that slice to the Slice tool so the presenter can move /
+  // flip / clear it, instead of the tool starting a second, separate one.
+  useEffect(() => {
+    if (!view) return;
+    const sync = () => {
+      const slice = view.analyses.find((a) => a.type === "slice") as SliceAnalysis | undefined;
+      const tool = sliceRef.current;
+      if (slice && tool && tool.analysis !== slice) tool.analysis = slice;
+    };
+    sync();
+    const h = view.analyses.on("change", sync);
+    return () => h.remove();
+  }, [view]);
   /** Activity id -> where its components actually are in Building 1 (client-side query). */
   const [placed, setPlaced] = useState<Map<string, Activity["location"]>>(new Map());
   const located = (a: Activity): Activity => ({ ...a, location: placed.get(a.id) ?? a.location });
@@ -359,6 +377,8 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     if (!mode.underground) {
       ground.opacity = 1;
       ground.navigationConstraint = { type: "stay-above" };
+      // Don't carry the utilities slide's slice into the next stops.
+      view.analyses.removeMany(view.analyses.filter((a) => a.type === "slice"));
       return;
     }
     // Ground stays opaque: the presenter reveals the pipes with the Slice tool
@@ -699,7 +719,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
         <ArcgisBuildingExplorer ref={explorerRef} />
       </ArcgisExpand>
       <ArcgisExpand slot="top-left" group="scene-tools" expandIcon="slice" expandTooltip="Slice">
-        <ArcgisSlice />
+        <ArcgisSlice ref={sliceRef} />
       </ArcgisExpand>
     </ArcgisScene>
   );

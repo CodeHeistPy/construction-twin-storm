@@ -217,6 +217,9 @@ export async function clipToSite(l: FeatureLayer): Promise<FeatureLayer> {
   });
   const { default: FL } = await import("@arcgis/core/layers/FeatureLayer");
   const copy = new FL({
+    // Same id as the original: authored slides list visible layers BY ID, so a
+    // new id would leave the copy hidden on every slide (it was, 2026-10-20).
+    id: l.id,
     title: l.title,
     source: res.features,
     fields: l.fields,
