@@ -22,7 +22,7 @@ import { SITE, WEBSCENE_ID } from "../config/site";
 import type { CameraPreset, SceneMode } from "../config/tour";
 import { roleOf } from "../config/layers";
 import type FeatureLayer from "@arcgis/core/layers/FeatureLayer";
-import { clipToSite, conflictGraphics, findConflicts, styleFor, styleSurface, styleUnderground, type Conflict } from "../lib/utilities";
+import { clipToSite, findConflicts, styleFor, styleSurface, styleUnderground, type Conflict } from "../lib/utilities";
 import type { Activity, Decision } from "../domain/types";
 import {
   BIM_LAYER_TITLE,
@@ -308,7 +308,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     if (!view || !map) return;
     const storm = new GraphicsLayer({ title: "Storm cell (scripted)", elevationInfo: { mode: "on-the-ground" } });
     const activities = new GraphicsLayer({ title: "Today's activities", elevationInfo: { mode: "relative-to-ground" } });
-    const conflicts = new GraphicsLayer({ title: "Utility conflicts", elevationInfo: { mode: "relative-to-ground" } });
+    const conflicts = new GraphicsLayer({ title: "Utility conflicts", listMode: "hide", elevationInfo: { mode: "relative-to-ground" } });
     map.addMany([storm, activities, conflicts]);
     layers.current = { activities, storm, conflicts };
     view.environment.lighting = new SunLighting({ directShadowsEnabled: true });
@@ -480,7 +480,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       if (cancelled) return;
       const found = conflictsRef.current;
       onConflictsRef.current?.(found);
-      layers.current?.conflicts.addMany(conflictGraphics(found));
+      // No 3D conflict flags (footprints / callouts): removed per user, 2026-10-20.
       // Highlight the conflicting pipes and shafts themselves.
       if (!view.highlights.some((h) => h.name === "conflict")) {
         view.highlights.add({ name: "conflict", color: "#ff3b30", haloOpacity: 1, fillOpacity: 0.55 } as never);
