@@ -190,6 +190,7 @@ export default function App() {
         onConflicts={setConflicts}
         orbit={building && timeline}
         allowUtilities={behaviour.scene.underground}
+        isolateBuilding={behaviour.scene.bim === "timeline"}
       />
 
       <header className="topbar">

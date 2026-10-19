@@ -14,6 +14,7 @@ import CloudyWeather from "@arcgis/core/views/3d/environment/CloudyWeather";
 import SunnyWeather from "@arcgis/core/views/3d/environment/SunnyWeather";
 import type BuildingSceneLayer from "@arcgis/core/layers/BuildingSceneLayer";
 import type BuildingComponentSublayer from "@arcgis/core/layers/buildingSublayers/BuildingComponentSublayer";
+import type BuildingGroupSublayer from "@arcgis/core/layers/buildingSublayers/BuildingGroupSublayer";
 import WebScene from "@arcgis/core/WebScene";
 import UniqueValueRenderer from "@arcgis/core/renderers/UniqueValueRenderer";
 import * as webMercatorUtils from "@arcgis/core/geometry/support/webMercatorUtils";
@@ -93,6 +94,8 @@ interface Props {
   orbit?: boolean;
   /** The stop being flown TO shows utilities (set at take-off, not landing). */
   allowUtilities?: boolean;
+  /** Hide the other buildings (2-4) so the 4D build-out has the stage (and the frame rate). */
+  isolateBuilding?: boolean;
   onConflicts?: (c: Conflict[]) => void;
 }
 
@@ -205,7 +208,7 @@ function shotFor(a: Activity): Shot {
   return { at: a.location, above: a.location.z, scale: 1000, tilt: 66, heading: a.viewHeading ?? 30 };
 }
 
-export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect, camera, applyLayers, timelineDay, onView, onConflicts, orbit = false, allowUtilities = false }: Props) {
+export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect, camera, applyLayers, timelineDay, onView, onConflicts, orbit = false, allowUtilities = false, isolateBuilding = false }: Props) {
   const [view, setView] = useState<SceneView | null>(null);
   const [loaded, setLoaded] = useState(false);
   // One WebScene for the life of the app. Letting <arcgis-scene> load it from
@@ -301,6 +304,8 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     structure: BuildingComponentSublayer[];
     hide: BuildingComponentSublayer[];
     original: Map<BuildingComponentSublayer, BuildingComponentSublayer["renderer"]>;
+    /** Groups holding tracked sublayers, with their as-authored visibility. */
+    groups: Map<BuildingGroupSublayer, boolean>;
   } | null>(null);
 
   // One-time setup once the view is ready: our layers, lighting, click.
@@ -382,7 +387,15 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
         const all = [...dated, ...structure, ...hide];
         // Each sublayer must be loaded first, or loading overwrites the renderer.
         await Promise.all(all.map((s) => s.load()));
-        bimRef.current = { layer: bsl, dated, structure, hide, original: new Map(all.map((s) => [s, s.renderer?.clone()])) };
+        // The scene ships some discipline groups off (Structural, Piping,
+        // Electrical), which hides their trades' parts however they're rendered.
+        const tracked = new Set<object>([...dated, ...structure]);
+        const groups = new Map<BuildingGroupSublayer, boolean>();
+        bsl.allSublayers.forEach((s) => {
+          if (s.type === "building-group" && (s as BuildingGroupSublayer).sublayers.some((c) => tracked.has(c)))
+            groups.set(s as BuildingGroupSublayer, s.visible);
+        });
+        bimRef.current = { layer: bsl, dated, structure, hide, groups, original: new Map(all.map((s) => [s, s.renderer?.clone()])) };
       }
       if (!cancelled) setLoaded(true);
     })();
@@ -410,6 +423,35 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     );
     return () => handles.forEach((h) => h.remove());
   }, [view, map, loaded, allowUtilities]);
+
+  // During the 4D build-out only Building 1 (and the site) draw: Buildings 2-4
+  // go off for focus and frame rate (hidden sublayers aren't fetched). The
+  // slide's flight re-applies its sublayer visibility after this runs, so keep
+  // them off with a watcher. On leaving, put back what the build-out slide had;
+  // the next slide then applies its own visibility on top.
+  useEffect(() => {
+    if (!map || !loaded || !isolateBuilding) return;
+    const tops = map.allLayers
+      .filter((l) => l.type === "building-scene" && roleOf(l.title) === "proposed")
+      .toArray()
+      .flatMap((l) => (l as BuildingSceneLayer).sublayers?.toArray() ?? []); // none if it failed to load
+    const authored = new Map(tops.map((s) => [s, s.visible]));
+    tops.forEach((s) => (s.visible = false));
+    const handles = tops.map((s) =>
+      reactiveUtils.watch(
+        () => s.visible,
+        (v) => {
+          if (!v) return;
+          authored.set(s, true);
+          s.visible = false;
+        },
+      ),
+    );
+    return () => {
+      handles.forEach((h) => h.remove());
+      authored.forEach((v, s) => (s.visible = v));
+    };
+  }, [map, loaded, isolateBuilding]);
 
   // Built-in stops set layer visibility by role. (Authored slides set their own.)
   // Group members follow their group (the scene ships the utilities off).
@@ -503,6 +545,13 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     // date, or a DERIVED one by level and trade where the model has none
     // (lib/bim.ts). The structure therefore rises from the ground up in 4D.
     const building = mode.bim === "timeline";
+    const design = mode.bim === "design";
+    for (const [group, authored] of bim.groups) group.visible = design ? authored : true;
+    // A Building Explorer level filter (left on level 8, say) draws that level
+    // solid, x-rays the ones below and hides the ones above, which swamps the
+    // progress colours. Clear it whenever the app is colouring Building 1.
+    const explorer = explorerRef.current;
+    if (!design && explorer && !explorer.levelDisabled) explorer.level = undefined;
     for (const sub of [...bim.dated, ...bim.structure]) {
       const name = sub.modelName ?? "";
       if (mode.bim === "design") {

@@ -138,13 +138,19 @@ const levelCounts = (sublayer: string): Record<string, number> =>
  * Arcade classifying an element by its level against the trade's working level
  * on `day`: installed (below) | today-<class> (the working level) | upcoming.
  * Plain number comparisons, so the 4D steps re-render quickly.
+ *
+ * Elements with NO level (the crown spires, some railings, every plumbing
+ * fixture) aren't in the tracked counts and would otherwise read as level 0,
+ * i.e. standing above level 8 from day one. They stay hidden.
  */
 export function statusArcade(day: Date, todayClass: TodayClass, sublayer?: string): string {
   const trade = sublayer ? tradeOf.get(sublayer) : undefined;
   if (!trade) return `return "nodate";`;
   const working = workingLevel(trade.key, day);
   return `
-var lv = IIf(HasKey($feature, "BldgLevel"), DefaultValue($feature.BldgLevel, 0), 0);
+var lv = null;
+if (HasKey($feature, "BldgLevel")) { lv = $feature.BldgLevel; }
+if (IsEmpty(lv)) { return "upcoming"; }
 if (lv < ${working}) { return "installed"; }
 if (lv == ${working}) { return "today-${todayClass}"; }
 return "upcoming";

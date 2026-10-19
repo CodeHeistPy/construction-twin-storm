@@ -125,7 +125,14 @@ Re-run it after the model is republished.
 - **A failed ground layer stalls everything ground-relative** (layer views
   never finish). SceneCanvas removes failed ground layers at load.
 - `slide.applyTo` hides every layer not in the slide, including ours:
-  `restoreAppLayers(view)` re-shows them afterwards.
+  `restoreAppLayers(view)` re-shows them afterwards. It also re-applies BSL
+  **sublayer** visibility, asynchronously, so hiding Buildings 2-4 during the
+  4D needs a watcher (`isolateBuilding`).
+- A **Building Explorer level filter** (e.g. left on level 8) applies to every
+  BSL and overrides our renderers: the 4D showed nothing. SceneCanvas clears it
+  (`explorer.level = undefined`) whenever the app colours Building 1.
+- Building 1 elements with a null `BldgLevel` (crown spires, some railings, all
+  plumbing fixtures) are outside the 13,935 tracked parts and stay hidden.
 - **Hidden parent group = suspended children.** The scene now groups the
   buildings under "Building Design"; built-in stops switch on parent groups of
   anything they show.
