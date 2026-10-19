@@ -10,7 +10,7 @@ import ConditionsPanel from "./components/ConditionsPanel";
 import ConflictsPanel from "./components/ConflictsPanel";
 import OutcomeCard from "./components/OutcomeCard";
 import ProgressPanel from "./components/ProgressPanel";
-import SceneCanvas, { restoreAppLayers, type CameraRequest } from "./components/SceneCanvas";
+import SceneCanvas, { hideUtilities, restoreAppLayers, type CameraRequest } from "./components/SceneCanvas";
 import SchedulePanel from "./components/SchedulePanel";
 import TourStrip, { type TourStop } from "./components/TourStrip";
 import WeatherAlert from "./components/WeatherAlert";
@@ -116,17 +116,31 @@ export default function App() {
       if (b.replan !== undefined) twin.setReplanned(b.replan);
       if (b.scene.bim !== "timeline") setTimelineDay(twin.day);
       const token = ++goToken.current;
+      // Overlays the next stop doesn't have go NOW (at take-off); new ones
+      // arrive when the camera lands. Otherwise the utilities stop's flags and
+      // pipes linger through the flight to the next slide.
+      setSceneMode((prev) => ({
+        ...prev,
+        underground: prev.underground && b.scene.underground,
+        markers: prev.markers && b.scene.markers,
+        storm: prev.storm && b.scene.storm,
+      }));
+      const keepUtilitiesOff = () => {
+        if (!b.scene.underground) hideUtilities(view);
+      };
       if (e.slide) {
         // The slide owns camera, layers, ground and lighting, and flies at the
         // SDK's own adaptive pace (as in Scene Viewer). We re-show our overlays
         // and apply our scene changes once it lands.
         setApplyLayers(false);
         restoreAppLayers(view);
-        e.slide
-          // A deliberate glide (the default is near-instant for short hops).
-          .applyTo(view, { speedFactor: 0.45, maxDuration: 4500 })
+        // A deliberate glide (the default is near-instant for short hops).
+        const flight = e.slide.applyTo(view, { speedFactor: 0.45, maxDuration: 4500 });
+        keepUtilitiesOff(); // the slide turns its layers on at take-off
+        flight
           .then(() => {
             restoreAppLayers(view);
+            keepUtilitiesOff();
             if (goToken.current === token) setSceneMode(b.scene);
           })
           .catch(() => {
@@ -136,6 +150,7 @@ export default function App() {
       } else if (e.rule) {
         // A camera-less stop (weather) leaves the previous slide's layers alone too.
         setApplyLayers(e.rule.builtIn.camera !== "none");
+        keepUtilitiesOff();
         setSceneMode(b.scene);
         fly(e.rule.builtIn.camera);
       }
@@ -174,6 +189,7 @@ export default function App() {
         onView={setView}
         onConflicts={setConflicts}
         orbit={building && timeline}
+        allowUtilities={behaviour.scene.underground}
       />
 
       <header className="topbar">

@@ -52,7 +52,20 @@ export const DECISION_COLORS: Record<Status, string> = {
 const APP_LAYER_TITLES = new Set(["Storm cell (scripted)", "Today's activities", "Utility conflicts"]);
 export function restoreAppLayers(view: SceneView): void {
   view.map?.layers.forEach((l) => {
-    if (APP_LAYER_TITLES.has(l.title ?? "")) l.visible = true;
+    // The conflicts layer is NOT re-shown here: it belongs to the utilities
+    // stop only (re-showing it on every slide made the flags flash).
+    if (APP_LAYER_TITLES.has(l.title ?? "") && l.title !== "Utility conflicts") l.visible = true;
+  });
+}
+
+/**
+ * Hide the utility networks (group + members). Authored slides after Current
+ * Utilities still list them as visible; outside the utilities stop they must
+ * stay off (user, 2026-10-20).
+ */
+export function hideUtilities(view: SceneView): void {
+  view.map?.allLayers.forEach((l) => {
+    if (l.type !== "graphics" && roleOf(l.title) === "utilities") l.visible = false;
   });
 }
 
@@ -78,6 +91,8 @@ interface Props {
   onView?: (view: SceneView) => void;
   /** Slowly orbit Building 1 (while the 4D build-out plays). */
   orbit?: boolean;
+  /** The stop being flown TO shows utilities (set at take-off, not landing). */
+  allowUtilities?: boolean;
   onConflicts?: (c: Conflict[]) => void;
 }
 
@@ -190,7 +205,7 @@ function shotFor(a: Activity): Shot {
   return { at: a.location, above: a.location.z, scale: 1000, tilt: 66, heading: a.viewHeading ?? 30 };
 }
 
-export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect, camera, applyLayers, timelineDay, onView, onConflicts, orbit = false }: Props) {
+export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect, camera, applyLayers, timelineDay, onView, onConflicts, orbit = false, allowUtilities = false }: Props) {
   const [view, setView] = useState<SceneView | null>(null);
   const [loaded, setLoaded] = useState(false);
   // One WebScene for the life of the app. Letting <arcgis-scene> load it from
@@ -213,6 +228,8 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
   onSelectRef.current = onSelect;
   const explorerRef = useRef<BuildingExplorerElement>(null);
   const sliceRef = useRef<SliceElement>(null);
+  const allowUtilitiesRef = useRef(allowUtilities);
+  allowUtilitiesRef.current = allowUtilities;
   const undergroundRef = useRef(mode.underground);
   undergroundRef.current = mode.underground;
 
@@ -374,6 +391,26 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     };
   }, [view, map]);
 
+  // Utilities only ever show on the utilities stop. Slides after it still list
+  // them as visible and switch them on part-way through their flight, so watch
+  // the layers and switch them straight back off (no flash).
+  useEffect(() => {
+    if (!view || !map || !loaded) return;
+    const nets = map.allLayers
+      .filter((l) => l.type !== "graphics" && roleOf(l.title) === "utilities")
+      .toArray();
+    if (!allowUtilities) nets.forEach((l) => (l.visible = false));
+    const handles = nets.map((l) =>
+      reactiveUtils.watch(
+        () => l.visible,
+        (v) => {
+          if (v && !allowUtilitiesRef.current) l.visible = false;
+        },
+      ),
+    );
+    return () => handles.forEach((h) => h.remove());
+  }, [view, map, loaded, allowUtilities]);
+
   // Built-in stops set layer visibility by role. (Authored slides set their own.)
   // Group members follow their group (the scene ships the utilities off).
   useEffect(() => {
@@ -425,7 +462,9 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       else styleSurface(fl, color);
     }
     layers.current?.conflicts.removeAll();
+    if (layers.current) layers.current.conflicts.visible = mode.underground;
     if (!mode.underground) {
+      hideUtilities(view);
       ground.opacity = 1;
       ground.navigationConstraint = { type: "stay-above" };
       // Don't carry the utilities slide's slice into the next stops.
