@@ -12,7 +12,6 @@ import OutcomeCard from "./components/OutcomeCard";
 import ProgressPanel from "./components/ProgressPanel";
 import SceneCanvas, { restoreAppLayers, type CameraRequest } from "./components/SceneCanvas";
 import SchedulePanel from "./components/SchedulePanel";
-import TimeScrubber from "./components/TimeScrubber";
 import TourStrip, { type TourStop } from "./components/TourStrip";
 import WeatherAlert from "./components/WeatherAlert";
 import type { Conflict } from "./lib/utilities";
@@ -26,6 +25,26 @@ interface Entry {
   rule?: StopRule;
   /** Present when the stop is an authored web scene slide. */
   slide?: Slide;
+}
+
+/**
+ * Authored slides, plus a camera-less stop for each `insertIfMissing` rule no
+ * slide covers, placed after the last slide of an earlier storyline rule
+ * (e.g. "What could change it" lands after "Construction Schedule").
+ */
+function withInserted(authored: Entry[]): Entry[] {
+  const out = [...authored];
+  const covered = new Set(authored.map((e) => e.rule?.key));
+  STOP_RULES.forEach((rule, ruleIndex) => {
+    if (!rule.insertIfMissing || covered.has(rule.key)) return;
+    const earlier = new Set(STOP_RULES.slice(0, ruleIndex).map((r) => r.key));
+    let at = 0;
+    out.forEach((e, i) => {
+      if (e.rule && earlier.has(e.rule.key)) at = i + 1;
+    });
+    out.splice(at, 0, { stop: { id: rule.key, title: rule.builtIn.title }, rule });
+  });
+  return out;
 }
 
 export default function App() {
@@ -67,7 +86,7 @@ export default function App() {
           console.info(`[tour] authored slides cover ${covered}/${STOP_RULES.length} stops (see SLIDES.md); using built-in stops`);
         setEntries(
           useAuthored
-            ? authored
+            ? withInserted(authored)
             : STOP_RULES.map((rule) => ({ stop: { id: rule.key, title: rule.builtIn.title }, rule })),
         );
       })
@@ -77,7 +96,7 @@ export default function App() {
     };
   }, [view]);
 
-  const fly = useCallback((preset: CameraPreset | "focus") => setCamera((c) => ({ preset, key: c.key + 1 })), []);
+  const fly = useCallback((preset: CameraPreset | "focus" | "none") => setCamera((c) => ({ preset, key: c.key + 1 })), []);
 
   const go = useCallback(
     (i: number) => {
@@ -101,7 +120,8 @@ export default function App() {
           .catch(() => undefined);
         restoreAppLayers(view);
       } else if (e.rule) {
-        setApplyLayers(true);
+        // A camera-less stop (weather) leaves the previous slide's layers alone too.
+        setApplyLayers(e.rule.builtIn.camera !== "none");
         fly(e.rule.builtIn.camera);
       }
     },
@@ -171,7 +191,6 @@ export default function App() {
 
       <div className="bottom">
         {timeline && <BuildTimeline key={index} today={twin.day} value={timelineDay} onChange={setTimelineDay} onPlayingChange={setBuilding} />}
-        {behaviour.conditions && <TimeScrubber twin={twin} />}
         <TourStrip
           stops={entries.map((e) => e.stop)}
           index={index}

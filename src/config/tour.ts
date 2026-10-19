@@ -58,8 +58,10 @@ export interface StopRule {
   /** Matched against the slide title. */
   match: RegExp;
   behaviour: StopBehaviour;
-  /** Used only when the scene has no matching slide yet. */
-  builtIn: { title: string; camera: CameraPreset | "focus" };
+  /** Used only when the scene has no matching slide yet. "none" = keep the camera where it is. */
+  builtIn: { title: string; camera: CameraPreset | "focus" | "none" };
+  /** With authored slides, still add this stop (camera-less) if no slide matches it. */
+  insertIfMissing?: boolean;
 }
 
 const LAYERS = {
@@ -79,19 +81,24 @@ const base = (layers: SceneMode["layers"], over: Partial<SceneMode> = {}): Scene
   ...over,
 });
 
-/** In scene order of the storyline. First match wins. */
+/**
+ * In storyline order (the user's slides, 2026-10-20): Development Site → Current
+ * Utilities → Current Design → Construction Schedule → [What could change it]
+ * → Schedule Adjustment. First match wins. A rule with `insertIfMissing` gets a
+ * camera-less stop of its own when no authored slide matches it.
+ */
 export const STOP_RULES: StopRule[] = [
+  {
+    key: "today",
+    match: /development site|there today|existing|reality/i,
+    behaviour: { scene: base(LAYERS.today), replan: false, hour: 7 },
+    builtIn: { title: "What's there today", camera: "site" },
+  },
   {
     key: "underground",
     match: /underground|utilit/i,
     behaviour: { scene: base(LAYERS.underground, { underground: true }), left: "conflicts", replan: false, hour: 7 },
     builtIn: { title: "What's underground", camera: "underground" },
-  },
-  {
-    key: "today",
-    match: /there today|existing|reality/i,
-    behaviour: { scene: base(LAYERS.today), replan: false },
-    builtIn: { title: "What's there today", camera: "site" },
   },
   {
     key: "design",
@@ -101,35 +108,30 @@ export const STOP_RULES: StopRule[] = [
   },
   {
     key: "schedule",
-    match: /when|schedule|4d|progress/i,
+    // Not "Schedule Adjustment": that's the decision stop.
+    match: /^(?!.*adjust).*(when|schedule|4d|progress)/i,
     behaviour: { scene: base(LAYERS.focus, { bim: "timeline" }), left: "progress", replan: false, hour: 7 },
     builtIn: { title: "When it will be there", camera: "building" },
   },
   {
     key: "weather",
     match: /change|weather|real-?time|storm/i,
-    behaviour: {
-      scene: base(LAYERS.focus, { bim: "decision", storm: true, markers: true }),
-      left: "schedule",
-      decisions: true,
-      conditions: true,
-      alert: true,
-      replan: false,
-      hour: 9,
-    },
-    builtIn: { title: "What could change it", camera: "storm" },
+    // Just the notification: no camera move, no storm overlay (user, 2026-10-20).
+    behaviour: { scene: base(LAYERS.focus, { bim: "scheduled", markers: true }), alert: true, replan: false, hour: 9 },
+    builtIn: { title: "What could change it", camera: "none" },
+    insertIfMissing: true,
   },
   {
     key: "decision",
-    match: /what we do|decision|re-?plan|act/i,
+    match: /adjust|what we do|decision|re-?plan/i,
     behaviour: {
-      scene: base(LAYERS.focus, { bim: "decision", storm: true, markers: true, focus: "postponed" }),
+      scene: base(LAYERS.focus, { bim: "decision", markers: true }),
       left: "schedule",
       decisions: true,
       conditions: true,
       hour: 9,
     },
-    builtIn: { title: "What we do about it", camera: "focus" },
+    builtIn: { title: "What we do about it", camera: "building" },
   },
 ];
 

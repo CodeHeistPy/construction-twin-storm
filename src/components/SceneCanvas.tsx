@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArcgisBuildingExplorer, ArcgisExpand, ArcgisLayerList, ArcgisScene } from "@arcgis/map-components-react";
+import { ArcgisBuildingExplorer, ArcgisExpand, ArcgisLayerList, ArcgisScene, ArcgisSlice } from "@arcgis/map-components-react";
 import type { ArcgisBuildingExplorer as BuildingExplorerElement } from "@arcgis/map-components/components/arcgis-building-explorer/customElement";
 import Graphic from "@arcgis/core/Graphic";
 import GraphicsLayer from "@arcgis/core/layers/GraphicsLayer";
@@ -25,6 +25,7 @@ import {
   BIM_LAYER_TITLE,
   BUILDING_1,
   DATED_SUBLAYERS,
+  dayKey,
   HIDE_DURING_BUILD,
   statusArcade,
   STRUCTURE_SUBLAYERS,
@@ -53,7 +54,8 @@ export function restoreAppLayers(view: SceneView): void {
 }
 
 export interface CameraRequest {
-  preset: CameraPreset | "focus";
+  /** "none" = leave the camera where it is. */
+  preset: CameraPreset | "focus" | "none";
   /** Bump to re-fly to the same preset. */
   key: number;
 }
@@ -204,6 +206,9 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
   const explorerRef = useRef<BuildingExplorerElement>(null);
+  /** Activity id -> where its components actually are in Building 1 (client-side query). */
+  const [placed, setPlaced] = useState<Map<string, Activity["location"]>>(new Map());
+  const located = (a: Activity): Activity => ({ ...a, location: placed.get(a.id) ?? a.location });
   const bimRef = useRef<{
     layer: BuildingSceneLayer;
     dated: BuildingComponentSublayer[];
@@ -356,7 +361,9 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       ground.navigationConstraint = { type: "stay-above" };
       return;
     }
-    ground.opacity = 0.35;
+    // Ground stays opaque: the presenter reveals the pipes with the Slice tool
+    // (user, 2026-10-20). Allow the camera below grade for the cut view.
+    ground.opacity = 1;
     ground.navigationConstraint = { type: "none" };
     (async () => {
       if (!conflictsRef.current) conflictsRef.current = await findConflicts(utilitiesRef.current);
@@ -429,6 +436,59 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     });
   }, [loaded, mode, focusId, twin.assessments, twin.day, twin.replanned, timelineDay]);
 
+  // Put each BIM activity's marker on its real components: query the loaded
+  // Building 1 sublayer views for that day's parts (dated) or the level's parts
+  // (derived), and use the top of their extent. Falls back to the configured spot.
+  useEffect(() => {
+    const bim = bimRef.current;
+    if (!view || !loaded || !bim || !mode.markers) return;
+    let cancelled = false;
+    (async () => {
+      // Client-side queries only see streamed-in parts: wait for the stop's
+      // camera to land and the view to finish loading (or give up after 8 s).
+      await Promise.race([
+        reactiveUtils.whenOnce(() => view.stationary && !view.updating),
+        new Promise((r) => setTimeout(r, 8000)),
+      ]);
+      if (cancelled) return;
+      const lv = (await view.whenLayerView(bim.layer)) as unknown as {
+        sublayerViews: { find(fn: (s: { sublayer: { modelName?: string } }) => boolean): { queryExtent(q: { where: string }): Promise<{ count: number; extent: { center: { longitude?: number; latitude?: number }; zmax?: number } | null }> } | undefined };
+      };
+      const next = new Map<string, Activity["location"]>();
+      for (const { activity: a } of twin.assessments) {
+        if (!a.bimSublayers?.length) continue;
+        const where = a.bimWhere ?? `${"Installation_Date"} = '${dayKey(twin.day).replace(/-/g, ".")}'`;
+        for (const name of a.bimSublayers) {
+          const sv = lv.sublayerViews.find((x) => x.sublayer.modelName === name);
+          if (!sv) continue;
+          try {
+            // Never let a slow query hold the markers up on stage.
+            const r = await Promise.race([
+              sv.queryExtent({ where }),
+              new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 4000)),
+            ]);
+            if (r.count && r.extent && r.extent.center.longitude !== undefined) {
+              const ground = await onGround(view, r.extent.center.longitude, r.extent.center.latitude!, 0);
+              next.set(a.id, {
+                longitude: r.extent.center.longitude,
+                latitude: r.extent.center.latitude!,
+                z: Math.max(2, (r.extent.zmax ?? 0) - (ground.z ?? 0)),
+              });
+              break;
+            }
+          } catch {
+            // keep the configured location
+          }
+        }
+      }
+      // Keep earlier finds if this pass found fewer (parts may have unloaded).
+      if (!cancelled) setPlaced((prev) => (next.size >= prev.size ? next : new Map([...prev, ...next])));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [view, loaded, twin.assessments, twin.day, mode.markers, camera]);
+
   // Activity markers.
   useEffect(() => {
     const layer = layers.current?.activities;
@@ -436,7 +496,8 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     layer.removeAll();
     if (!mode.markers) return;
     layer.addMany(
-      twin.assessments.map(({ activity: a, decision }) => {
+      twin.assessments.map(({ activity, decision }) => {
+        const a = located(activity);
         const selected = a.id === selectedId || a.id === focusId;
         const color = DECISION_COLORS[markerStatus(mode, decision, twin.replanned)];
         return new Graphic({
@@ -467,7 +528,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
         });
       }),
     );
-  }, [map, mode, twin.assessments, twin.replanned, selectedId, focusId]);
+  }, [map, mode, twin.assessments, twin.replanned, selectedId, focusId, placed]);
 
   // Scripted storm cell: outer rain shield + core, moving with the clock.
   useEffect(() => {
@@ -519,11 +580,11 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
   // Camera: presets, or the beat's focus activity. Targets are terrain-sampled
   // (a missing z means sea level, ~1,600 m under Denver). The first shot jumps.
   useEffect(() => {
-    if (!view) return;
+    if (!view || camera.preset === "none") return;
     let shot: Shot | undefined;
     if (camera.preset === "focus") {
       const a = twin.assessments.find((x) => x.activity.id === focusId)?.activity;
-      shot = a ? shotFor(a) : SHOTS.building;
+      shot = a ? shotFor(located(a)) : SHOTS.building;
     } else if (camera.preset === "storm" && twin.storm) {
       // Frame the site and wherever the storm is right now, looking toward it.
       const st = twin.storm;
@@ -547,9 +608,9 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
   // Fly to an activity picked in the panel or on the map.
   useEffect(() => {
     if (!view || !selectedId) return;
-    const a = twin.assessments.find((x) => x.activity.id === selectedId)?.activity;
-    if (!a) return;
-    const s = shotFor(a);
+    const found = twin.assessments.find((x) => x.activity.id === selectedId)?.activity;
+    if (!found) return;
+    const s = shotFor(located(found));
     onGround(view, s.at.longitude, s.at.latitude, s.above).then((target) =>
       view.goTo({ target, scale: s.scale, tilt: s.tilt, heading: s.heading }, { duration: 1500 }).catch(() => undefined),
     );
@@ -564,11 +625,12 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     // Start only once any camera flight has finished, so we never fight it.
     reactiveUtils
       .whenOnce(() => view.stationary && !view.animation)
-      .then(() => onGround(view, BUILDING_1.longitude, BUILDING_1.latitude, BUILDING_1.height / 2))
-      .then((target) => {
+      .then(() => {
       if (stopped) return;
+      // Orbit the point the shot is framed on, so an authored slide keeps its composition.
+      const target = view.center.clone();
       let heading = view.camera.heading;
-      const tilt = Math.min(72, Math.max(55, view.camera.tilt));
+      const tilt = view.camera.tilt;
       const scale = view.scale;
       const step = () => {
         if (stopped) return;
@@ -635,6 +697,9 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       </ArcgisExpand>
       <ArcgisExpand slot="top-left" group="scene-tools" expandIcon="organization" expandTooltip="Building Explorer">
         <ArcgisBuildingExplorer ref={explorerRef} />
+      </ArcgisExpand>
+      <ArcgisExpand slot="top-left" group="scene-tools" expandIcon="slice" expandTooltip="Slice">
+        <ArcgisSlice />
       </ArcgisExpand>
     </ArcgisScene>
   );

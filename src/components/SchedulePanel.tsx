@@ -105,7 +105,7 @@ function ActivityRow({
       <div className="row1">
         <span className="id">{x.id}</span>
         <span className="name">{x.name}</span>
-        <span className={`src ${x.source}`}>{x.source === "bim" ? "BIM" : "Sample"}</span>
+        <span className={`src ${x.source}`}>{x.source === "bim" ? "BIM" : x.source === "derived" ? "Derived" : "Sample"}</span>
       </div>
       <div className="row2">
         {ACTIVITY_LABELS[x.type]} · {x.zone} · {fmtTime(x.start)}–{fmtTime(x.end)}
@@ -164,7 +164,7 @@ function ScheduledOnly({
               <div className="row1">
                 <span className="id">{x.id}</span>
                 <span className="name">{x.name}</span>
-                <span className={`src ${x.source}`}>{x.source === "bim" ? "BIM" : "Sample"}</span>
+                <span className={`src ${x.source}`}>{x.source === "bim" ? "BIM" : x.source === "derived" ? "Derived" : "Sample"}</span>
               </div>
               <div className="row2">
                 {ACTIVITY_LABELS[x.type]} · {x.zone} · {fmtTime(x.start)}–{fmtTime(x.end)}

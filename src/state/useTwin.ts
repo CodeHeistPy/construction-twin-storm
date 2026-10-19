@@ -5,7 +5,7 @@ import { scriptedWeather, stormCellAt } from "../data/storm.scripted";
 import { replan } from "../domain/replan";
 import { activitiesOnDay, assessSchedule, weatherAt } from "../domain/rules";
 import type { ActivityAssessment, WeatherHour, WeatherSource } from "../domain/types";
-import { bimActivities } from "../lib/bim";
+import { bimActivities, derivedActivities } from "../lib/bim";
 import { fetchLiveWeather } from "../lib/liveWeather";
 import { atHour, todayIn, zonedMidnight } from "../lib/time";
 
@@ -57,7 +57,7 @@ export function useTwin() {
 
   // BIM install work for the day, plus clearly-labelled sample logistics.
   const activities = useMemo(
-    () => activitiesOnDay([...bimActivities(day), ...sampleSchedule(day)], day),
+    () => activitiesOnDay([...bimActivities(day), ...derivedActivities(day), ...sampleSchedule(day)], day),
     [day],
   );
 

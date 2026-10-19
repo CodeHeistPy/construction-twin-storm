@@ -345,12 +345,12 @@ function derivedTable(sublayer: string): string[] | null {
  * elements per level (from the model's BldgLevel statistics) minus dated ones,
  * spread across levels in proportion.
  */
-function derivedCounts(): { sublayer: string; key: string; count: number }[] {
+function derivedCounts(): { sublayer: string; key: string; count: number; level: number }[] {
   const levels = (bimSchedule as { levels?: Record<string, Record<string, number>> }).levels ?? {};
   const dated = new Map<string, number>();
   for (const counts of Object.values(bimSchedule.byDay as Record<string, Record<string, number>>))
     for (const [sub, n] of Object.entries(counts)) dated.set(sub, (dated.get(sub) ?? 0) + n);
-  const out: { sublayer: string; key: string; count: number }[] = [];
+  const out: { sublayer: string; key: string; count: number; level: number }[] = [];
   for (const [sub, byLevel] of Object.entries(levels)) {
     const total = Object.values(byLevel).reduce((a, b) => a + b, 0);
     const undated = Math.max(0, total - (dated.get(sub) ?? 0));
@@ -359,8 +359,47 @@ function derivedCounts(): { sublayer: string; key: string; count: number }[] {
       const key = derivedKey(sub, Number(lvl));
       if (!key) continue;
       const count = Math.round((n * undated) / total);
-      if (count) out.push({ sublayer: sub, key, count });
+      if (count) out.push({ sublayer: sub, key, count, level: Number(lvl) });
     }
   }
   return out;
+}
+
+const DERIVED_WORK: Record<string, { type: ActivityType; label: string; trade: string }> = {
+  Walls: { type: "interior", label: "interior walls", trade: "Drywall / framing" },
+  Ceilings: { type: "interior", label: "ceilings", trade: "Ceilings" },
+  CurtainWallPanels: { type: "curtain-wall", label: "curtain wall panels", trade: "Glazing" },
+  CurtainWallMullions: { type: "curtain-wall", label: "curtain wall mullions", trade: "Glazing" },
+  Furniture: { type: "interior", label: "furniture", trade: "FF&E" },
+};
+
+/**
+ * Today's DERIVED work: undated elements whose derived date is the demo day
+ * (e.g. level 7 interior walls). Each activity can find its own components
+ * via `bimWhere` (by level, no date). Tagged "Derived" in the UI.
+ */
+export function derivedActivities(day: Date): Activity[] {
+  const today = dayKey(day);
+  const hasDate = new Set(DATED_SUBLAYERS);
+  return derivedCounts()
+    .filter((d) => d.key === today && DERIVED_WORK[d.sublayer])
+    .map((d, i) => {
+      const w = DERIVED_WORK[d.sublayer];
+      return {
+        id: `DER-${String(i + 1).padStart(2, "0")}`,
+        name: `Install ${w.label}, level ${d.level} (${d.count} units)`,
+        type: w.type,
+        trade: w.trade,
+        zone: `Building 1, level ${d.level}`,
+        start: atHour(day, SHIFT.from),
+        end: atHour(day, SHIFT.to),
+        components: d.count,
+        location: { longitude: BUILDING_1.longitude, latitude: BUILDING_1.latitude, z: 30 },
+        source: "derived" as const,
+        bimSublayers: [d.sublayer],
+        bimWhere: hasDate.has(d.sublayer)
+          ? `(${BIM_DATE_FIELD} IS NULL OR ${BIM_DATE_FIELD} = '') AND BldgLevel = ${d.level}`
+          : `BldgLevel = ${d.level}`,
+      };
+    });
 }

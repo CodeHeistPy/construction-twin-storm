@@ -35,11 +35,18 @@ presenter calls out the building blocks verbally: **no block cues on screen**.
 The user authors the slides in Scene Viewer from **SLIDES.md**; the app matches
 slides by TITLE (`config/tour.ts` STOP_RULES) and adds data behaviour.
 Until >= 3 storyline stops are authored, built-in stops run (`?stops=slides|builtin` forces).
-Six stops (user, 2026-10-19; overview and "on track" removed): underground
-(Foundation: utility conflicts) → there today (Reality) → going to be there
-(Integration) → when (Simulation: 4D build-out, ground up + orbit) → what could
-change it (Real-time: weather; radar layer coming) → what we do (Decision:
-re-plan + notify, presenter clicks). Built-in stops run until >= 3 are authored.
+The user's own slides (2026-10-20), in order: **Development Site for Office
+Park** (reality, ortho) → **Current Utilities** (Foundation: pipes below grade +
+conflicts; ground stays opaque, the presenter uses the **Slice** tool) →
+**Current Design** → **Construction Schedule** (4D build-out on the slide's
+camera; orbit keeps its framing) → *What could change it* (inserted by the app,
+no slide: camera and layers stay, just the weather notification) → **Schedule
+Adjustment** (decision: 11 activities, re-plan + notify). No weather slider.
+Activities: real BIM dates (4), today's DERIVED work (interior walls L7) and 7
+SAMPLE site activities placed on real assets (Building 1 faces/core, podium,
+storm MH 2835760). BIM markers are placed on their components by client-side
+sublayer queries once the view settles (4 s timeout, fallback offsets).
+4D pace: 3 days per 1.1 s (~40 s to Today); space bar pauses.
 4D: ~3,600 Building 1 elements have NO install date (all structure, ~1,100
 curtain wall, ~70 furniture). The app DERIVES one by BldgLevel + trade
 (`lib/bim.ts` derivedKey; user 2026-10-20, standard high-rise sequence:

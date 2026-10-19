@@ -63,13 +63,34 @@ export default function BuildTimeline({ today, value, onChange, autoplay = true,
     if (!playing) return;
     const id = window.setInterval(() => {
       const cur = Math.round((valueRef.current.getTime() - start.getTime()) / DAY);
-      // A week per step, slow enough for the building to redraw between steps.
-      const next = Math.min(stopAt.current, cur + 7);
+      // 3 days per 1.1 s step: about 40 s from the ground to Today, so the
+      // presenter can talk to it (user, 2026-10-20). Space pauses / resumes.
+      const next = Math.min(stopAt.current, cur + 3);
       onChange(new Date(start.getTime() + next * DAY));
       if (next >= stopAt.current) setPlaying(false);
-    }, 900);
+    }, 1100);
     return () => window.clearInterval(id);
   }, [playing, start, onChange]);
+
+  const toggle = () => {
+    if (playing) return setPlaying(false);
+    stopAt.current = at >= todayAt ? total : todayAt;
+    if (at >= total) onChange(start);
+    setPlaying(true);
+  };
+  const toggleRef = useRef(toggle);
+  toggleRef.current = toggle;
+
+  // Space bar pauses / resumes, so the presenter can stop on a moment.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== " " || (e.target as HTMLElement)?.tagName === "INPUT") return;
+      e.preventDefault();
+      toggleRef.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div className="build-timeline">
@@ -77,12 +98,7 @@ export default function BuildTimeline({ today, value, onChange, autoplay = true,
         type="button"
         className="play"
         aria-label={playing ? "Pause" : "Play"}
-        onClick={() => {
-          if (playing) return setPlaying(false);
-          stopAt.current = at >= todayAt ? total : todayAt;
-          if (at >= total) onChange(start);
-          setPlaying(true);
-        }}
+        onClick={toggle}
       >
         {playing ? "❚❚" : "▶"}
       </button>

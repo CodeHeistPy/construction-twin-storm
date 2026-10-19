@@ -259,3 +259,4 @@ button.ghost { background: transparent; }
 /* Keep side panels above the timeline / clock when they're showing. */
 .app:has(.build-timeline) .panel, .app:has(.scrubber) .panel { bottom: 220px; }
 .bottom { width: min(100vw - 32px, 1100px); }
+.activity .src.derived { background: rgba(167, 139, 250, 0.16); color: #c4b5fd; }

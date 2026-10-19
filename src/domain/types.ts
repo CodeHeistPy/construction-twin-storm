@@ -34,9 +34,11 @@ export interface Activity {
    */
   componentFilter?: string;
   /** Where the activity comes from: the BIM install dates, or invented sample data. */
-  source: "bim" | "sample";
+  source: "bim" | "derived" | "sample";
   /** BIM sublayer names whose components make up this activity. */
   bimSublayers?: string[];
+  /** SQL selecting this activity's components when they have no install date (derived work). */
+  bimWhere?: string;
   /** Camera heading that best frames the work (e.g. from the south for the south face). */
   viewHeading?: number;
 }
