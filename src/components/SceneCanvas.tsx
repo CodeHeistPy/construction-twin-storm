@@ -480,18 +480,8 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       if (cancelled) return;
       const found = conflictsRef.current;
       onConflictsRef.current?.(found);
-      // No 3D conflict flags (footprints / callouts): removed per user, 2026-10-20.
-      // Highlight the conflicting pipes and shafts themselves.
-      if (!view.highlights.some((h) => h.name === "conflict")) {
-        view.highlights.add({ name: "conflict", color: "#ff3b30", haloOpacity: 1, fillOpacity: 0.55 } as never);
-      }
-      for (const fl of utilitiesRef.current) {
-        const ids = found.filter((c) => c.layerTitle === fl.title).map((c) => c.objectId);
-        if (!ids.length) continue;
-        const lv = (await view.whenLayerView(fl)) as unknown as { highlight(t: number[], o?: { name: string }): { remove(): void } };
-        if (cancelled) return;
-        handles.push(lv.highlight(ids, { name: "conflict" }));
-      }
+      // No 3D conflict flags and no red highlight on the conflicting pipes
+      // (both removed per user, 2026-10-20). The conflicts panel remains.
     })();
     return () => {
       cancelled = true;
