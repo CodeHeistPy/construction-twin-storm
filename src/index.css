@@ -260,3 +260,25 @@ button.ghost { background: transparent; }
 .app:has(.build-timeline) .panel, .app:has(.scrubber) .panel { bottom: 220px; }
 .bottom { width: min(100vw - 32px, 1100px); }
 .activity .src.derived { background: rgba(167, 139, 250, 0.16); color: #c4b5fd; }
+
+/* ---- Compact chrome (user, 2026-10-20: less screen for UI, more for the scene) ---- */
+.topbar { right: auto; padding: 7px 14px; gap: 14px; border-radius: 12px; }
+.topbar .eyebrow { font-size: 9.5px; }
+.brand h1 { font-size: 15px; }
+.topbar-actions { margin-left: 4px; }
+.topbar-actions button { padding: 4px 12px; font-size: 13px; }
+.panel { top: 74px; bottom: 70px; }
+.app:has(.build-timeline) .panel, .app:has(.scrubber) .panel { bottom: 124px; }
+.bottom { width: auto; }
+
+.tour-bar { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 999px;
+  background: rgba(8, 12, 22, 0.72); border: 1px solid var(--panel-border); backdrop-filter: blur(14px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4); max-width: calc(100vw - 32px); }
+.tour-bar .step { width: 28px; height: 28px; padding: 0; border-radius: 50%; font-size: 18px; line-height: 1; flex: none; }
+.tour-current { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.tour-count { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+.tour-title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+.tour-dots { display: flex; gap: 6px; padding: 0 4px; }
+.tour-dots .dot { width: 8px; height: 8px; padding: 0; border-radius: 50%; border: none; background: rgba(255, 255, 255, 0.25); transition: all 0.2s; }
+.tour-dots .dot:hover { background: rgba(255, 255, 255, 0.55); }
+.tour-dots .dot.on { width: 22px; border-radius: 4px; background: var(--accent); box-shadow: 0 0 8px rgba(57, 208, 255, 0.5); }
