@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { fmtTime } from "../lib/units";
 import type { Twin } from "../state/useTwin";
-import { BlockTag } from "./BlocksRail";
 
 const MIN = 5;
 const MAX = 21;
@@ -41,7 +40,6 @@ export default function TimeScrubber({ twin }: { twin: Twin }) {
         onChange={(e) => setHour(Number(e.target.value))}
         aria-label="Time of day"
       />
-      <BlockTag id="analysis" />
     </div>
   );
 }

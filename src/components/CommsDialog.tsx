@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { SITE } from "../config/site";
 import { fmtReason, fmtTime } from "../lib/units";
 import type { Twin } from "../state/useTwin";
-import { BlockTag } from "./BlocksRail";
 import { whenLabel } from "./ReplanCard";
 
 /**
@@ -42,7 +41,6 @@ export default function CommsDialog({ twin, onClose }: { twin: Twin; onClose: ()
             <div className="eyebrow">Crew notice · draft</div>
             <h2>Tell the crews</h2>
           </div>
-          <BlockTag id="intelligence" />
         </header>
         <pre className="notice">{text}</pre>
         <div className="modal-actions">

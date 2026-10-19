@@ -25,24 +25,26 @@ do we tell the crews?*
   Decision**. **Real-time Monitoring** and **Simulation** are new in this
   segment (`shownEarlier` in `config/buildingBlocks.ts`).
 
-## The storyline (user, 2026-10-16) — `config/presentation.ts`
-1 Site today (existing: ortho, mesh, rail, storm/electrical/sanitary; no proposed) → Foundation + Reality
-2 What we are building (all design models) → + Integration
-3 Where Building 1 stands (filtered to installed; unbuilt parts HIDDEN; progress panel)
-4 Today's plan (scheduled work highlighted, no weather call yet) → + Simulation
-5 Weather on the way (alert pop-up, conditions panel, storm) → + Real-time
-6 At the work face (zoom to today's curtain wall band) · 7 It can't happen today → + Decision
-8 Re-plan and notify (violet, crew notice) · 9 Ahead of the storm (outcome card, all six blocks)
-Main message: by bringing the building blocks together we anticipated, understood and adjusted.
-Each beat's `scene` (SceneMode) drives layer visibility (by title, `config/layers.ts`),
-Building 1 render mode, markers and storm. Explore mode (`FREE_MODE`) shows everything.
+## The tour (user, 2026-10-19): web scene SLIDES, no Present mode
+Review feedback: the custom "Present" mode felt gimmicky. Now the app plays the
+web scene's own slides (filmstrip at the bottom, arrows/clicker), and the
+presenter calls out the building blocks verbally: **no block cues on screen**.
+The user authors the slides in Scene Viewer from **SLIDES.md**; the app matches
+slides by TITLE (`config/tour.ts` STOP_RULES) and adds data behaviour.
+Until >= 4 storyline stops are authored, built-in stops run (`?stops=slides|builtin` forces).
+Order: overview → underground (Foundation: utility conflicts) → there today
+(Reality) → going to be there (Integration) → when (Simulation: 4D build-out)
+→ what could change it (Real-time: weather) → what we do (Decision: re-plan +
+notify, presenter clicks) → on track (outcome card).
+Every block must tie to an outcome (user: "keep me honest").
 
 ## Verified data facts (2026-10-16)
 | Item | Value |
 |---|---|
 | Web scene | `61a325c274ea4118999c9079c8b6e356` "Denver Office Park", arcaec.maps.arcgis.com, **public** (replaced 7b4a2a02… on 2026-10-16) |
 | Reality capture | "3D mesh" (IntegratedMeshLayer) + "Ortho" (tiled imagery), both public |
-| Utilities | "Denver Utilities" group: sanitary manholes/main, storm manholes/inlets/main (City of Denver open data). Thin default symbols, restyled in app. **No electrical layer.** |
+| Utilities | "Denver Utilities" group: sanitary manholes/main, storm manholes/inlets/main (City of Denver open data), clipped to the site at load (`clipToSite`). **Electrical: user adding.** Storm mains have upelev/downelev (ft) + width/height (in); sanitary has diameter. Inverts do NOT match the scene ground (1,598.6 m invert vs 1,590.5 m Existing_Ground at Building 2), so pipes draw at a nominal 3 m depth; inverts shown as attributes only. |
+| Utility conflicts (bbox footprints) | Building 1: 15 in VCP sanitary main. Building 2: two 48 in RCP storm mains + a storm manhole. |
 | Site | -104.991665, 39.699590 (Denver), `America/Denver` |
 | Building with install dates | `Office_Park_Building_1` (Building Scene Layer) |
 | Install field | `Installation_Date`, **string** `YYYY.MM.DD`, on 11 component sublayers |
@@ -64,8 +66,7 @@ Re-run it after the model is republished.
   work-shift hours (assumed 7:00–15:30), whether doors are exterior,
   storm timing and intensity, plenary length, presenter, and screen.
 - Whether to keep the two SAMPLE logistics activities (crane pick, delivery).
-- Sharing for the 3 non-public scene layers (Road_and_Rail = the rail beat 1 needs, Bridges, Roadway_Ground).
-- An electrical layer, if beat 1 should show one.
+- The slides themselves (SLIDES.md), the electrical layer, and sharing for Road_and_Rail / Bridges / Roadway_Ground (Roadway_Ground is removed at load: a failed ground layer stalls ground-relative layers).
 
 ## Conventions
 - All weather in SI internally (m/s, mm/h). Convert only in `lib/units.ts`.
@@ -99,3 +100,7 @@ Re-run it after the model is republished.
   `view.padding`, so `SceneCanvas` measures the overlay panels and sets
   `--ui-left`/`--ui-top` on `.scene` for CSS offsets. Building Explorer's
   `layers` must be set imperatively (all loaded BSLs, Building 1 first).
+- **A failed ground layer stalls everything ground-relative** (layer views
+  never finish). SceneCanvas removes failed ground layers at load.
+- `slide.applyTo` hides every layer not in the slide, including ours:
+  `restoreAppLayers(view)` re-shows them afterwards.

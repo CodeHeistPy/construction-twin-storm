@@ -3,7 +3,6 @@ import type { Rescheduled } from "../domain/replan";
 import type { ActivityAssessment, Decision } from "../domain/types";
 import { fmtReason, fmtTime, fmtWatch } from "../lib/units";
 import type { Twin } from "../state/useTwin";
-import { BlockTag } from "./BlocksRail";
 import ReplanCard, { whenLabel } from "./ReplanCard";
 
 const ORDER: Decision[] = ["postpone", "watch", "go"];
@@ -30,10 +29,6 @@ export default function SchedulePanel({ twin, selectedId, onSelect, decisions = 
         <div>
           <div className="eyebrow">Site schedule</div>
           <h2>Today</h2>
-        </div>
-        <div className="tags">
-          <BlockTag id="integration" />
-          <BlockTag id="intelligence" />
         </div>
       </header>
 

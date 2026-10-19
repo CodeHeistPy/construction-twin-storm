@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { progressAsOf } from "../lib/bim";
 import type { Twin } from "../state/useTwin";
-import { BlockTag } from "./BlocksRail";
 
 const pct = (n: number, d: number) => (d ? (100 * n) / d : 0);
 
@@ -9,8 +8,11 @@ const pct = (n: number, d: number) => (d ? (100 * n) / d : 0);
  * Building 1 progress straight from the model's install dates. With
  * `endOfDay`, today's work that ran counts as installed and moved work doesn't.
  */
-export default function ProgressPanel({ twin, endOfDay = false }: { twin: Twin; endOfDay?: boolean }) {
-  const p = useMemo(() => progressAsOf(twin.day), [twin.day]);
+export default function ProgressPanel({ twin, endOfDay = false, asOf }: { twin: Twin; endOfDay?: boolean; asOf?: Date }) {
+  // During the 4D build-out the panel follows the timeline date.
+  const when = asOf ?? twin.day;
+  const isToday = when.getTime() === twin.day.getTime();
+  const p = useMemo(() => progressAsOf(when), [when]);
 
   // Parts that actually went in today = today's BIM work that wasn't postponed.
   const ranToday = twin.assessments
@@ -31,10 +33,6 @@ export default function ProgressPanel({ twin, endOfDay = false }: { twin: Twin; 
           <div className="eyebrow">{endOfDay ? "End of day" : "Progress"}</div>
           <h2>Building 1</h2>
         </div>
-        <div className="tags">
-          <BlockTag id="foundation" />
-          <BlockTag id="integration" />
-        </div>
       </header>
 
       <div className="progress-hero">
@@ -54,7 +52,9 @@ export default function ProgressPanel({ twin, endOfDay = false }: { twin: Twin; 
               {moved > 0 && <div className="moved">{moved.toLocaleString()} parts moved to tomorrow</div>}
             </>
           ) : (
-            <div className="today">{p.today.toLocaleString()} parts scheduled today</div>
+            <div className="today">
+              {p.today.toLocaleString()} parts {isToday ? "scheduled today" : "going in"}
+            </div>
           )}
         </div>
       </div>

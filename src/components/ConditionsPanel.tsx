@@ -3,7 +3,6 @@ import { STRICTEST, WATCH_MARGIN } from "../config/thresholds";
 import { hourOf, isSameDay } from "../lib/time";
 import { fmtDistance, fmtHour, fmtPrecip, fmtTemp, fmtWind } from "../lib/units";
 import type { Twin } from "../state/useTwin";
-import { BlockTag } from "./BlocksRail";
 
 export default function ConditionsPanel({ twin }: { twin: Twin }) {
   const w = twin.now;
@@ -19,9 +18,6 @@ export default function ConditionsPanel({ twin }: { twin: Twin }) {
         <div>
           <div className="eyebrow">Site conditions</div>
           <h2>{SITE.name}</h2>
-        </div>
-        <div className="tags">
-          <BlockTag id="realtime" />
         </div>
       </header>
 

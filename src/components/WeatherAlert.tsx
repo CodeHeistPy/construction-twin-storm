@@ -3,7 +3,6 @@ import { STRICTEST } from "../config/thresholds";
 import { hourOf, isSameDay } from "../lib/time";
 import { fmtHour, fmtPrecip, fmtWind } from "../lib/units";
 import type { Twin } from "../state/useTwin";
-import { BlockTag } from "./BlocksRail";
 
 /**
  * Incoming-weather alert, built from the forecast the app is using (scripted
@@ -37,7 +36,6 @@ export default function WeatherAlert({ twin, onClose }: { twin: Twin; onClose: (
       <div className="alert-body">
         <div className="alert-head">
           <b>Severe weather approaching the site</b>
-          <BlockTag id="realtime" />
         </div>
         <p>
           {fmtHour(alert.from)}–{fmtHour(new Date(alert.to.getTime() + 3_600_000))}: gusts to {fmtWind(alert.peak.windGust)}

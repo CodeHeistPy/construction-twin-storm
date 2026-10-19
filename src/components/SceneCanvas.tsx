@@ -15,10 +15,10 @@ import type BuildingComponentSublayer from "@arcgis/core/layers/buildingSublayer
 import WebScene from "@arcgis/core/WebScene";
 import UniqueValueRenderer from "@arcgis/core/renderers/UniqueValueRenderer";
 import { SITE, WEBSCENE_ID } from "../config/site";
-import type { CameraPreset, SceneMode } from "../config/presentation";
-import { roleOf, UTILITY_STYLES } from "../config/layers";
+import type { CameraPreset, SceneMode } from "../config/tour";
+import { roleOf } from "../config/layers";
 import type FeatureLayer from "@arcgis/core/layers/FeatureLayer";
-import SimpleRenderer from "@arcgis/core/renderers/SimpleRenderer";
+import { clipToSite, conflictGraphics, findConflicts, styleFor, styleSurface, styleUnderground, type Conflict } from "../lib/utilities";
 import type { Activity, Decision } from "../domain/types";
 import { BIM_LAYER_TITLE, BUILDING_1, DATED_SUBLAYERS, statusArcade, type TodayClass } from "../lib/bim";
 import { ellipseRing } from "../lib/geo";
@@ -35,6 +35,14 @@ export const DECISION_COLORS: Record<Status, string> = {
   go: "#3ddc84",
 };
 
+/** Our own layers (storm, markers, conflicts). Slides don't know them, so re-show after a slide. */
+const APP_LAYER_TITLES = new Set(["Storm cell (scripted)", "Today's activities", "Utility conflicts"]);
+export function restoreAppLayers(view: SceneView): void {
+  view.map?.layers.forEach((l) => {
+    if (APP_LAYER_TITLES.has(l.title ?? "")) l.visible = true;
+  });
+}
+
 export interface CameraRequest {
   preset: CameraPreset | "focus";
   /** Bump to re-fly to the same preset. */
@@ -49,6 +57,12 @@ interface Props {
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   camera: CameraRequest;
+  /** Apply layer visibility by role (built-in stops). Authored slides set their own. */
+  applyLayers: boolean;
+  /** 4D: the date Building 1 is shown as of (site-midnight instant). */
+  timelineDay: Date;
+  onView?: (view: SceneView) => void;
+  onConflicts?: (c: Conflict[]) => void;
 }
 
 const mesh = (color: number[], mix: "tint" | "replace" = "replace") => ({
@@ -147,6 +161,8 @@ const SHOTS: Record<CameraPreset, Shot> = {
   development: { at: mid(SITE, BUILDING_1), scale: 2600, tilt: 62, heading: 340 },
   building: { at: BUILDING_1, above: 30, scale: 900, tilt: 70, heading: 25 },
   overview: { at: SITE, scale: 60_000, tilt: 55, heading: 30 },
+  // Low, looking across Buildings 1-2 at pipe depth (where the conflicts are).
+  underground: { at: { longitude: -104.99105, latitude: 39.69815 }, above: -2, scale: 900, tilt: 72, heading: 250 },
   storm: { at: { longitude: SITE.longitude - 0.08, latitude: SITE.latitude - 0.06 }, scale: 220_000, tilt: 50, heading: 225 },
 };
 
@@ -155,7 +171,7 @@ function shotFor(a: Activity): Shot {
   return { at: a.location, above: a.location.z, scale: 1000, tilt: 66, heading: a.viewHeading ?? 30 };
 }
 
-export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect, camera }: Props) {
+export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect, camera, applyLayers, timelineDay, onView, onConflicts }: Props) {
   const [view, setView] = useState<SceneView | null>(null);
   const [loaded, setLoaded] = useState(false);
   // One WebScene for the life of the app. Letting <arcgis-scene> load it from
@@ -165,7 +181,15 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       ? new WebScene({ portalItem: { id: WEBSCENE_ID } })
       : new WebScene({ basemap: "dark-gray-vector", ground: "world-elevation" }),
   );
-  const layers = useRef<{ activities: GraphicsLayer; storm: GraphicsLayer } | null>(null);
+  const layers = useRef<{ activities: GraphicsLayer; storm: GraphicsLayer; conflicts: GraphicsLayer } | null>(null);
+  const utilitiesRef = useRef<FeatureLayer[]>([]);
+  const conflictsRef = useRef<Conflict[] | null>(null);
+  const onConflictsRef = useRef(onConflicts);
+  onConflictsRef.current = onConflicts;
+  useEffect(() => {
+    if (view) onView?.(view);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
   const explorerRef = useRef<BuildingExplorerElement>(null);
@@ -176,8 +200,9 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     if (!view || !map) return;
     const storm = new GraphicsLayer({ title: "Storm cell (scripted)", elevationInfo: { mode: "on-the-ground" } });
     const activities = new GraphicsLayer({ title: "Today's activities", elevationInfo: { mode: "relative-to-ground" } });
-    map.addMany([storm, activities]);
-    layers.current = { activities, storm };
+    const conflicts = new GraphicsLayer({ title: "Utility conflicts", elevationInfo: { mode: "relative-to-ground" } });
+    map.addMany([storm, activities, conflicts]);
+    layers.current = { activities, storm, conflicts };
     view.environment.lighting = new SunLighting({ directShadowsEnabled: true });
 
     const handle = view.on("click", async (e) => {
@@ -187,7 +212,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     });
     return () => {
       handle.remove();
-      map.removeMany([storm, activities]);
+      map.removeMany([storm, activities, conflicts]);
       layers.current = null;
     };
   }, [view, map]);
@@ -199,34 +224,36 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     let cancelled = false;
     (async () => {
       await map.loadAll().catch(() => undefined);
+      // A ground layer that failed to load (Roadway_Ground is private) leaves
+      // ground-relative layers waiting on elevation forever. Drop it.
+      map.ground.layers
+        .filter((l) => l.loadStatus === "failed")
+        .toArray()
+        .forEach((l) => {
+          console.info(`[layers] removed failed ground layer "${l.title}"`);
+          map.ground.layers.remove(l);
+        });
       const unmatched = map.layers
         .filter((l) => l.type !== "graphics" && roleOf(l.title) === null)
         .map((l) => l.title)
         .toArray();
       if (unmatched.length) console.info("[layers] not in LAYER_RULES (left as-is):", unmatched);
 
-      // Utilities: bold symbols, and sit them on the mesh/scene surface (draped
-      // on the terrain they hide under the integrated mesh).
-      map.allLayers.forEach((l) => {
-        if (l.type !== "feature" || roleOf(l.title) !== "utilities") return;
-        const style = UTILITY_STYLES.find((u) => u.match.test(l.title ?? ""));
-        if (!style) return;
-        const fl = l as FeatureLayer;
-        // The city data carries absolute z (~1,590 m); ignore it, or it is added
-        // as an offset and the network floats 1.6 km up.
-        fl.elevationInfo = { mode: "relative-to-scene", offset: 0.5, featureExpressionInfo: { expression: "0" } };
-        fl.renderer = new SimpleRenderer({
-          symbol:
-            fl.geometryType === "polyline"
-              ? { type: "line-3d", symbolLayers: [{ type: "line", size: 3, material: { color: style.color } }] }
-              : {
-                  type: "point-3d",
-                  symbolLayers: [
-                    { type: "icon", resource: { primitive: "circle" }, size: 7, material: { color: style.color }, outline: { color: "#0b1220", size: 1 } },
-                  ],
-                },
-        });
-      });
+      // Utilities: collect them; styled for the surface or underground per stop.
+      const cityWide = map.allLayers
+        .filter((l) => l.type === "feature" && roleOf(l.title) === "utilities" && !!styleFor(l.title ?? ""))
+        .toArray() as FeatureLayer[];
+      utilitiesRef.current = (
+        await Promise.all(
+          cityWide.map((l) =>
+            clipToSite(l).catch((e) => {
+              console.warn(`[utilities] could not clip ${l.title}; using the live layer`, e);
+              return l;
+            }),
+          ),
+        )
+      ).filter(Boolean);
+      for (const fl of utilitiesRef.current) styleSurface(fl, styleFor(fl.title ?? "")!.color);
 
       const buildings = map.allLayers
         .filter((l) => l.type === "building-scene" && l.loadStatus === "loaded")
@@ -251,32 +278,76 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     };
   }, [view, map]);
 
-  // Which layers each beat shows. Group members follow their group (the
-  // scene ships the utilities group and its layers switched off).
+  // Built-in stops set layer visibility by role. (Authored slides set their own.)
+  // Group members follow their group (the scene ships the utilities off).
   useEffect(() => {
-    if (!map || !loaded) return;
+    if (!map || !loaded || !applyLayers) return;
+    const L = mode.layers;
     map.allLayers.forEach((l) => {
       if (l.type === "graphics") return;
       switch (roleOf(l.title)) {
         case "reality":
-          l.visible = mode.reality;
+          l.visible = L.reality;
           break;
         case "utilities":
-          l.visible = mode.utilities;
+          l.visible = L.utilities;
           break;
         case "mesh":
-          l.visible = mode.mesh;
+          l.visible = L.mesh;
           break;
         case "focusBuilding":
         case "site":
-          l.visible = mode.proposed !== "none";
+          l.visible = L.proposed !== "none";
           break;
         case "proposed":
-          l.visible = mode.proposed === "all";
+          l.visible = L.proposed === "all";
           break;
       }
     });
-  }, [map, loaded, mode.reality, mode.utilities, mode.mesh, mode.proposed]);
+  }, [map, loaded, applyLayers, mode.layers]);
+
+  // Underground: see-through ground, pipes at depth, conflicts flagged.
+  useEffect(() => {
+    if (!view || !map || !loaded) return;
+    const ground = map.ground;
+    const handles: { remove(): void }[] = [];
+    let cancelled = false;
+    for (const fl of utilitiesRef.current) {
+      const color = styleFor(fl.title ?? "")!.color;
+      if (mode.underground) styleUnderground(fl, color);
+      else styleSurface(fl, color);
+    }
+    layers.current?.conflicts.removeAll();
+    if (!mode.underground) {
+      ground.opacity = 1;
+      ground.navigationConstraint = { type: "stay-above" };
+      return;
+    }
+    ground.opacity = 0.35;
+    ground.navigationConstraint = { type: "none" };
+    (async () => {
+      if (!conflictsRef.current) conflictsRef.current = await findConflicts(utilitiesRef.current);
+      if (cancelled) return;
+      const found = conflictsRef.current;
+      onConflictsRef.current?.(found);
+      layers.current?.conflicts.addMany(conflictGraphics(found));
+      // Highlight the conflicting pipes and shafts themselves.
+      if (!view.highlights.some((h) => h.name === "conflict")) {
+        view.highlights.add({ name: "conflict", color: "#ff3b30", haloOpacity: 1, fillOpacity: 0.55 } as never);
+      }
+      for (const fl of utilitiesRef.current) {
+        const ids = found.filter((c) => c.layerTitle === fl.title).map((c) => c.objectId);
+        if (!ids.length) continue;
+        const lv = (await view.whenLayerView(fl)) as unknown as { highlight(t: number[], o?: { name: string }): { remove(): void } };
+        if (cancelled) return;
+        handles.push(lv.highlight(ids, { name: "conflict" }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+      handles.forEach((h) => h.remove());
+    };
+  }, [view, map, loaded, mode.underground]);
 
   // Building 1: as designed, or filtered to progress and coloured by today's plan.
   useEffect(() => {
@@ -294,6 +365,11 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
         sub.renderer = bim.original.get(sub)?.clone() ?? null;
         continue;
       }
+      if (mode.bim === "timeline") {
+        // 4D: installed before the timeline date, the date's work highlighted, the rest hidden.
+        sub.renderer = statusRenderer(statusArcade(timelineDay, "scheduled"));
+        continue;
+      }
       const cls = todayClass(mode, decisionFor.get(name) ?? "go", twin.replanned, focusSubs.has(name), !!focus);
       sub.renderer = statusRenderer(statusArcade(twin.day, cls));
     }
@@ -304,7 +380,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
         (s as BuildingComponentSublayer).opacity = seeThrough ? 0.15 : 1;
       }
     });
-  }, [loaded, mode, focusId, twin.assessments, twin.day, twin.replanned]);
+  }, [loaded, mode, focusId, twin.assessments, twin.day, twin.replanned, timelineDay]);
 
   // Activity markers.
   useEffect(() => {

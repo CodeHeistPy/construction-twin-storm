@@ -217,3 +217,45 @@ button.ghost { background: transparent; }
 .outcome-blocks .n { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: rgba(57, 208, 255, 0.35); font-size: 11px; font-weight: 700; }
 .app.presenting:has(.outcome) .presenter { left: auto; right: 24px; bottom: 24px; transform: none; width: min(380px, 40vw); min-width: 0; }
 .app.presenting:has(.outcome) .outcome { top: 46%; }
+
+/* ---- Slide filmstrip (the tour) ---- */
+.tour-strip { display: flex; gap: 8px; padding: 8px; border-radius: 16px; max-width: calc(100vw - 32px); overflow-x: auto;
+  background: rgba(8, 12, 22, 0.72); border: 1px solid var(--panel-border); backdrop-filter: blur(14px); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45); }
+.tour-strip .slide { display: flex; flex-direction: column; gap: 4px; width: 132px; flex: none; padding: 4px; border-radius: 10px;
+  background: transparent; border: 1px solid transparent; text-align: left; opacity: 0.7; transition: all 0.25s; }
+.tour-strip .slide:hover { opacity: 1; background: rgba(255, 255, 255, 0.05); }
+.tour-strip .slide.on { opacity: 1; border-color: rgba(57, 208, 255, 0.8); background: rgba(57, 208, 255, 0.1); box-shadow: 0 0 18px rgba(57, 208, 255, 0.25); }
+.tour-strip img, .tour-strip .thumb-blank { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; display: grid; place-items: center;
+  background: linear-gradient(135deg, #142033, #0b1220); color: var(--muted); font-weight: 700; }
+.tour-strip .slide-title { font-size: 11px; line-height: 1.25; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---- 4D build-out timeline ---- */
+.build-timeline { display: flex; align-items: center; gap: 12px; padding: 8px 16px; border-radius: 999px; width: min(640px, 70vw);
+  background: var(--panel); border: 1px solid var(--panel-border); backdrop-filter: blur(10px); }
+.build-timeline .play { width: 34px; height: 34px; padding: 0; flex: none; }
+.build-timeline .track { position: relative; flex: 1; }
+.build-timeline input { width: 100%; accent-color: var(--accent); }
+.build-timeline .today-mark { position: absolute; top: -6px; width: 2px; height: 22px; background: var(--go); box-shadow: 0 0 8px var(--go); pointer-events: none; }
+.build-timeline .ends { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.build-timeline .when { min-width: 86px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ---- Utility conflicts ---- */
+.conflict-hero { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: 12px;
+  background: rgba(255, 59, 48, 0.12); border: 1px solid rgba(255, 90, 78, 0.5); }
+.conflict-hero b { font-size: 40px; line-height: 1; color: var(--postpone); }
+.conflict-hero span { font-size: 13px; }
+.conflict-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+.conflict-list li { padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); border-left: 3px solid var(--postpone); }
+.conflict-list .c-head { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+.conflict-list .c-bldg { margin-left: auto; color: var(--muted); font-size: 11px; }
+.conflict-list .c-meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.conflict-list .dot { width: 9px; height: 9px; border-radius: 50%; }
+.conflict-list .dot.stormwater { background: #2dd4bf; }
+.conflict-list .dot.sanitary { background: #a3e635; }
+.conflict-list .dot.electrical { background: #f87171; }
+
+/* The tour sits at the bottom now; keep side panels clear of it. */
+.panel { bottom: 150px; }
+/* Keep side panels above the timeline / clock when they're showing. */
+.app:has(.build-timeline) .panel, .app:has(.scrubber) .panel { bottom: 220px; }
+.bottom { width: min(100vw - 32px, 1100px); }

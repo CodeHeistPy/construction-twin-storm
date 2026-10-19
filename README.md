@@ -36,15 +36,17 @@ npm test
 | Live forecast (optional) | `src/lib/liveWeather.ts` | Open-Meteo, no key |
 | Postponement rules | `src/domain/rules.ts` + `src/config/thresholds.ts` | Engine tested; **limits are placeholders** |
 | Six building blocks | `src/config/buildingBlocks.ts` | Draft wording |
-| Run of show | `src/config/presentation.ts` | Draft steps and narration |
+| The tour | `src/config/tour.ts` + `SLIDES.md` | Plays the web scene slides; behaviour by slide title |
+| Underground utilities | `src/lib/utilities.ts` | Pipes at nominal depth, conflicts vs building footprints |
+| 4D build-out | `src/components/BuildTimeline.tsx` | Building 1 assembles through its install dates |
 
 Decisions are deterministic: an activity is **postponed** when any limit is
 reached during its working window, flagged **watch** within 80% of a limit, and
 otherwise **proceeds**. All times are site-local (`VITE_SITE_TZ`), whatever
 time zone the presenting laptop is set to.
 
-Presentation mode: click **Present**, then use the arrow keys or a clicker
-(PageUp/PageDown). Esc exits.
+Present by stepping through the slides in the filmstrip (arrow keys or a clicker,
+PageUp/PageDown). Author the slides in Scene Viewer from `SLIDES.md`.
 
 ## Deploy to GitHub Pages
 

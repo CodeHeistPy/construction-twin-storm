@@ -2,7 +2,6 @@ import { remainingWork } from "../lib/bim";
 import { fmtTime } from "../lib/units";
 import type { Rescheduled } from "../domain/replan";
 import type { Twin } from "../state/useTwin";
-import { BlockTag } from "./BlocksRail";
 
 export const whenLabel = (daysLater: number) => (daysLater === 1 ? "Tomorrow" : `In ${daysLater} days`);
 
@@ -23,7 +22,6 @@ export default function ReplanCard({ twin }: { twin: Twin }) {
           </b>
         </div>
         <div className="replan-actions">
-          <BlockTag id="analysis" />
           <button type="button" className={replanned ? "" : "primary"} onClick={() => setReplanned(!replanned)}>
             {replanned ? "Undo" : "Re-plan"}
           </button>

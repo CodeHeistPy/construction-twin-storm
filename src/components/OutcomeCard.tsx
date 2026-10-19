@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { BUILDING_BLOCKS } from "../config/buildingBlocks";
 import { STRICTEST } from "../config/thresholds";
 import { progressAsOf } from "../lib/bim";
 import { hourOf, isSameDay } from "../lib/time";
@@ -65,14 +64,6 @@ export default function OutcomeCard({ twin, alertHour }: { twin: Twin; alertHour
         </div>
       </div>
       <p className="outcome-line">Anticipate. Understand. Adjust. With data behind every decision.</p>
-      <ol className="outcome-blocks">
-        {BUILDING_BLOCKS.map((b) => (
-          <li key={b.id}>
-            <span className="n">{b.n}</span>
-            {b.title}
-          </li>
-        ))}
-      </ol>
     </div>
   );
 }
