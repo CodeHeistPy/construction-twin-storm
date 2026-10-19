@@ -125,17 +125,26 @@ export const DATED_SUBLAYERS = bimSchedule.sublayers.filter((s) => s.hasDate).ma
  * values found in the model (e.g. "2026.0425", "2026.7.02", "202604.03"),
  * mirroring normalise() in scripts/extract-bim-schedule.mjs.
  */
-export function statusArcade(day: Date, todayClass: TodayClass): string {
+export function statusArcade(day: Date, todayClass: TodayClass, sublayer?: string): string {
+  const table = sublayer ? derivedTable(sublayer) : null;
+  const decode = table
+    ? `Decode(lv, ${table.map((k, l) => `${l}, "${k}"`).join(", ")}, "${table[table.length - 1]}")`
+    : '""';
   return `
-var s = Trim(Text($feature.${BIM_DATE_FIELD}));
-if (IsEmpty(s)) { return "nodate"; }
-var p = Split(s, ".");
 var key = "";
-if (Count(p) == 3) {
-  key = Text(Number(p[0]), "0000") + "-" + Text(Number(p[1]), "00") + "-" + Text(Number(p[2]), "00");
-} else {
-  var d = Replace(s, ".", "");
-  if (Count(d) == 8) { key = Left(d, 4) + "-" + Mid(d, 4, 2) + "-" + Right(d, 2); }
+if (HasKey($feature, "${BIM_DATE_FIELD}")) {
+  var s = Trim(DefaultValue(Text($feature.${BIM_DATE_FIELD}), ""));
+  var p = Split(s, ".");
+  if (Count(p) == 3) {
+    key = Text(Number(p[0]), "0000") + "-" + Text(Number(p[1]), "00") + "-" + Text(Number(p[2]), "00");
+  } else if (s != "") {
+    var d = Replace(s, ".", "");
+    if (Count(d) == 8) { key = Left(d, 4) + "-" + Mid(d, 4, 2) + "-" + Right(d, 2); }
+  }
+}
+if (key == "") {
+  var lv = IIf(HasKey($feature, "BldgLevel"), DefaultValue($feature.BldgLevel, 0), 0);
+  key = ${decode};
 }
 if (key == "") { return "nodate"; }
 var today = "${dayKey(day)}";
@@ -189,16 +198,17 @@ export interface PackageProgress {
 export function progressAsOf(day: Date): { packages: PackageProgress[]; total: number; installed: number; today: number } {
   const key = dayKey(day);
   const byLabel = new Map<string, PackageProgress>();
-  for (const [d, counts] of Object.entries(bimSchedule.byDay as Record<string, Record<string, number>>)) {
-    for (const [sublayer, n] of Object.entries(counts)) {
-      const label = PACKAGES[sublayer]?.label ?? sublayer;
-      const p = byLabel.get(label) ?? { label, total: 0, installed: 0, today: 0 };
-      p.total += n;
-      if (d < key) p.installed += n;
-      else if (d === key) p.today += n;
-      byLabel.set(label, p);
-    }
-  }
+  const add = (sublayer: string, d: string, n: number) => {
+    const label = PACKAGES[sublayer]?.label ?? DERIVED_LABELS[sublayer] ?? sublayer;
+    const p = byLabel.get(label) ?? { label, total: 0, installed: 0, today: 0 };
+    p.total += n;
+    if (d < key) p.installed += n;
+    else if (d === key) p.today += n;
+    byLabel.set(label, p);
+  };
+  for (const [d, counts] of Object.entries(bimSchedule.byDay as Record<string, Record<string, number>>))
+    for (const [sublayer, n] of Object.entries(counts)) add(sublayer, d, n);
+  for (const { sublayer, key: d, count } of derivedCounts()) add(sublayer, d, count);
   const packages = [...byLabel.values()].sort((a, b) => b.total - a.total);
   const sum = (k: keyof Omit<PackageProgress, "label">) => packages.reduce((s, p) => s + p[k], 0);
   return { packages, total: sum("total"), installed: sum("installed"), today: sum("today") };
@@ -244,4 +254,113 @@ if (l <= ${level}) { return "installed"; }
 if (l == ${level + 1}) { return "today-scheduled"; }
 return "upcoming";
 `;
+}
+
+// -----------------------------------------------------------------------------
+// DERIVED install dates for elements the model leaves undated (user, 2026-10-20:
+// "fill them in so they fit the rest of the schedule"). ~3,600 elements: the
+// structure (no dates at all), ~1,100 curtain wall parts and ~70 furniture.
+// Standard high-rise sequence, by BldgLevel:
+//   structure rises level by level (before the first dated install), then each
+//   floor's curtain wall closes it in, then interior walls / doors / ceilings,
+//   then MEP fixtures, casework, and furniture last.
+// Real dates always win; these only fill gaps. DERIVED, not scheduled.
+// -----------------------------------------------------------------------------
+
+const DAY_MS = 86_400_000;
+const STRUCTURE_TRADES = new Set(["StructuralColumns", "Floors", "Stairs", "Roofs"]);
+
+/** Days after a floor's curtain wall starts that each trade follows. */
+const TRADE_LAG_DAYS: Record<string, number> = {
+  CurtainWallPanels: 0,
+  CurtainWallMullions: 0,
+  Walls: 7,
+  StairsRailing: 14,
+  Doors: 21,
+  Ceilings: 28,
+  LightingFixtures: 35,
+  FireProtection: 35,
+  PlumbingFixtures: 35,
+  SpecialtyEquipment: 42,
+  Casework: 49,
+  Furniture: 63,
+  FurnitureSystems: 63,
+};
+
+const DERIVED_LABELS: Record<string, string> = {
+  StructuralColumns: "Structure",
+  Floors: "Structure",
+  Stairs: "Structure",
+  Roofs: "Structure",
+  Walls: "Interior walls",
+  Ceilings: "Ceilings",
+};
+
+const keyToDay = (key: string) => {
+  const [y, m, d] = key.split("-").map(Number);
+  return zonedMidnight(y, m, d, SITE.timeZone);
+};
+
+/** First and last curtain wall install days in the model. */
+const CW_RANGE = (() => {
+  const days = Object.entries(bimSchedule.byDay as Record<string, Record<string, number>>)
+    .filter(([, c]) => c.CurtainWallPanels || c.CurtainWallMullions)
+    .map(([d]) => d)
+    .sort();
+  return { first: keyToDay(days[0]), last: keyToDay(days[days.length - 1]) };
+})();
+
+/**
+ * When a floor's curtain wall starts: spread across levels 2-15 from the first
+ * to the last curtain wall day (bottom-up). ASSUMPTION: the model has no
+ * per-level dates to read this from.
+ */
+function closeIn(level: number): Date {
+  const lo = 2;
+  const hi = 15;
+  const t = Math.max(0, Math.min(1, (level - lo) / (hi - lo)));
+  return new Date(CW_RANGE.first.getTime() + t * (CW_RANGE.last.getTime() - CW_RANGE.first.getTime()));
+}
+
+/** Derived date key for an undated element of a sublayer at a level. */
+export function derivedKey(sublayer: string, level: number): string | null {
+  if (STRUCTURE_TRADES.has(sublayer)) {
+    const s = buildStart().getTime();
+    const f = firstInstall().getTime();
+    return dayKey(new Date(s + ((level + 0.5) / (MAX_LEVEL + 1)) * (f - s)));
+  }
+  const lag = TRADE_LAG_DAYS[sublayer];
+  if (lag === undefined) return null;
+  return dayKey(new Date(closeIn(level).getTime() + lag * DAY_MS));
+}
+
+/** Level 0..MAX_LEVEL -> derived key, for the Arcade Decode table. */
+function derivedTable(sublayer: string): string[] | null {
+  if (derivedKey(sublayer, 0) === null) return null;
+  return Array.from({ length: MAX_LEVEL + 1 }, (_, l) => derivedKey(sublayer, l)!);
+}
+
+/**
+ * Undated element counts by derived day, for progress. Per sublayer, undated =
+ * elements per level (from the model's BldgLevel statistics) minus dated ones,
+ * spread across levels in proportion.
+ */
+function derivedCounts(): { sublayer: string; key: string; count: number }[] {
+  const levels = (bimSchedule as { levels?: Record<string, Record<string, number>> }).levels ?? {};
+  const dated = new Map<string, number>();
+  for (const counts of Object.values(bimSchedule.byDay as Record<string, Record<string, number>>))
+    for (const [sub, n] of Object.entries(counts)) dated.set(sub, (dated.get(sub) ?? 0) + n);
+  const out: { sublayer: string; key: string; count: number }[] = [];
+  for (const [sub, byLevel] of Object.entries(levels)) {
+    const total = Object.values(byLevel).reduce((a, b) => a + b, 0);
+    const undated = Math.max(0, total - (dated.get(sub) ?? 0));
+    if (!undated || !total) continue;
+    for (const [lvl, n] of Object.entries(byLevel)) {
+      const key = derivedKey(sub, Number(lvl));
+      if (!key) continue;
+      const count = Math.round((n * undated) / total);
+      if (count) out.push({ sublayer: sub, key, count });
+    }
+  }
+  return out;
 }

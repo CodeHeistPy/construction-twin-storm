@@ -53,7 +53,8 @@ export default function BuildTimeline({ today, value, onChange, autoplay = true,
     if (!autoplay) return;
     onChange(start);
     stopAt.current = todayAt;
-    const t = window.setTimeout(() => setPlaying(true), 600);
+    // Let the slide / camera land first (slides fly for ~3.5 s).
+    const t = window.setTimeout(() => setPlaying(true), 3600);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -62,10 +63,11 @@ export default function BuildTimeline({ today, value, onChange, autoplay = true,
     if (!playing) return;
     const id = window.setInterval(() => {
       const cur = Math.round((valueRef.current.getTime() - start.getTime()) / DAY);
-      const next = Math.min(stopAt.current, cur + 3);
+      // A week per step, slow enough for the building to redraw between steps.
+      const next = Math.min(stopAt.current, cur + 7);
       onChange(new Date(start.getTime() + next * DAY));
       if (next >= stopAt.current) setPlaying(false);
-    }, 220);
+    }, 900);
     return () => window.clearInterval(id);
   }, [playing, start, onChange]);
 

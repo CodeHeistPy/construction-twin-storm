@@ -14,6 +14,7 @@ import type BuildingSceneLayer from "@arcgis/core/layers/BuildingSceneLayer";
 import type BuildingComponentSublayer from "@arcgis/core/layers/buildingSublayers/BuildingComponentSublayer";
 import WebScene from "@arcgis/core/WebScene";
 import UniqueValueRenderer from "@arcgis/core/renderers/UniqueValueRenderer";
+import * as reactiveUtils from "@arcgis/core/core/reactiveUtils";
 import { SITE, WEBSCENE_ID } from "../config/site";
 import type { CameraPreset, SceneMode } from "../config/tour";
 import { roleOf } from "../config/layers";
@@ -25,8 +26,6 @@ import {
   BUILDING_1,
   DATED_SUBLAYERS,
   HIDE_DURING_BUILD,
-  levelArcade,
-  levelAt,
   statusArcade,
   STRUCTURE_SUBLAYERS,
   type TodayClass,
@@ -327,6 +326,17 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
           break;
       }
     });
+    // A visible layer inside a hidden group doesn't draw (its view is
+    // suspended), e.g. the buildings inside the scene's "Building Design"
+    // group. Switch on the parent groups of anything we just showed.
+    map.allLayers.forEach((l) => {
+      if (l.type === "graphics" || !l.visible || roleOf(l.title) === null) return;
+      let parent = (l as { parent?: unknown }).parent as { type?: string; visible?: boolean; parent?: unknown } | undefined;
+      while (parent && parent.type === "group") {
+        parent.visible = true;
+        parent = parent.parent as typeof parent;
+      }
+    });
   }, [map, loaded, applyLayers, mode.layers]);
 
   // Underground: see-through ground, pipes at depth, conflicts flagged.
@@ -382,25 +392,29 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     for (const { activity, decision } of twin.assessments)
       for (const s of activity.bimSublayers ?? []) decisionFor.set(s, decision);
 
-    for (const sub of bim.dated) {
+    // Every Building 1 element renders from its install date: the model's own
+    // date, or a DERIVED one by level and trade where the model has none
+    // (lib/bim.ts). The structure therefore rises from the ground up in 4D.
+    const building = mode.bim === "timeline";
+    for (const sub of [...bim.dated, ...bim.structure]) {
       const name = sub.modelName ?? "";
       if (mode.bim === "design") {
         sub.renderer = bim.original.get(sub)?.clone() ?? null;
         continue;
       }
-      if (mode.bim === "timeline") {
-        // 4D: installed before the timeline date, the date's work highlighted, the rest hidden.
-        sub.renderer = statusRenderer(statusArcade(timelineDay, "scheduled"));
+      if (building) {
+        // 4D: in place before the timeline date, that day's work highlighted, the rest hidden.
+        sub.renderer = statusRenderer(statusArcade(timelineDay, "scheduled", name));
         continue;
       }
-      const cls = todayClass(mode, decisionFor.get(name) ?? "go", twin.replanned, focusSubs.has(name), !!focus);
-      sub.renderer = statusRenderer(statusArcade(twin.day, cls));
-    }
-    // Structure rises level by level in the 4D build-out; otherwise as designed.
-    const building = mode.bim === "timeline";
-    const level = levelAt(timelineDay);
-    for (const sub of bim.structure) {
-      sub.renderer = building ? statusRenderer(levelArcade(level)) : (bim.original.get(sub)?.clone() ?? null);
+      // Sublayers with work in today's plan take its decision colour; the rest
+      // just show what's in place (today's derived work counts as done).
+      const cls: TodayClass = decisionFor.has(name)
+        ? todayClass(mode, decisionFor.get(name)!, twin.replanned, focusSubs.has(name), !!focus)
+        : mode.bim === "progress"
+          ? "hidden"
+          : "done";
+      sub.renderer = statusRenderer(statusArcade(twin.day, cls, name));
     }
     for (const sub of bim.hide) {
       sub.renderer = building ? statusRenderer(`return "upcoming";`) : (bim.original.get(sub)?.clone() ?? null);
@@ -547,14 +561,18 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     if (!view || !orbit) return;
     let raf = 0;
     let stopped = false;
-    onGround(view, BUILDING_1.longitude, BUILDING_1.latitude, BUILDING_1.height / 2).then((target) => {
+    // Start only once any camera flight has finished, so we never fight it.
+    reactiveUtils
+      .whenOnce(() => view.stationary && !view.animation)
+      .then(() => onGround(view, BUILDING_1.longitude, BUILDING_1.latitude, BUILDING_1.height / 2))
+      .then((target) => {
       if (stopped) return;
       let heading = view.camera.heading;
       const tilt = Math.min(72, Math.max(55, view.camera.tilt));
       const scale = view.scale;
       const step = () => {
         if (stopped) return;
-        heading = (heading + 0.12) % 360;
+        heading = (heading + 0.05) % 360; // gentle: fast orbits starve the per-step redraws
         view.goTo({ target, heading, tilt, scale }, { animate: false }).catch(() => undefined);
         raf = requestAnimationFrame(step);
       };

@@ -45,8 +45,15 @@ walk(info.sublayers);
 const byDay = {};
 const sublayers = [];
 const malformed = [];
+/** Element count per BldgLevel per sublayer (dated + undated), for derived dates. */
+const levels = {};
 for (const c of flat.filter((x) => x.layerType === "3DObject" && x.id !== 0)) {
   const s = await get(`${LAYER_URL}/sublayers/${c.id}?f=json`);
+  const lv = (s.statisticsInfo || []).find((x) => x.name === "BldgLevel");
+  if (lv) {
+    const ls = (await get(`${LAYER_URL}/sublayers/${c.id}/${lv.href}`)).stats;
+    levels[c.name] = Object.fromEntries((ls.mostFrequentValues || []).map((v) => [String(v.value), v.count]).sort((a, b) => Number(a[0]) - Number(b[0])));
+  }
   const st = (s.statisticsInfo || []).find((x) => x.name === FIELD);
   sublayers.push({ id: c.id, name: c.name, hasDate: !!st });
   if (!st) continue;
@@ -64,10 +71,11 @@ for (const c of flat.filter((x) => x.layerType === "3DObject" && x.id !== 0)) {
 
 const e = info.fullExtent;
 const out = {
-  source: { webSceneId: "7b4a2a0217b244568c74cbe636936c52", layerTitle: LAYER_TITLE, layerUrl: LAYER_URL, field: FIELD },
+  source: { webSceneId: "61a325c274ea4118999c9079c8b6e356", layerTitle: LAYER_TITLE, layerUrl: LAYER_URL, field: FIELD },
   extractedAt: new Date().toISOString(),
   extent: e,
   sublayers,
+  levels,
   malformed,
   byDay: Object.fromEntries(Object.entries(byDay).sort(([a], [b]) => a.localeCompare(b))),
 };
@@ -76,3 +84,4 @@ const days = Object.keys(out.byDay);
 console.log(`${days.length} install days, ${days[0]} → ${days.at(-1)}; ${malformed.length} malformed values; extent wkid ${e?.spatialReference?.wkid}`);
 console.log("malformed:", malformed.map((m) => `${m.sublayer} ${JSON.stringify(m.value)}×${m.count}→${m.normalisedTo}`).join("; "));
 console.log("extent:", JSON.stringify(e));
+for (const [n, m] of Object.entries(levels)) console.log(`  ${n.padEnd(20)} ${Object.values(m).reduce((a, b) => a + b, 0)} elements over ${Object.keys(m).length} levels`);

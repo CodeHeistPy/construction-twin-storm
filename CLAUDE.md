@@ -40,8 +40,15 @@ Six stops (user, 2026-10-19; overview and "on track" removed): underground
 (Integration) → when (Simulation: 4D build-out, ground up + orbit) → what could
 change it (Real-time: weather; radar layer coming) → what we do (Decision:
 re-plan + notify, presenter clicks). Built-in stops run until >= 3 are authored.
-4D: structure has NO install dates, so it rises by BldgLevel (0-16) over 8
-weeks before the first dated install: DERIVED, say so if asked.
+4D: ~3,600 Building 1 elements have NO install date (all structure, ~1,100
+curtain wall, ~70 furniture). The app DERIVES one by BldgLevel + trade
+(`lib/bim.ts` derivedKey; user 2026-10-20, standard high-rise sequence:
+structure level by level over 8 weeks before the first dated install, then each
+floor: curtain wall close-in, walls +7d, rails +14d, doors +21d, ceilings +28d,
+MEP +35d, specialty +42d, casework +49d, furniture +63d). Real dates always win.
+Used by the 4D, renderers and progress %. DERIVED: say so if asked.
+Pacing: a week per step every 0.9 s, gentle orbit (faster starves redraws;
+one renderer step takes ~0.45 s to settle).
 Every block must tie to an outcome (user: "keep me honest").
 
 ## Verified data facts (2026-10-16)
@@ -110,3 +117,10 @@ Re-run it after the model is republished.
   never finish). SceneCanvas removes failed ground layers at load.
 - `slide.applyTo` hides every layer not in the slide, including ours:
   `restoreAppLayers(view)` re-shows them afterwards.
+- **Hidden parent group = suspended children.** The scene now groups the
+  buildings under "Building Design"; built-in stops switch on parent groups of
+  anything they show.
+- The 4D orbit must start only after camera flights finish (it uses
+  goTo animate:false every frame and would strand a flight mid-way).
+- Per-sublayer BldgLevel counts come from the layer statistics (extraction
+  script `levels`). The tile index featureCount overcounts; don't use it.
