@@ -82,15 +82,9 @@ const base = (layers: SceneMode["layers"], over: Partial<SceneMode> = {}): Scene
 /** In scene order of the storyline. First match wins. */
 export const STOP_RULES: StopRule[] = [
   {
-    key: "overview",
-    match: /office park|overview/i,
-    behaviour: { scene: base(LAYERS.overview), replan: false, hour: 7 },
-    builtIn: { title: "Denver Office Park", camera: "site" },
-  },
-  {
     key: "underground",
     match: /underground|utilit/i,
-    behaviour: { scene: base(LAYERS.underground, { underground: true }), left: "conflicts", replan: false },
+    behaviour: { scene: base(LAYERS.underground, { underground: true }), left: "conflicts", replan: false, hour: 7 },
     builtIn: { title: "What's underground", camera: "underground" },
   },
   {
@@ -136,12 +130,6 @@ export const STOP_RULES: StopRule[] = [
       hour: 9,
     },
     builtIn: { title: "What we do about it", camera: "focus" },
-  },
-  {
-    key: "outcome",
-    match: /on track|outcome/i,
-    behaviour: { scene: base(LAYERS.focus, { bim: "outcome" }), left: "progress", replan: true, outcome: true, hour: 17 },
-    builtIn: { title: "On track", camera: "building" },
   },
 ];
 

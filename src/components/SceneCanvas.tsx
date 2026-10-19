@@ -20,7 +20,17 @@ import { roleOf } from "../config/layers";
 import type FeatureLayer from "@arcgis/core/layers/FeatureLayer";
 import { clipToSite, conflictGraphics, findConflicts, styleFor, styleSurface, styleUnderground, type Conflict } from "../lib/utilities";
 import type { Activity, Decision } from "../domain/types";
-import { BIM_LAYER_TITLE, BUILDING_1, DATED_SUBLAYERS, statusArcade, type TodayClass } from "../lib/bim";
+import {
+  BIM_LAYER_TITLE,
+  BUILDING_1,
+  DATED_SUBLAYERS,
+  HIDE_DURING_BUILD,
+  levelArcade,
+  levelAt,
+  statusArcade,
+  STRUCTURE_SUBLAYERS,
+  type TodayClass,
+} from "../lib/bim";
 import { ellipseRing } from "../lib/geo";
 import type { Twin } from "../state/useTwin";
 
@@ -62,6 +72,8 @@ interface Props {
   /** 4D: the date Building 1 is shown as of (site-midnight instant). */
   timelineDay: Date;
   onView?: (view: SceneView) => void;
+  /** Slowly orbit Building 1 (while the 4D build-out plays). */
+  orbit?: boolean;
   onConflicts?: (c: Conflict[]) => void;
 }
 
@@ -171,7 +183,7 @@ function shotFor(a: Activity): Shot {
   return { at: a.location, above: a.location.z, scale: 1000, tilt: 66, heading: a.viewHeading ?? 30 };
 }
 
-export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect, camera, applyLayers, timelineDay, onView, onConflicts }: Props) {
+export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect, camera, applyLayers, timelineDay, onView, onConflicts, orbit = false }: Props) {
   const [view, setView] = useState<SceneView | null>(null);
   const [loaded, setLoaded] = useState(false);
   // One WebScene for the life of the app. Letting <arcgis-scene> load it from
@@ -193,7 +205,13 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
   const explorerRef = useRef<BuildingExplorerElement>(null);
-  const bimRef = useRef<{ layer: BuildingSceneLayer; dated: BuildingComponentSublayer[]; original: Map<BuildingComponentSublayer, BuildingComponentSublayer["renderer"]> } | null>(null);
+  const bimRef = useRef<{
+    layer: BuildingSceneLayer;
+    dated: BuildingComponentSublayer[];
+    structure: BuildingComponentSublayer[];
+    hide: BuildingComponentSublayer[];
+    original: Map<BuildingComponentSublayer, BuildingComponentSublayer["renderer"]>;
+  } | null>(null);
 
   // One-time setup once the view is ready: our layers, lighting, click.
   useEffect(() => {
@@ -264,12 +282,17 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       const bsl = buildings.find((l) => l.title === BIM_LAYER_TITLE);
       if (!bsl) console.warn(`[bim] layer "${BIM_LAYER_TITLE}" not found in the web scene`);
       else {
-        const dated = bsl.allSublayers
-          .filter((s) => s.type === "building-component" && DATED_SUBLAYERS.includes(s.modelName ?? ""))
-          .toArray() as BuildingComponentSublayer[];
+        const pick = (names: string[]) =>
+          bsl.allSublayers
+            .filter((s) => s.type === "building-component" && names.includes(s.modelName ?? ""))
+            .toArray() as BuildingComponentSublayer[];
+        const dated = pick(DATED_SUBLAYERS);
+        const structure = pick(STRUCTURE_SUBLAYERS);
+        const hide = pick(HIDE_DURING_BUILD);
+        const all = [...dated, ...structure, ...hide];
         // Each sublayer must be loaded first, or loading overwrites the renderer.
-        await Promise.all(dated.map((s) => s.load()));
-        bimRef.current = { layer: bsl, dated, original: new Map(dated.map((s) => [s, s.renderer?.clone()])) };
+        await Promise.all(all.map((s) => s.load()));
+        bimRef.current = { layer: bsl, dated, structure, hide, original: new Map(all.map((s) => [s, s.renderer?.clone()])) };
       }
       if (!cancelled) setLoaded(true);
     })();
@@ -373,6 +396,16 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       const cls = todayClass(mode, decisionFor.get(name) ?? "go", twin.replanned, focusSubs.has(name), !!focus);
       sub.renderer = statusRenderer(statusArcade(twin.day, cls));
     }
+    // Structure rises level by level in the 4D build-out; otherwise as designed.
+    const building = mode.bim === "timeline";
+    const level = levelAt(timelineDay);
+    for (const sub of bim.structure) {
+      sub.renderer = building ? statusRenderer(levelArcade(level)) : (bim.original.get(sub)?.clone() ?? null);
+    }
+    for (const sub of bim.hide) {
+      sub.renderer = building ? statusRenderer(`return "upcoming";`) : (bim.original.get(sub)?.clone() ?? null);
+    }
+
     // Inside work: make the envelope see-through so the highlighted parts show.
     const seeThrough = !!focus && focus.type === "interior";
     bim.layer.allSublayers.forEach((s) => {
@@ -508,6 +541,30 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, selectedId]);
+
+  // Slow orbit around Building 1 while the build-out plays: keeps the shot alive.
+  useEffect(() => {
+    if (!view || !orbit) return;
+    let raf = 0;
+    let stopped = false;
+    onGround(view, BUILDING_1.longitude, BUILDING_1.latitude, BUILDING_1.height / 2).then((target) => {
+      if (stopped) return;
+      let heading = view.camera.heading;
+      const tilt = Math.min(72, Math.max(55, view.camera.tilt));
+      const scale = view.scale;
+      const step = () => {
+        if (stopped) return;
+        heading = (heading + 0.12) % 360;
+        view.goTo({ target, heading, tilt, scale }, { animate: false }).catch(() => undefined);
+        raf = requestAnimationFrame(step);
+      };
+      raf = requestAnimationFrame(step);
+    });
+    return () => {
+      stopped = true;
+      cancelAnimationFrame(raf);
+    };
+  }, [view, orbit]);
 
   // Pad the view so its corner UI and camera targets sit in the visible gap
   // between the overlay panels. Re-measured when panels come and go.

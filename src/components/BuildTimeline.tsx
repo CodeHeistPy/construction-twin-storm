@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SITE } from "../config/site";
-import { BIM_RANGE } from "../lib/bim";
+import { BIM_RANGE, buildStart } from "../lib/bim";
 import { zonedMidnight } from "../lib/time";
 
 const DAY = 86_400_000;
@@ -22,8 +22,9 @@ interface Props {
   today: Date;
   value: Date;
   onChange: (d: Date) => void;
-  /** Play from the first install up to today on mount. */
+  /** Play from the first level up to today on mount. */
   autoplay?: boolean;
+  onPlayingChange?: (playing: boolean) => void;
 }
 
 /**
@@ -31,8 +32,9 @@ interface Props {
  * the construction-timelapse reference. Each step re-renders the model as of
  * that day (installed solid, that day's work highlighted, the rest hidden).
  */
-export default function BuildTimeline({ today, value, onChange, autoplay = true }: Props) {
-  const start = useMemo(() => midnight(BIM_RANGE.first), []);
+export default function BuildTimeline({ today, value, onChange, autoplay = true, onPlayingChange }: Props) {
+  // From the first structural level (ground up), not the first dated install.
+  const start = useMemo(() => buildStart(), []);
   const end = useMemo(() => midnight(BIM_RANGE.last), []);
   const total = Math.round((end.getTime() - start.getTime()) / DAY);
   const at = Math.round((value.getTime() - start.getTime()) / DAY);
@@ -41,6 +43,10 @@ export default function BuildTimeline({ today, value, onChange, autoplay = true 
   const stopAt = useRef<number>(total);
   const valueRef = useRef(value);
   valueRef.current = value;
+  useEffect(() => {
+    onPlayingChange?.(playing);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playing]);
 
   // Arrive: run from the first install to today, then stop on today.
   useEffect(() => {
@@ -56,10 +62,10 @@ export default function BuildTimeline({ today, value, onChange, autoplay = true 
     if (!playing) return;
     const id = window.setInterval(() => {
       const cur = Math.round((valueRef.current.getTime() - start.getTime()) / DAY);
-      const next = Math.min(stopAt.current, cur + 4);
+      const next = Math.min(stopAt.current, cur + 3);
       onChange(new Date(start.getTime() + next * DAY));
       if (next >= stopAt.current) setPlaying(false);
-    }, 300);
+    }, 220);
     return () => window.clearInterval(id);
   }, [playing, start, onChange]);
 

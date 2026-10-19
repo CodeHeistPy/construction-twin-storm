@@ -31,11 +31,14 @@ web scene's own slides (filmstrip at the bottom, arrows/clicker), and the
 presenter calls out the building blocks verbally: **no block cues on screen**.
 The user authors the slides in Scene Viewer from **SLIDES.md**; the app matches
 slides by TITLE (`config/tour.ts` STOP_RULES) and adds data behaviour.
-Until >= 4 storyline stops are authored, built-in stops run (`?stops=slides|builtin` forces).
-Order: overview → underground (Foundation: utility conflicts) → there today
-(Reality) → going to be there (Integration) → when (Simulation: 4D build-out)
-→ what could change it (Real-time: weather) → what we do (Decision: re-plan +
-notify, presenter clicks) → on track (outcome card).
+Until >= 3 storyline stops are authored, built-in stops run (`?stops=slides|builtin` forces).
+Six stops (user, 2026-10-19; overview and "on track" removed): underground
+(Foundation: utility conflicts) → there today (Reality) → going to be there
+(Integration) → when (Simulation: 4D build-out, ground up + orbit) → what could
+change it (Real-time: weather; radar layer coming) → what we do (Decision:
+re-plan + notify, presenter clicks). Built-in stops run until >= 3 are authored.
+4D: structure has NO install dates, so it rises by BldgLevel (0-16) over 8
+weeks before the first dated install: DERIVED, say so if asked.
 Every block must tie to an outcome (user: "keep me honest").
 
 ## Verified data facts (2026-10-16)
@@ -66,7 +69,7 @@ Re-run it after the model is republished.
   work-shift hours (assumed 7:00–15:30), whether doors are exterior,
   storm timing and intensity, plenary length, presenter, and screen.
 - Whether to keep the two SAMPLE logistics activities (crane pick, delivery).
-- The slides themselves (SLIDES.md), the electrical layer, and sharing for Road_and_Rail / Bridges / Roadway_Ground (Roadway_Ground is removed at load: a failed ground layer stalls ground-relative layers).
+- The slides themselves (SLIDES.md), the time-enabled radar layer (link), the electrical layer, and sharing for Road_and_Rail / Bridges / Roadway_Ground (Roadway_Ground is removed at load: a failed ground layer stalls ground-relative layers).
 
 ## Conventions
 - All weather in SI internally (m/s, mm/h). Convert only in `lib/units.ts`.

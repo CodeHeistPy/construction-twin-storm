@@ -41,6 +41,7 @@ export default function App() {
   const [showAlert, setShowAlert] = useState(false);
   const [timelineDay, setTimelineDay] = useState<Date>(twin.day);
   const [conflicts, setConflicts] = useState<Conflict[] | null>(null);
+  const [building, setBuilding] = useState(false);
 
   // Stops = the web scene's slides, matched to behaviours by title. If none
   // of the authored slides match yet, fall back to the built-in storyline.
@@ -61,7 +62,7 @@ export default function App() {
         // stray "Overview" slide doesn't hijack it). ?stops=slides|builtin forces either.
         const covered = new Set(authored.map((e) => e.rule?.key).filter(Boolean)).size;
         const force = new URLSearchParams(location.search).get("stops");
-        const useAuthored = force === "slides" || (force !== "builtin" && covered >= 4);
+        const useAuthored = force === "slides" || (force !== "builtin" && covered >= 3);
         if (!useAuthored)
           console.info(`[tour] authored slides cover ${covered}/${STOP_RULES.length} stops (see SLIDES.md); using built-in stops`);
         setEntries(
@@ -136,6 +137,7 @@ export default function App() {
         timelineDay={timelineDay}
         onView={setView}
         onConflicts={setConflicts}
+        orbit={building && behaviour.scene.bim === "timeline"}
       />
 
       <header className="topbar">
@@ -168,7 +170,7 @@ export default function App() {
       {behaviour.conditions && <ConditionsPanel twin={twin} />}
 
       <div className="bottom">
-        {timeline && <BuildTimeline key={index} today={twin.day} value={timelineDay} onChange={setTimelineDay} />}
+        {timeline && <BuildTimeline key={index} today={twin.day} value={timelineDay} onChange={setTimelineDay} onPlayingChange={setBuilding} />}
         {behaviour.conditions && <TimeScrubber twin={twin} />}
         <TourStrip
           stops={entries.map((e) => e.stop)}

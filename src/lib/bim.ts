@@ -4,7 +4,7 @@ import type { Activity, ActivityType, Decision } from "../domain/types";
 
 /** How today's components of a sublayer are shown (see SceneCanvas renderer). */
 export type TodayClass = Decision | "rescheduled" | "scheduled" | "hidden" | "done" | "dim";
-import { atHour } from "./time";
+import { atHour, zonedMidnight } from "./time";
 
 // =============================================================================
 // Today's activities come from the BIM model: every component in
@@ -202,4 +202,46 @@ export function progressAsOf(day: Date): { packages: PackageProgress[]; total: n
   const packages = [...byLabel.values()].sort((a, b) => b.total - a.total);
   const sum = (k: keyof Omit<PackageProgress, "label">) => packages.reduce((s, p) => s + p[k], 0);
   return { packages, total: sum("total"), installed: sum("installed"), today: sum("today") };
+}
+
+// -----------------------------------------------------------------------------
+// Ground-up build for the 4D timeline. The structure (floors, columns, walls,
+// stairs, roof, ceilings) carries NO install dates in the model, so it is
+// sequenced by its BldgLevel (0-16, verified 2026-10-19) over the weeks before
+// the first dated install. DERIVED, not scheduled: say so if asked.
+// -----------------------------------------------------------------------------
+
+export const STRUCTURE_SUBLAYERS = ["Floors", "StructuralColumns", "Walls", "Stairs", "Roofs", "Ceilings"];
+/** Room volumes: hidden while the building goes up. */
+export const HIDE_DURING_BUILD = ["Rooms"];
+export const MAX_LEVEL = 16;
+const STRUCTURE_WEEKS = 8;
+
+const firstInstall = (): Date => {
+  const [y, m, d] = BIM_RANGE.first.split("-").map(Number);
+  return zonedMidnight(y, m, d, SITE.timeZone);
+};
+
+/** When the timeline starts: the structure's first level, before any dated work. */
+export function buildStart(): Date {
+  return new Date(firstInstall().getTime() - STRUCTURE_WEEKS * 7 * 86_400_000);
+}
+
+/** Highest structural level standing on a date: -1 (nothing) to MAX_LEVEL. */
+export function levelAt(day: Date): number {
+  const s = buildStart().getTime();
+  const f = firstInstall().getTime();
+  if (day.getTime() >= f) return MAX_LEVEL;
+  const frac = (day.getTime() - s) / (f - s);
+  return Math.min(MAX_LEVEL, Math.floor(frac * (MAX_LEVEL + 1)) - 1);
+}
+
+/** Arcade for structure: levels up to `level` stand, the next one is going up now. */
+export function levelArcade(level: number): string {
+  return `
+var l = DefaultValue($feature.BldgLevel, 0);
+if (l <= ${level}) { return "installed"; }
+if (l == ${level + 1}) { return "today-scheduled"; }
+return "upcoming";
+`;
 }

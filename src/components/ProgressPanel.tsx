@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { progressAsOf } from "../lib/bim";
+import { levelAt, MAX_LEVEL, progressAsOf } from "../lib/bim";
 import type { Twin } from "../state/useTwin";
 
 const pct = (n: number, d: number) => (d ? (100 * n) / d : 0);
@@ -44,6 +44,9 @@ export default function ProgressPanel({ twin, endOfDay = false, asOf }: { twin: 
           <div>
             <b>{installed.toLocaleString()}</b> of {p.total.toLocaleString()} tracked parts
           </div>
+          {asOf && levelAt(asOf) < MAX_LEVEL && (
+            <div className="today">Structure rising: level {Math.max(0, levelAt(asOf) + 1)} of {MAX_LEVEL}</div>
+          )}
           {endOfDay ? (
             <>
               <div className="up">
