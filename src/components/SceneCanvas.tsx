@@ -217,13 +217,21 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     if (!view) return;
     const sync = () => {
       const slice = view.analyses.find((a) => a.type === "slice") as SliceAnalysis | undefined;
+      if (!slice) return;
       const tool = sliceRef.current;
-      if (slice && tool && tool.analysis !== slice) tool.analysis = slice;
+      if (tool && tool.analysis !== slice) tool.analysis = slice;
+      // The pipes must NOT be sliced: a slice hides everything on the cut-away
+      // side, so the pipes vanished exactly where the ground was removed (and
+      // on the kept side they're under opaque ground). Excluded, they sit in
+      // the opening at depth.
+      for (const l of utilitiesRef.current) {
+        if (!slice.excludedLayers.includes(l)) slice.excludedLayers.add(l);
+      }
     };
     sync();
     const h = view.analyses.on("change", sync);
     return () => h.remove();
-  }, [view]);
+  }, [view, loaded]);
   /** Activity id -> where its components actually are in Building 1 (client-side query). */
   const [placed, setPlaced] = useState<Map<string, Activity["location"]>>(new Map());
   const located = (a: Activity): Activity => ({ ...a, location: placed.get(a.id) ?? a.location });
