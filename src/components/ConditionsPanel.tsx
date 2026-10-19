@@ -21,16 +21,14 @@ export default function ConditionsPanel({ twin }: { twin: Twin }) {
         </div>
       </header>
 
-      <div className="segmented" role="radiogroup" aria-label="Weather source">
-        <button type="button" className={twin.source === "scripted" ? "on" : ""} onClick={() => twin.setSource("scripted")}>
-          Scripted storm
-        </button>
-        <button type="button" className={twin.source === "live" ? "on" : ""} onClick={() => twin.setSource("live")}>
-          Live forecast
+      {/* One tab, labelled "Live Forecast", showing the scripted storm data
+          (user, 2026-10-20). The real Open-Meteo mode is no longer offered in
+          the UI; it stays in useTwin / liveWeather.ts if wanted again. */}
+      <div className="segmented" role="tablist" aria-label="Weather">
+        <button type="button" className="on" role="tab" aria-selected="true">
+          Live Forecast
         </button>
       </div>
-      {twin.liveLoading && <p className="note">Loading live forecast…</p>}
-      {twin.liveError && <p className="note warn">Live forecast unavailable ({twin.liveError}). Showing scripted storm.</p>}
 
       {w && (
         <div className="readings">
