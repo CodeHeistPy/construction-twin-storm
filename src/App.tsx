@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type SceneView from "@arcgis/core/views/SceneView";
 import type WebScene from "@arcgis/core/WebScene";
 import type Slide from "@arcgis/core/webscene/Slide";
-import { PLAIN, ruleFor, STOP_RULES, type CameraPreset, type StopBehaviour, type StopRule } from "./config/tour";
+import { PLAIN, ruleFor, SKIP_SLIDES, STOP_RULES, type CameraPreset, type StopBehaviour, type StopRule } from "./config/tour";
 import { SITE } from "./config/site";
 import BuildTimeline from "./components/BuildTimeline";
 import CommsDialog from "./components/CommsDialog";
@@ -75,7 +75,9 @@ export default function App() {
       .when()
       .then((scene: WebScene) => {
         if (cancelled) return;
-        const slides = scene.presentation?.slides?.toArray() ?? [];
+        const slides = (scene.presentation?.slides?.toArray() ?? []).filter(
+          (s) => !SKIP_SLIDES.some((re) => re.test(s.title?.text ?? "")),
+        );
         const authored: Entry[] = slides.map((slide) => ({
           stop: { id: slide.id, title: slide.title?.text ?? "Slide", thumbnail: slide.thumbnail?.url ?? undefined },
           rule: ruleFor(slide.title?.text ?? ""),
@@ -191,6 +193,7 @@ export default function App() {
         orbit={building && timeline}
         allowUtilities={behaviour.scene.underground}
         isolateBuilding={behaviour.scene.bim === "timeline"}
+        hideSublayers={behaviour.hideSublayers}
       />
 
       <header className="topbar">

@@ -35,10 +35,12 @@ presenter calls out the building blocks verbally: **no block cues on screen**.
 The user authors the slides in Scene Viewer from **SLIDES.md**; the app matches
 slides by TITLE (`config/tour.ts` STOP_RULES) and adds data behaviour.
 Until >= 3 storyline stops are authored, built-in stops run (`?stops=slides|builtin` forces).
-The user's own slides (2026-10-20), in order: **Development Site for Office
-Park** (reality, ortho) → **Current Utilities** (Foundation: pipes below grade +
-conflicts; ground stays opaque, the presenter uses the **Slice** tool) →
-**Current Design** → **Construction Schedule** (4D build-out on the slide's
+The user's own slides, in order: **Development Site for Office
+Park** (reality, ortho) → [*Construction Site*: in the scene, skipped by the app
+via `SKIP_SLIDES`] → **Current Design** (site Planting sublayer kept off) →
+**Current Utilities** (Foundation: pipes below grade + conflicts; ground stays
+opaque, the slice starts above ground and the presenter drags it down with the
+**Slice** tool) → **Construction Schedule** (4D build-out on the slide's
 camera; orbit keeps its framing) → *What could change it* (inserted by the app,
 no slide: camera and layers stay, just the weather notification) → **Schedule
 Adjustment** (decision: 11 activities, re-plan + notify). No weather slider.
@@ -142,6 +144,9 @@ Re-run it after the model is republished.
   script `levels`). The tile index featureCount overcounts; don't use it.
 - **Utilities slide slice:** the slide's saved slice (elements.analyses) is handed to
   the Slice tool; utility layers are in its excludedLayers (a slice hides everything
-  on the cut side); a horizontal saved plane is dropped to 1.5 m under the LOWEST
-  ground across its footprint (3x3 samples), keeping footprint and heading.
+  on the cut side); a horizontal saved plane STARTS above ground (user): kept as
+  saved (~1,607 m, ~7 m up) and only lifted to 1.5 m over the HIGHEST ground
+  across its footprint (3x3 samples) if a re-save puts it below grade.
+- Per-stop building sublayer hiding (`hideSublayers`, `isolateBuilding`) uses
+  `keepOff()`: slides re-apply sublayer visibility asynchronously.
   Utility site-copies keep the original layer ids (slides list layers by id).

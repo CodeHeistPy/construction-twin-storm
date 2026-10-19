@@ -51,6 +51,8 @@ export interface StopBehaviour {
   /** Force the re-plan state on arrival (undefined = leave as the presenter set it). */
   replan?: boolean;
   outcome?: boolean;
+  /** Building sublayers switched off while this stop is up (slides can't save that). */
+  hideSublayers?: { layer: string; sublayers: string[] }[];
 }
 
 export interface StopRule {
@@ -81,10 +83,13 @@ const base = (layers: SceneMode["layers"], over: Partial<SceneMode> = {}): Scene
   ...over,
 });
 
+/** Web scene slides the app leaves out of the tour (user: drop "Construction Site"). */
+export const SKIP_SLIDES: RegExp[] = [/^construction site$/i];
+
 /**
- * In storyline order (the user's slides, 2026-10-20): Development Site → Current
- * Utilities → Current Design → Construction Schedule → [What could change it]
- * → Schedule Adjustment. First match wins. A rule with `insertIfMissing` gets a
+ * In storyline order (the user's slides): Development Site → Current Design →
+ * Current Utilities → Construction Schedule → [What could change it] →
+ * Schedule Adjustment. First match wins. A rule with `insertIfMissing` gets a
  * camera-less stop of its own when no authored slide matches it.
  */
 export const STOP_RULES: StopRule[] = [
@@ -103,7 +108,8 @@ export const STOP_RULES: StopRule[] = [
   {
     key: "design",
     match: /going to be there|design|bim/i,
-    behaviour: { scene: base(LAYERS.design), replan: false },
+    // The site's trees off for this view (user).
+    behaviour: { scene: base(LAYERS.design), replan: false, hideSublayers: [{ layer: "Office_Park_Site", sublayers: ["Planting"] }] },
     builtIn: { title: "What's going to be there", camera: "development" },
   },
   {

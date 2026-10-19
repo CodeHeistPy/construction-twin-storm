@@ -96,6 +96,8 @@ interface Props {
   allowUtilities?: boolean;
   /** Hide the other buildings (2-4) so the 4D build-out has the stage (and the frame rate). */
   isolateBuilding?: boolean;
+  /** Building sublayers to keep off on this stop. */
+  hideSublayers?: { layer: string; sublayers: string[] }[];
   onConflicts?: (c: Conflict[]) => void;
 }
 
@@ -152,8 +154,8 @@ function markerStatus(mode: SceneMode, decision: Decision, replanned: boolean): 
   return replanned && decision === "postpone" ? "rescheduled" : decision;
 }
 
-/** How far below grade a saved horizontal slice is dropped on the utilities stop (m). */
-const SLICE_BELOW_GRADE_M = 1.5;
+/** Minimum clearance of a saved horizontal slice above the ground on the utilities stop (m). */
+const SLICE_ABOVE_GRADE_M = 1.5;
 
 /** Envelope sublayers made see-through when the focus work is inside the building. */
 const ENVELOPE = ["Walls", "CurtainWallPanels", "CurtainWallMullions", "Roofs"];
@@ -203,12 +205,37 @@ const SHOTS: Record<CameraPreset, Shot> = {
   storm: { at: { longitude: SITE.longitude - 0.08, latitude: SITE.latitude - 0.06 }, scale: 220_000, tilt: 50, heading: 225 },
 };
 
+/**
+ * Switch building sublayers off and keep them off: a slide's flight re-applies
+ * its saved sublayer visibility asynchronously, after we've hidden them. The
+ * returned cleanup puts back what the slide had; the next slide then applies
+ * its own visibility on top.
+ */
+function keepOff(subs: { visible: boolean }[]): () => void {
+  const authored = new Map(subs.map((s) => [s, s.visible]));
+  subs.forEach((s) => (s.visible = false));
+  const handles = subs.map((s) =>
+    reactiveUtils.watch(
+      () => s.visible,
+      (v) => {
+        if (!v) return;
+        authored.set(s, true);
+        s.visible = false;
+      },
+    ),
+  );
+  return () => {
+    handles.forEach((h) => h.remove());
+    authored.forEach((v, s) => (s.visible = v));
+  };
+}
+
 function shotFor(a: Activity): Shot {
   // Wide enough to read the whole band of today's parts on the building.
   return { at: a.location, above: a.location.z, scale: 1000, tilt: 66, heading: a.viewHeading ?? 30 };
 }
 
-export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect, camera, applyLayers, timelineDay, onView, onConflicts, orbit = false, allowUtilities = false, isolateBuilding = false }: Props) {
+export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect, camera, applyLayers, timelineDay, onView, onConflicts, orbit = false, allowUtilities = false, isolateBuilding = false, hideSublayers }: Props) {
   const [view, setView] = useState<SceneView | null>(null);
   const [loaded, setLoaded] = useState(false);
   // One WebScene for the life of the app. Letting <arcgis-scene> load it from
@@ -253,16 +280,17 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       for (const l of utilitiesRef.current) {
         if (!slice.excludedLayers.includes(l)) slice.excludedLayers.add(l);
       }
-      // On the utilities stop, drop a horizontal saved slice to just below
-      // grade (user, 2026-10-20): the slide's plane sat ~15 m up, cutting the
-      // buildings but not the ground. Footprint, heading and size are kept.
+      // On the utilities stop the slice STARTS above the ground (user): the
+      // presenter drags it down live. The slide's saved plane (~1,607 m) already
+      // is; if a re-saved one ever dips below grade, lift it just clear of the
+      // highest ground under it. Footprint, heading and size are kept.
       const shape = slice.shape;
-      if (undergroundRef.current && shape?.position && Math.abs(shape.tilt) < 5 && !lowered.has(slice)) {
-        lowered.add(slice);
+      if (undergroundRef.current && shape?.position && Math.abs(shape.tilt) < 5 && !checked.has(slice)) {
+        checked.add(slice);
         const pos = shape.position;
         // The ground slopes across the footprint, so sample a 3x3 grid over the
         // plane (its width/height are in the position's map units, rotated by
-        // its heading) and go just under the LOWEST point.
+        // its heading) and compare with the HIGHEST point.
         const r = ((shape.heading ?? 0) * Math.PI) / 180;
         const samples: Promise<Point>[] = [];
         for (const u of [-0.5, 0, 0.5])
@@ -278,22 +306,22 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
         Promise.all(samples).then((pts) => {
           const zs = pts.map((g) => g.z).filter((z): z is number => z !== undefined && Number.isFinite(z));
           if (!zs.length) return;
-          const lowest = Math.min(...zs);
-          if ((pos.z ?? 0) < lowest - SLICE_BELOW_GRADE_M) return; // already below grade
+          const highest = Math.max(...zs);
+          if ((pos.z ?? 0) >= highest + SLICE_ABOVE_GRADE_M) return; // already above grade
           const next = shape.clone();
           const p = pos.clone();
-          p.z = lowest - SLICE_BELOW_GRADE_M;
+          p.z = highest + SLICE_ABOVE_GRADE_M;
           next.position = p;
           slice.shape = next;
         });
       }
     };
-    const lowered = new WeakSet<object>();
+    const checked = new WeakSet<object>();
     sync();
     const h = view.analyses.on("change", sync);
     return () => h.remove();
     // Re-run on entering the utilities stop too (the slide may add its slice
-    // first); the "already below grade" check makes repeats harmless.
+    // first); the "already above grade" check makes repeats harmless.
   }, [view, loaded, mode.underground]);
   /** Activity id -> where its components actually are in Building 1 (client-side query). */
   const [placed, setPlaced] = useState<Map<string, Activity["location"]>>(new Map());
@@ -435,23 +463,20 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       .filter((l) => l.type === "building-scene" && roleOf(l.title) === "proposed")
       .toArray()
       .flatMap((l) => (l as BuildingSceneLayer).sublayers?.toArray() ?? []); // none if it failed to load
-    const authored = new Map(tops.map((s) => [s, s.visible]));
-    tops.forEach((s) => (s.visible = false));
-    const handles = tops.map((s) =>
-      reactiveUtils.watch(
-        () => s.visible,
-        (v) => {
-          if (!v) return;
-          authored.set(s, true);
-          s.visible = false;
-        },
-      ),
-    );
-    return () => {
-      handles.forEach((h) => h.remove());
-      authored.forEach((v, s) => (s.visible = v));
-    };
+    return keepOff(tops);
   }, [map, loaded, isolateBuilding]);
+
+  // Per-stop sublayers off (e.g. the site's Planting on Current Design), same way.
+  const hideKey = JSON.stringify(hideSublayers ?? []);
+  useEffect(() => {
+    const wanted = JSON.parse(hideKey) as NonNullable<Props["hideSublayers"]>;
+    if (!map || !loaded || !wanted.length) return;
+    const subs = wanted.flatMap(({ layer, sublayers }) => {
+      const bsl = map.allLayers.find((l) => l.type === "building-scene" && l.title === layer) as BuildingSceneLayer | undefined;
+      return bsl?.allSublayers?.filter((s) => sublayers.includes(s.modelName ?? s.title ?? "")).toArray() ?? [];
+    });
+    return keepOff(subs);
+  }, [map, loaded, hideKey]);
 
   // Built-in stops set layer visibility by role. (Authored slides set their own.)
   // Group members follow their group (the scene ships the utilities off).
