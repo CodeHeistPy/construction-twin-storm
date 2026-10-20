@@ -56,6 +56,12 @@ export interface StopBehaviour {
   hour?: number;
   /** Pop the incoming-weather alert on arrival. */
   alert?: boolean;
+  /**
+   * Hold the weather calls back behind a topbar "Weather alert" button (user,
+   * 2026-10-20): the stop opens on the full schedule; the click shows the alert
+   * and switches the panel, building and pins to postpone / proceed.
+   */
+  alertButton?: boolean;
   /** Force the re-plan state on arrival (undefined = leave as the presenter set it). */
   replan?: boolean;
   outcome?: boolean;
@@ -142,7 +148,7 @@ export const STOP_RULES: StopRule[] = [
     // The incoming-weather alert pops here (user: the separate "What could
     // change it" stop is gone; its alert moved onto this slide).
     behaviour: {
-      alert: true,
+      alertButton: true,
       scene: base(LAYERS.slides, { bim: "decision", markers: true }),
       left: "schedule",
       decisions: true,

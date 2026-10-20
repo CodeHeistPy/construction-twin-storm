@@ -44,7 +44,9 @@ storm (`PLAN_AHEAD_DAYS = 1`, `presenterToday()` in site.ts). The demo day
 **"Tomorrow"**; the 4D ends on "Today" (day 111, level 8); postponed work lands
 on the "Day after tomorrow" (`planDayLabel`). Alert: "Severe weather arriving
 tomorrow". Schedule Adjustment has no conditions panel; its Postponed / Proceed
-tiles filter the list and map markers; it OPENS filtered to Proceed. The alert
+tiles filter the list and map markers. It OPENS on the plain schedule (all 14,
+"scheduled" colours); the topbar "Weather alert" button (replaces Notify crews,
+`alertButton`) shows the alert and switches to postpone / proceed. The alert
 names tomorrow's real date (`displayDate`). 6 postponed / 8 proceed (S-02 delivery
 moved to 7-10 AM, user). Both views: 3D mesh on, ortho off, the
 Topographic 3D basemap with its 3D Buildings on and Trees off, Buildings 2-4 hidden.

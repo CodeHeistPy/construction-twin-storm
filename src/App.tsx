@@ -6,7 +6,6 @@ import type Slide from "@arcgis/core/webscene/Slide";
 import { ALWAYS_HIDDEN, APP_STOPS, PLAIN, ruleFor, STOP_RULES, type CameraPreset, type StopBehaviour, type StopRule } from "./config/tour";
 import { presenterToday, SITE } from "./config/site";
 import BuildTimeline from "./components/BuildTimeline";
-import CommsDialog from "./components/CommsDialog";
 import ConditionsPanel from "./components/ConditionsPanel";
 import ConflictsPanel from "./components/ConflictsPanel";
 import OutcomeCard from "./components/OutcomeCard";
@@ -21,7 +20,7 @@ import { useTwin } from "./state/useTwin";
 import { buildStart, TRADES } from "./lib/bim";
 
 /** Clock hour of the weather stop, for the outcome card's "hours of warning". */
-const ALERT_HOUR = STOP_RULES.find((r) => r.behaviour.alert)?.behaviour.hour ?? 9;
+const ALERT_HOUR = STOP_RULES.find((r) => r.behaviour.alert || r.behaviour.alertButton)?.behaviour.hour ?? 9;
 
 interface Entry {
   stop: TourStop;
@@ -63,8 +62,9 @@ export default function App() {
   const [applyLayers, setApplyLayers] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [camera, setCamera] = useState<CameraRequest>({ preset: "schedule", key: 0 });
-  const [showComms, setShowComms] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
+  // On a stop with alertButton: has the presenter revealed the weather calls yet?
+  const [weatherShown, setWeatherShown] = useState(false);
   // The app opens on the build-out: start at the ground, so the wait for the
   // scene to load shows an empty site, not the finished state.
   const [timelineDay, setTimelineDay] = useState<Date>(() => buildStart());
@@ -142,11 +142,10 @@ export default function App() {
       setIndex(i);
       setBehaviour(b);
       setSelectedId(null);
-      // Schedule Adjustment opens on what CAN proceed (user, 2026-10-20).
-      setDecisionFilter(b.scene.bim === "decision" ? "go" : null);
+      setDecisionFilter(null);
       setLayerFilter(null);
-      setShowComms(false);
       setShowAlert(!!b.alert);
+      setWeatherShown(false);
       if (b.hour !== undefined) twin.setHour(b.hour);
       if (b.replan !== undefined) twin.setReplanned(b.replan);
       setTimelineDay(b.scene.bim === "timeline" ? buildStart() : twin.day);
@@ -199,6 +198,14 @@ export default function App() {
   }, [entries, index, go]);
 
   // The activity a stop is about.
+  // Before the weather is revealed (alertButton stops), the stop shows the plain
+  // schedule: every activity listed, building and pins in "scheduled" colours.
+  const decided = !behaviour.alertButton || weatherShown;
+  const shownMode = useMemo(
+    () => (decided || sceneMode.bim !== "decision" ? sceneMode : { ...sceneMode, bim: "scheduled" as const }),
+    [sceneMode, decided],
+  );
+
   const focusId = useMemo(() => {
     const f = behaviour.scene.focus;
     if (!f) return null;
@@ -216,7 +223,7 @@ export default function App() {
         markerFilter={decisionFilter}
         onlySublayers={layerFilter ? (TRADES.find((t) => t.label === layerFilter)?.sublayers ?? null) : null}
         twin={twin}
-        mode={sceneMode}
+        mode={shownMode}
         focusId={focusId}
         selectedId={selectedId}
         onSelect={setSelectedId}
@@ -238,10 +245,17 @@ export default function App() {
           <div className="eyebrow">Design &amp; construction digital twin</div>
           <h1>{SITE.name}</h1>
         </div>
-        {behaviour.decisions && (
+        {behaviour.alertButton && (
           <div className="topbar-actions">
-            <button type="button" onClick={() => setShowComms(true)}>
-              Notify crews
+            <button
+              type="button"
+              className={`alert-btn ${weatherShown ? "" : "pulse"}`}
+              onClick={() => {
+                setShowAlert(true);
+                setWeatherShown(true);
+              }}
+            >
+              <span aria-hidden>⚠</span> Weather alert
             </button>
           </div>
         )}
@@ -264,7 +278,7 @@ export default function App() {
           twin={twin}
           selectedId={selectedId}
           onSelect={setSelectedId}
-          decisions={behaviour.decisions !== false}
+          decisions={behaviour.decisions !== false && decided}
           focusId={focusId}
           filter={decisionFilter}
           onFilter={(d) => {
@@ -287,7 +301,6 @@ export default function App() {
 
       {showAlert && <WeatherAlert twin={twin} onClose={() => setShowAlert(false)} />}
       {behaviour.outcome && <OutcomeCard twin={twin} alertHour={ALERT_HOUR} />}
-      {showComms && <CommsDialog twin={twin} onClose={() => setShowComms(false)} />}
     </div>
   );
 }
