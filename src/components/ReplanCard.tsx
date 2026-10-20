@@ -1,9 +1,11 @@
 import { remainingWork } from "../lib/bim";
 import { fmtTime } from "../lib/units";
+import { planDayLabel } from "../config/site";
 import type { Rescheduled } from "../domain/replan";
 import type { Twin } from "../state/useTwin";
 
-export const whenLabel = (daysLater: number) => (daysLater === 1 ? "Tomorrow" : `In ${daysLater} days`);
+/** Where postponed work lands, said from the presenter's "today" (day before the storm). */
+export const whenLabel = (daysLater: number) => planDayLabel(daysLater);
 
 /** "Adapt the plan": move postponed work to its next workable window and show the knock-on. */
 export default function ReplanCard({ twin }: { twin: Twin }) {
@@ -18,7 +20,7 @@ export default function ReplanCard({ twin }: { twin: Twin }) {
           <b>
             {replanned
               ? `${replans.filter((r) => r.daysLater !== null).length} of ${replans.length} postponed activities re-planned`
-              : `${replans.length} activities can't run today`}
+              : `${replans.length} activities can't run tomorrow`}
           </b>
         </div>
         <div className="replan-actions">

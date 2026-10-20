@@ -14,7 +14,7 @@ export default function CommsDialog({ twin, onClose }: { twin: Twin; onClose: ()
     const postponed = twin.assessments.filter((a) => a.decision === "postpone");
     const watch = twin.assessments.filter((a) => a.decision === "watch");
     const lines = [
-      `WEATHER STAND-DOWN: ${SITE.name}, today`,
+      `WEATHER STAND-DOWN: ${SITE.name}, tomorrow`,
       "",
       `${postponed.length} activities postponed:`,
       ...postponed.map((a) => {
@@ -29,7 +29,7 @@ export default function CommsDialog({ twin, onClose }: { twin: Twin; onClose: ()
     if (watch.length) {
       lines.push("", "Monitor (near limits):", ...watch.map((a) => `• ${a.activity.id} ${a.activity.name}`));
     }
-    lines.push("", "Secure loose materials and laydown areas before the storm arrives.");
+    lines.push("", "Secure loose materials and laydown areas today, before the storm arrives.");
     return lines.join("\n");
   }, [twin.assessments, twin.replans, twin.replanned]);
 

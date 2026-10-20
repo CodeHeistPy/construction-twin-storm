@@ -33,6 +33,8 @@ interface Props {
   asOf?: Date;
   /** Restart the build-out from the ground. */
   onReset?: () => void;
+  /** The presenter's "today" (the day before the storm); defaults to the demo day. */
+  today?: Date;
 }
 
 /**
@@ -41,12 +43,12 @@ interface Props {
  * % complete ring with the current phase, three stat tiles, then one coloured
  * bar per construction layer. Days, never calendar dates.
  */
-export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset }: Props) {
-  const when = asOf ?? twin.day;
+export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, today = twin.day }: Props) {
+  const when = asOf ?? today;
   const p = useMemo(() => progressAsOf(when), [when]);
   const start = useMemo(() => buildStart(), []);
   const finish = useMemo(() => buildFinish(), []);
-  const isToday = Math.round((when.getTime() - twin.day.getTime()) / DAY) === 0;
+  const isToday = Math.round((when.getTime() - today.getTime()) / DAY) === 0;
   const elapsed = Math.max(0, Math.round((when.getTime() - start.getTime()) / DAY));
   const remaining = Math.max(0, Math.round((finish.getTime() - when.getTime()) / DAY));
 

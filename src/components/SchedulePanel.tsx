@@ -38,7 +38,7 @@ export default function SchedulePanel({ twin, selectedId, onSelect, decisions = 
       <header className="panel-head">
         <div>
           <div className="eyebrow">Site schedule</div>
-          <h2>Today</h2>
+          <h2>Tomorrow</h2>
         </div>
       </header>
 
@@ -78,7 +78,7 @@ export default function SchedulePanel({ twin, selectedId, onSelect, decisions = 
         </>
       )}
       <p className="footnote">
-        Building 1 work follows a level-by-level sequence (structure on level 8 today). Shift hours, sample items and stop-work limits are placeholders.
+        Building 1 work follows a level-by-level sequence (structure on level 8). Shift hours, sample items and stop-work limits are placeholders.
       </p>
     </aside>
   );
@@ -144,7 +144,7 @@ function ScheduledOnly({
       <div className="summary summary-2">
         <div className="stat scheduled">
           <b>{twin.assessments.length}</b>
-          <span>activities today</span>
+          <span>activities tomorrow</span>
         </div>
         <div className="stat">
           <b>{parts}</b>

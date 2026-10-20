@@ -56,6 +56,25 @@ export function demoDay(): Date {
   return zonedMidnight(y, m, d, SITE.timeZone);
 }
 
+/**
+ * Plan ahead (user, 2026-10-20): the presenter stands on the day BEFORE the
+ * storm. The demo day (`demoDay()`, when the storm hits and the rules run) is
+ * "Tomorrow" on screen; the build-out ends on "Today", the day before; and
+ * postponed work lands "the day after tomorrow" or later.
+ */
+export const PLAN_AHEAD_DAYS = 1;
+
+/** The presenter's "today": the demo day minus PLAN_AHEAD_DAYS. */
+export function presenterToday(): Date {
+  return new Date(demoDay().getTime() - PLAN_AHEAD_DAYS * 86_400_000);
+}
+
+/** "Tomorrow" / "Day after tomorrow" / "In N days" for N days after the demo day. */
+export function planDayLabel(daysAfterDemoDay: number): string {
+  const n = daysAfterDemoDay + PLAN_AHEAD_DAYS;
+  return n === 0 ? "Today" : n === 1 ? "Tomorrow" : n === 2 ? "Day after tomorrow" : `In ${n} days`;
+}
+
 /** Display units. US conference audience assumed — change if not. */
 export const UNITS: "imperial" | "metric" =
   env.VITE_UNITS === "metric" ? "metric" : "imperial";

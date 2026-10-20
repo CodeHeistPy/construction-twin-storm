@@ -4,7 +4,7 @@ import * as reactiveUtils from "@arcgis/core/core/reactiveUtils";
 import type WebScene from "@arcgis/core/WebScene";
 import type Slide from "@arcgis/core/webscene/Slide";
 import { ALWAYS_HIDDEN, APP_STOPS, PLAIN, ruleFor, STOP_RULES, type CameraPreset, type StopBehaviour, type StopRule } from "./config/tour";
-import { SITE } from "./config/site";
+import { presenterToday, SITE } from "./config/site";
 import BuildTimeline from "./components/BuildTimeline";
 import CommsDialog from "./components/CommsDialog";
 import ConditionsPanel from "./components/ConditionsPanel";
@@ -241,6 +241,7 @@ export default function App() {
           twin={twin}
           endOfDay={!!behaviour.outcome}
           asOf={timeline ? timelineDay : undefined}
+          today={presenterToday()}
           onReset={timeline ? () => setReplay((n) => n + 1) : undefined}
         />
       )}
@@ -261,7 +262,7 @@ export default function App() {
       {behaviour.conditions && <ConditionsPanel twin={twin} />}
 
       <div className="bottom">
-        {timeline && settled && <BuildTimeline key={`${index}-${replay}`} today={twin.day} value={timelineDay} onChange={setTimelineDay} onPlayingChange={setBuilding} />}
+        {timeline && settled && <BuildTimeline key={`${index}-${replay}`} today={presenterToday()} value={timelineDay} onChange={setTimelineDay} onPlayingChange={setBuilding} />}
         <TourStrip
           stops={entries.map((e) => e.stop)}
           index={index}

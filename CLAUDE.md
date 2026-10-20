@@ -34,6 +34,13 @@ web scene's own slides (filmstrip at the bottom, arrows/clicker), and the
 presenter calls out the building blocks verbally: **no block cues on screen**.
 The user authors the slides in Scene Viewer from **SLIDES.md**; the app matches
 slides by TITLE (`config/tour.ts` STOP_RULES) and adds data behaviour.
+**PLAN AHEAD (user, 2026-10-20):** the presenter stands on the day BEFORE the
+storm (`PLAN_AHEAD_DAYS = 1`, `presenterToday()` in site.ts). The demo day
+(`demoDay()`, storm day, where the rules and re-plan run) shows as
+**"Tomorrow"**; the 4D ends on "Today" (day 111, level 8); postponed work lands
+on the "Day after tomorrow" (`planDayLabel`). Alert: "Severe weather arriving
+tomorrow". Schedule Adjustment has no conditions panel; its Postponed / Proceed
+tiles filter the list and map markers.
 **Since 2026-10-20 the app is only the last two beats** (user: the earlier
 beats are told in Scene Viewer): **Construction Schedule** (4D) and **Schedule
 Adjustment** (weather alert + decisions), `APP_STOPS` in tour.ts. Their views

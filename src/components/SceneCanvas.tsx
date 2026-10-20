@@ -51,7 +51,7 @@ export const DECISION_COLORS: Record<Status, string> = {
 };
 
 /** Our own layers (storm, markers, conflicts). Slides don't know them, so re-show after a slide. */
-const APP_LAYER_TITLES = new Set(["Storm cell (scripted)", "Today's activities", "Utility conflicts"]);
+const APP_LAYER_TITLES = new Set(["Storm cell (scripted)", "Planned activities", "Utility conflicts"]);
 export function restoreAppLayers(view: SceneView): void {
   view.map?.layers.forEach((l) => {
     // The conflicts layer is NOT re-shown here: it belongs to the utilities
@@ -357,7 +357,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
   useEffect(() => {
     if (!view || !map) return;
     const storm = new GraphicsLayer({ title: "Storm cell (scripted)", elevationInfo: { mode: "on-the-ground" } });
-    const activities = new GraphicsLayer({ title: "Today's activities", elevationInfo: { mode: "relative-to-ground" } });
+    const activities = new GraphicsLayer({ title: "Planned activities", elevationInfo: { mode: "relative-to-ground" } });
     const conflicts = new GraphicsLayer({ title: "Utility conflicts", listMode: "hide", elevationInfo: { mode: "relative-to-ground" } });
     map.addMany([storm, activities, conflicts]);
     layers.current = { activities, storm, conflicts };
