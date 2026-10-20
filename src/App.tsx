@@ -142,7 +142,8 @@ export default function App() {
       setIndex(i);
       setBehaviour(b);
       setSelectedId(null);
-      setDecisionFilter(null);
+      // Schedule Adjustment opens on what CAN proceed (user, 2026-10-20).
+      setDecisionFilter(b.scene.bim === "decision" ? "go" : null);
       setLayerFilter(null);
       setShowComms(false);
       setShowAlert(!!b.alert);

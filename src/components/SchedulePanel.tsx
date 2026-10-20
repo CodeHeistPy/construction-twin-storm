@@ -73,9 +73,6 @@ export default function SchedulePanel({ twin, selectedId, onSelect, decisions = 
       </div>
         </>
       )}
-      <p className="footnote">
-        Building 1 work follows a level-by-level sequence (structure on level 8). Shift hours, sample items and stop-work limits are placeholders.
-      </p>
     </aside>
   );
 }

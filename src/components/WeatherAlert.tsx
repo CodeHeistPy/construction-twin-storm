@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { STRICTEST } from "../config/thresholds";
 import { isSameDay } from "../lib/time";
-import { fmtHour, fmtPrecip, fmtWind } from "../lib/units";
+import { fmtDate, fmtHour, fmtPrecip, fmtWind } from "../lib/units";
+import { displayDate } from "../config/site";
 import type { Twin } from "../state/useTwin";
 
 /**
@@ -40,7 +41,7 @@ export default function WeatherAlert({ twin, onClose }: { twin: Twin; onClose: (
           <b>Severe weather arriving tomorrow</b>
         </div>
         <p>
-          Tomorrow, {fmtHour(alert.from)}–{fmtHour(new Date(alert.to.getTime() + 3_600_000))}: gusts to {fmtWind(alert.peak.windGust)}
+          Tomorrow, {fmtDate(displayDate(twin.day))}, {fmtHour(alert.from)}–{fmtHour(new Date(alert.to.getTime() + 3_600_000))}: gusts to {fmtWind(alert.peak.windGust)}
           {alert.rain > 0 ? `, heavy rain up to ${fmtPrecip(alert.rain)}` : ""}
           {alert.lightning ? ", lightning" : ""}.
         </p>

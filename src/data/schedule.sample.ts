@@ -47,8 +47,10 @@ const ROWS: Row[] = [
     type: "deliveries",
     trade: "Logistics",
     zone: "Podium, east of Building 1",
-    from: 13,
-    to: 15,
+    // A morning drop, ahead of the storm, so it proceeds (user, 2026-10-20:
+    // postponed and proceed were both 7; now 6 and 8).
+    from: 7,
+    to: 10,
     crew: 2,
     at: [-104.99082, 39.69866, 11],
     heading: 270,
