@@ -145,17 +145,14 @@ function ScheduledOnly({
   selectedId: string | null;
   onSelect: (id: string | null) => void;
 }) {
-  const parts = twin.assessments.reduce((n, a) => n + (a.activity.components ?? 0), 0);
   return (
     <>
-      <div className="summary summary-2">
+      {/* Just the activity count: a whole level's part total (1,092) read as an
+          unrealistic day's install (user, 2026-10-20). */}
+      <div className="summary summary-1">
         <div className="stat scheduled">
           <b>{twin.assessments.length}</b>
           <span>activities tomorrow</span>
-        </div>
-        <div className="stat">
-          <b>{parts}</b>
-          <span>BIM parts to install</span>
         </div>
       </div>
       <div className="activity-list">
