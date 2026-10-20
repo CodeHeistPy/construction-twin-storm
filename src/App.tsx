@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type SceneView from "@arcgis/core/views/SceneView";
 import type WebScene from "@arcgis/core/WebScene";
 import type Slide from "@arcgis/core/webscene/Slide";
-import { PLAIN, ruleFor, SKIP_SLIDES, STOP_RULES, type CameraPreset, type StopBehaviour, type StopRule } from "./config/tour";
+import { ALWAYS_HIDDEN, PLAIN, ruleFor, SKIP_SLIDES, STOP_RULES, type CameraPreset, type StopBehaviour, type StopRule } from "./config/tour";
 import { SITE } from "./config/site";
 import BuildTimeline from "./components/BuildTimeline";
 import CommsDialog from "./components/CommsDialog";
@@ -193,7 +193,7 @@ export default function App() {
         orbit={building && timeline}
         allowUtilities={behaviour.scene.underground}
         isolateBuilding={behaviour.scene.bim === "timeline"}
-        hideSublayers={behaviour.hideSublayers}
+        hideSublayers={[...ALWAYS_HIDDEN, ...(behaviour.hideSublayers ?? [])]}
       />
 
       <header className="topbar">

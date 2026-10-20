@@ -83,6 +83,9 @@ const base = (layers: SceneMode["layers"], over: Partial<SceneMode> = {}): Scene
   ...over,
 });
 
+/** Building sublayers kept off on EVERY stop (user: no site trees anywhere). */
+export const ALWAYS_HIDDEN: { layer: string; sublayers: string[] }[] = [{ layer: "Office_Park_Site", sublayers: ["Planting"] }];
+
 /** Web scene slides the app leaves out of the tour (user: drop "Construction Site"). */
 export const SKIP_SLIDES: RegExp[] = [/^construction site$/i];
 
@@ -108,8 +111,7 @@ export const STOP_RULES: StopRule[] = [
   {
     key: "design",
     match: /going to be there|design|bim/i,
-    // The site's trees off for this view (user).
-    behaviour: { scene: base(LAYERS.design), replan: false, hideSublayers: [{ layer: "Office_Park_Site", sublayers: ["Planting"] }] },
+    behaviour: { scene: base(LAYERS.design), replan: false },
     builtIn: { title: "What's going to be there", camera: "development" },
   },
   {
