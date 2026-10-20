@@ -777,7 +777,10 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       twin.assessments.filter(({ decision }) => !markerFilter || decision === markerFilter).map(({ activity, decision }) => {
         const a = located(activity);
         const selected = a.id === selectedId || a.id === focusId;
-        const color = DECISION_COLORS[markerStatus(mode, decision, twin.replanned)];
+        // With a pin picked, the rest fade so the picked one stands out (user, 2026-10-20).
+        const faded = !!(selectedId || focusId) && !selected;
+        const alpha = faded ? 0.22 : 1;
+        const color = hex(DECISION_COLORS[markerStatus(mode, decision, twin.replanned)], alpha);
         return new Graphic({
           geometry: new Point({ longitude: a.location.longitude, latitude: a.location.latitude, z: a.location.z }),
           attributes: { id: a.id },
@@ -789,14 +792,14 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
                 resource: { primitive: "circle" },
                 size: selected ? 22 : 14,
                 material: { color },
-                outline: { color: selected ? "#ffffff" : "#0b1220", size: selected ? 3 : 1.5 },
+                outline: { color: selected ? "#ffffff" : hex("#0b1220", alpha), size: selected ? 3 : 1.5 },
               },
               {
                 type: "text",
                 text: a.id,
                 size: selected ? 11 : 9,
-                material: { color: "#ffffff" },
-                halo: { color: "#0b1220", size: 1.5 },
+                material: { color: hex("#ffffff", faded ? 0.3 : 1) },
+                halo: { color: hex("#0b1220", faded ? 0.15 : 1), size: 1.5 },
                 verticalAlignment: "bottom",
               },
             ],

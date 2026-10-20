@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { STRICTEST } from "../config/thresholds";
 import { isSameDay } from "../lib/time";
-import { fmtDate, fmtHour, fmtPrecip, fmtWind } from "../lib/units";
+import { fmtDayDate, fmtHour, fmtWind } from "../lib/units";
 import { displayDate } from "../config/site";
 import type { Twin } from "../state/useTwin";
 
@@ -19,16 +19,10 @@ export default function WeatherAlert({ twin, onClose }: { twin: Twin; onClose: (
     );
     if (!bad.length) return null;
     const peak = bad.reduce((m, h) => (h.windGust > m.windGust ? h : m), bad[0]);
-    const rain = bad.reduce((m, h) => Math.max(m, h.precipitation), 0);
-    return {
-      from: bad[0].time,
-      to: bad[bad.length - 1].time,
-      peak,
-      rain,
-      lightning: bad.some((h) => h.lightning),
-      atRisk: twin.assessments.filter((a) => a.decision !== "go").length,
-    };
-  }, [twin.weather, twin.day, twin.assessments]);
+    // Shown as just "heavy rain" (user, 2026-10-20), so only whether there is any.
+    const rain = bad.some((h) => h.precipitation > 0);
+    return { from: bad[0].time, to: bad[bad.length - 1].time, peak, rain };
+  }, [twin.weather, twin.day]);
 
   if (!alert) return null;
   return (
@@ -38,15 +32,11 @@ export default function WeatherAlert({ twin, onClose }: { twin: Twin; onClose: (
       </div>
       <div className="alert-body">
         <div className="alert-head">
-          <b>Severe weather arriving tomorrow</b>
+          <b>Severe weather arriving tomorrow, {fmtDayDate(displayDate(twin.day))}</b>
         </div>
         <p>
-          Tomorrow, {fmtDate(displayDate(twin.day))}, {fmtHour(alert.from)}–{fmtHour(new Date(alert.to.getTime() + 3_600_000))}: gusts to {fmtWind(alert.peak.windGust)}
-          {alert.rain > 0 ? `, heavy rain up to ${fmtPrecip(alert.rain)}` : ""}
-          {alert.lightning ? ", lightning" : ""}.
-        </p>
-        <p className="alert-impact">
-          {alert.atRisk} of tomorrow's {twin.assessments.length} activities at risk.
+          {fmtHour(alert.from)}–{fmtHour(new Date(alert.to.getTime() + 3_600_000))}: gusts to {fmtWind(alert.peak.windGust)}
+          {alert.rain ? ", heavy rain" : ""}.
         </p>
       </div>
       <button type="button" className="ghost" onClick={onClose} aria-label="Dismiss alert">

@@ -22,6 +22,10 @@ export const fmtTime = (d: Date) =>
 export const fmtDate = (d: Date) =>
   d.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric", timeZone: SITE.timeZone });
 
+/** "Wednesday, Oct 21, 2026" in site time. */
+export const fmtDayDate = (d: Date) =>
+  d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", year: "numeric", timeZone: SITE.timeZone });
+
 export const fmtHour = (d: Date) =>
   d.toLocaleTimeString("en-US", { hour: "numeric", timeZone: SITE.timeZone });
 

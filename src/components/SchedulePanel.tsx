@@ -1,11 +1,13 @@
 import { ACTIVITY_LABELS, THRESHOLDS } from "../config/thresholds";
 import type { Rescheduled } from "../domain/replan";
 import type { ActivityAssessment, Decision } from "../domain/types";
-import { fmtReason, fmtTime, fmtWatch } from "../lib/units";
+import { fmtDate, fmtReason, fmtTime, fmtWatch } from "../lib/units";
+import { displayDate } from "../config/site";
 import type { Twin } from "../state/useTwin";
 import ReplanCard, { whenLabel } from "./ReplanCard";
 
-const ORDER: Decision[] = ["postpone", "watch", "go"];
+// What can go ahead first, then what's at risk (user, 2026-10-20).
+const ORDER: Decision[] = ["go", "watch", "postpone"];
 const LABEL: Record<Decision, string> = { postpone: "Postpone", watch: "Watch", go: "Proceed" };
 
 interface Props {
@@ -34,7 +36,9 @@ export default function SchedulePanel({ twin, selectedId, onSelect, decisions = 
       <header className="panel-head">
         <div>
           <div className="eyebrow">Site schedule</div>
-          <h2>Tomorrow</h2>
+          <h2>
+            Tomorrow <span className="head-date">{fmtDate(displayDate(twin.day))}</span>
+          </h2>
         </div>
       </header>
 
