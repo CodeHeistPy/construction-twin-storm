@@ -13,8 +13,10 @@ const LAYER_COLORS: Record<string, string> = {
   "Doors & ceilings": "#c084fc",
   "MEP fixtures": "#f472b6",
   "Specialty & casework": "#facc15",
-  Furniture: "#fb923c",
 };
+
+/** Layers the panel leaves out (user, 2026-10-20); the 3D build-out still installs them. */
+const PANEL_HIDDEN = new Set(["Furniture"]);
 
 /** The phase the build is in on a date, from where the trades are working. */
 function phaseAt(day: Date): string {
@@ -46,6 +48,10 @@ interface Props {
 export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, today = twin.day }: Props) {
   const when = asOf ?? today;
   const p = useMemo(() => progressAsOf(when), [when]);
+  // The layers shown, and the totals over just those, so the ring matches the list.
+  const layers = p.packages.filter((k) => !PANEL_HIDDEN.has(k.label));
+  const shownTotal = layers.reduce((n, k) => n + k.total, 0);
+  const shownInstalled = layers.reduce((n, k) => n + k.installed, 0);
   const start = useMemo(() => buildStart(), []);
   const finish = useMemo(() => buildFinish(), []);
   const isToday = Math.round((when.getTime() - today.getTime()) / DAY) === 0;
@@ -56,9 +62,9 @@ export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, t
   const ranToday = twin.assessments
     .filter((a) => a.activity.source === "bim" && a.decision !== "postpone")
     .reduce((n, a) => n + (a.activity.components ?? 0), 0);
-  const installed = p.installed + (endOfDay ? ranToday : 0);
-  const complete = pct(installed, p.total);
-  const active = p.packages.filter((k) => k.today > 0).length;
+  const installed = shownInstalled + (endOfDay ? ranToday : 0);
+  const complete = pct(installed, shownTotal);
+  const active = layers.filter((k) => k.today > 0).length;
   const level = Math.max(0, Math.min(MAX_LEVEL, levelAt(when)));
   const phase = phaseAt(when);
 
@@ -107,7 +113,7 @@ export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, t
       </div>
 
       <div className="seq-layers">
-        {p.packages.map((k) => {
+        {layers.map((k) => {
           const share = pct(k.installed, k.total);
           const color = LAYER_COLORS[k.label] ?? "var(--accent)";
           return (
