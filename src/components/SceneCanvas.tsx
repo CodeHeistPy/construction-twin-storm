@@ -101,6 +101,8 @@ interface Props {
   hideSublayers?: { layer: string; sublayers: string[] }[];
   /** Only show markers for activities with this decision (null = all). */
   markerFilter?: Decision | null;
+  /** Building 1: show only these sublayers (one trade, picked in the progress panel); null = all. */
+  onlySublayers?: string[] | null;
   onConflicts?: (c: Conflict[]) => void;
 }
 
@@ -279,7 +281,7 @@ function shotFor(a: Activity): Shot {
   return { at: a.location, above: a.location.z, scale: 1000, tilt: 66, heading: a.viewHeading ?? 30 };
 }
 
-export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect, camera, applyLayers, timelineDay, onView, onConflicts, orbit = false, allowUtilities = false, isolateBuilding = false, hideSublayers, markerFilter = null }: Props) {
+export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect, camera, applyLayers, timelineDay, onView, onConflicts, orbit = false, allowUtilities = false, isolateBuilding = false, hideSublayers, markerFilter = null, onlySublayers = null }: Props) {
   const [view, setView] = useState<SceneView | null>(null);
   const [loaded, setLoaded] = useState(false);
   // One WebScene for the life of the app. Letting <arcgis-scene> load it from
@@ -661,6 +663,15 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       }
     });
   }, [loaded, mode, focusId, twin.assessments, twin.day, twin.replanned, timelineDay]);
+
+  // A layer picked in the progress panel: only that trade's parts draw.
+  const onlyKey = onlySublayers?.join(",") ?? "";
+  useEffect(() => {
+    const bim = bimRef.current;
+    if (!loaded || !bim) return;
+    const only = onlyKey ? onlyKey.split(",") : null;
+    for (const sub of [...bim.dated, ...bim.structure]) sub.visible = !only || only.includes(sub.modelName ?? "");
+  }, [loaded, onlyKey]);
 
   // Which parts to pin markers to. Keyed by content: the assessments array is
   // rebuilt as the clock moves, and each rebuild cancelled the (slower) pass.

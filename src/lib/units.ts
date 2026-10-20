@@ -18,6 +18,10 @@ export const fmtDistance = (km: number) =>
 export const fmtTime = (d: Date) =>
   d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: SITE.timeZone });
 
+/** "Feb 07, 2026" in site time (user, 2026-10-20: the 4D shows dates). */
+export const fmtDate = (d: Date) =>
+  d.toLocaleDateString("en-US", { month: "short", day: "2-digit", year: "numeric", timeZone: SITE.timeZone });
+
 export const fmtHour = (d: Date) =>
   d.toLocaleTimeString("en-US", { hour: "numeric", timeZone: SITE.timeZone });
 

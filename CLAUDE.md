@@ -16,10 +16,13 @@ do we tell the crews?*
 - Decisions: **deterministic rules engine** (`src/domain/rules.ts`) plus an AI
   *explanation* layer. Which AI approach is still open; don't add
   `@arcgis/ai-components` until the user decides.
-- **Dates are irrelevant to the story** (user, 2026-10-16): the point is tracking
-  progress and adapting to change. The UI says "Today"/"Tomorrow", never a
-  date. `DEFAULT_DEMO_DATE` (2026-05-11) just picks a day with exterior + interior
-  work; it is settled, not an open question.
+- **Dates** (user, 2026-10-16, revised 2026-10-20): the Construction Schedule
+  view now SHOWS dates ("May 04, 2026", `fmtDate`, site time) on its pill and
+  timeline, ending "May 10, 2026 · Today"; Elapsed / Remaining tiles are bare
+  numbers. Schedule Adjustment still says "Tomorrow" / "Day after tomorrow".
+  `DEFAULT_DEMO_DATE` (2026-05-11) is the storm day; it is settled.
+- **Layer filter:** clicking a layer row in the progress panel shows only that
+  trade's sublayers in Building 1 (`onlySublayers`); click again for all.
 - **Adapt the plan** (`domain/replan.ts`): postponed work moves to its first
   workable window (same shift, later day, no limit tripped). The knock-on
   assumes one crew per package, so the package completion slips by the same

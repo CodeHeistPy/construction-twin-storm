@@ -18,7 +18,7 @@ import WeatherAlert from "./components/WeatherAlert";
 import type { Conflict } from "./lib/utilities";
 import type { Decision } from "./domain/types";
 import { useTwin } from "./state/useTwin";
-import { buildStart } from "./lib/bim";
+import { buildStart, TRADES } from "./lib/bim";
 
 /** Clock hour of the weather stop, for the outcome card's "hours of warning". */
 const ALERT_HOUR = STOP_RULES.find((r) => r.behaviour.alert)?.behaviour.hour ?? 9;
@@ -75,6 +75,8 @@ export default function App() {
   const [replay, setReplay] = useState(0);
   // The day before the storm (site.ts PLAN_AHEAD_DAYS): where the build-out stops.
   const today = useMemo(() => presenterToday(), []);
+  // Construction Schedule's layer filter: one trade's parts in the 3D building.
+  const [layerFilter, setLayerFilter] = useState<string | null>(null);
   // Schedule Adjustment's Postponed / Proceed filter (list + map markers).
   const [decisionFilter, setDecisionFilter] = useState<Decision | null>(null);
   // The scene has streamed in since the stop changed (or 20 s passed). The 4D
@@ -141,6 +143,7 @@ export default function App() {
       setBehaviour(b);
       setSelectedId(null);
       setDecisionFilter(null);
+      setLayerFilter(null);
       setShowComms(false);
       setShowAlert(!!b.alert);
       if (b.hour !== undefined) twin.setHour(b.hour);
@@ -210,6 +213,7 @@ export default function App() {
     <div className="app">
       <SceneCanvas
         markerFilter={decisionFilter}
+        onlySublayers={layerFilter ? (TRADES.find((t) => t.label === layerFilter)?.sublayers ?? null) : null}
         twin={twin}
         mode={sceneMode}
         focusId={focusId}
@@ -250,6 +254,8 @@ export default function App() {
           asOf={timeline ? timelineDay : undefined}
           today={today}
           onReset={timeline ? () => setReplay((n) => n + 1) : undefined}
+          layerFilter={layerFilter}
+          onLayerFilter={setLayerFilter}
         />
       )}
       {behaviour.left === "schedule" && (

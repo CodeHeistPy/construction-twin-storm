@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { buildFinish, buildStart, levelAt, MAX_LEVEL, progressAsOf, TRADES, workingLevel } from "../lib/bim";
+import { fmtDate } from "../lib/units";
 import type { Twin } from "../state/useTwin";
 
 const DAY = 86_400_000;
@@ -37,6 +38,9 @@ interface Props {
   onReset?: () => void;
   /** The presenter's "today" (the day before the storm); defaults to the demo day. */
   today?: Date;
+  /** The layer (trade label) the 3D building is filtered to; null = all. */
+  layerFilter?: string | null;
+  onLayerFilter?: (label: string | null) => void;
 }
 
 /**
@@ -45,7 +49,7 @@ interface Props {
  * % complete ring with the current phase, three stat tiles, then one coloured
  * bar per construction layer. Days, never calendar dates.
  */
-export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, today = twin.day }: Props) {
+export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, today = twin.day, layerFilter = null, onLayerFilter }: Props) {
   const when = asOf ?? today;
   const p = useMemo(() => progressAsOf(when), [when]);
   // The layers shown, and the totals over just those, so the ring matches the list.
@@ -70,7 +74,7 @@ export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, t
 
   return (
     <aside className="panel panel-left seq">
-      <div className="seq-pill">{isToday ? "Today" : `Day ${elapsed}`}</div>
+      <div className="seq-pill">{fmtDate(when)}{isToday ? " · Today" : ""}</div>
 
       <div className="seq-hero">
         <div className="seq-ring" style={{ ["--p" as string]: `${complete}` }}>
@@ -95,11 +99,11 @@ export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, t
         </div>
         <div>
           <span>Elapsed</span>
-          <b>{elapsed}d</b>
+          <b>{elapsed}</b>
         </div>
         <div>
           <span>Remaining</span>
-          <b>{remaining}d</b>
+          <b>{remaining}</b>
         </div>
       </div>
 
@@ -117,7 +121,15 @@ export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, t
           const share = pct(k.installed, k.total);
           const color = LAYER_COLORS[k.label] ?? "var(--accent)";
           return (
-            <div key={k.label} className={`seq-layer ${share > 0 || k.today > 0 ? "" : "idle"}`} style={{ ["--c" as string]: color }}>
+            // Click a layer to show only its parts in the 3D building; again for all.
+            <button
+              type="button"
+              key={k.label}
+              className={`seq-layer ${share > 0 || k.today > 0 ? "" : "idle"} ${layerFilter === k.label ? "on" : layerFilter ? "dim" : ""}`}
+              style={{ ["--c" as string]: color }}
+              aria-pressed={layerFilter === k.label}
+              onClick={() => onLayerFilter?.(layerFilter === k.label ? null : k.label)}
+            >
               <div className="seq-row">
                 <i />
                 <span>{k.label}</span>
@@ -126,7 +138,7 @@ export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, t
               <div className="seq-bar">
                 <i style={{ width: `${share}%` }} />
               </div>
-            </div>
+            </button>
           );
         })}
       </div>

@@ -1,16 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildFinish, buildStart } from "../lib/bim";
+import { fmtDate } from "../lib/units";
 
 const DAY = 86_400_000;
 
-/**
- * Days elapsed since the build started: counts forward, so the build-out
- * reads as progress (user, 2026-10-20), never a calendar date.
- */
-function elapsedLabel(day: Date, start: Date, today: Date): string {
-  const n = Math.max(0, Math.round((day.getTime() - start.getTime()) / DAY));
+/** The build-out's date (user, 2026-10-20: dates instead of "N days elapsed"). */
+function dateLabel(day: Date, today: Date): string {
   const isToday = Math.round((day.getTime() - today.getTime()) / DAY) === 0;
-  return `${n} day${n === 1 ? "" : "s"} elapsed${isToday ? " · Today" : ""}`;
+  return `${fmtDate(day)}${isToday ? " · Today" : ""}`;
 }
 
 interface Props {
@@ -116,7 +113,7 @@ export default function BuildTimeline({ today, value, onChange, autoplay = true,
           <span>Finish</span>
         </div>
       </div>
-      <div className="when">{elapsedLabel(value, start, today)}</div>
+      <div className="when">{dateLabel(value, today)}</div>
     </div>
   );
 }
