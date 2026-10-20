@@ -24,7 +24,7 @@ const PANEL_HIDDEN = new Set(["Furniture"]);
 function phaseAt(day: Date): string {
   const lastLevel = (key: string) => workingLevel(key, day) > MAX_LEVEL;
   if (TRADES.every((t) => lastLevel(t.key))) return "Complete";
-  if (!lastLevel("structure")) return "Office Building"; // user, 2026-10-20 (was "Superstructure")
+  if (!lastLevel("structure")) return "Office Building 1 of 4"; // user, 2026-10-20 (was "Superstructure")
   if (!lastLevel("envelope")) return "Building enclosure";
   return "Interior fit-out";
 }
@@ -69,7 +69,6 @@ export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, t
     .reduce((n, a) => n + (a.activity.components ?? 0), 0);
   const installed = shownInstalled + (endOfDay ? ranToday : 0);
   const complete = pct(installed, shownTotal);
-  const active = layers.filter((k) => k.today > 0).length;
   const level = Math.max(0, Math.min(MAX_LEVEL, levelAt(when)));
   const phase = phaseAt(when);
 
@@ -83,7 +82,6 @@ export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, t
           <span>Complete</span>
         </div>
         <div className="seq-phase">
-          <span>Current phase</span>
           <b>{phase}</b>
           {phase !== "Complete" && (
             <small>
@@ -95,21 +93,17 @@ export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, t
 
       <div className="seq-stats">
         <div>
-          <span>Active layers</span>
-          <b>{active}</b>
-        </div>
-        <div>
-          <span>Elapsed</span>
+          <span>Elapsed (days)</span>
           <b>{elapsed}</b>
         </div>
         <div>
-          <span>Remaining</span>
+          <span>Remaining (days)</span>
           <b>{remaining}</b>
         </div>
       </div>
 
       <div className="seq-head">
-        <span>Construction layers</span>
+        <span>Installation progress</span>
         {onReset && (
           <button type="button" onClick={onReset}>
             Reset

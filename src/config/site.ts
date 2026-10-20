@@ -17,7 +17,7 @@ const num = (v: string | undefined, fallback: number) => {
 };
 
 export const SITE = {
-  name: env.VITE_SITE_NAME?.trim() || "Office Park · Denver",
+  name: env.VITE_SITE_NAME?.trim() || "Denver Office Park",
   longitude: num(env.VITE_SITE_LON, -104.991665),
   latitude: num(env.VITE_SITE_LAT, 39.69959),
   /** IANA zone of the site. All demo times are site-local, whatever the laptop's zone. */
