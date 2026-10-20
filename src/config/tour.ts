@@ -86,8 +86,13 @@ const base = (layers: SceneMode["layers"], over: Partial<SceneMode> = {}): Scene
 /** Building sublayers kept off on EVERY stop (user: no site trees anywhere). */
 export const ALWAYS_HIDDEN: { layer: string; sublayers: string[] }[] = [{ layer: "Office_Park_Site", sublayers: ["Planting"] }];
 
-/** Web scene slides the app leaves out of the tour (user: drop "Construction Site"). */
-export const SKIP_SLIDES: RegExp[] = [/^construction site$/i];
+/**
+ * The stops this app plays (user, 2026-10-20): the story's earlier beats (site,
+ * design, utilities...) are now told in Scene Viewer, and the app only does the
+ * 4D schedule and the weather adjustment. Every other slide in the scene is
+ * left out, so slides added there for the rest of the story never show up here.
+ */
+export const APP_STOPS = ["schedule", "decision"];
 
 /**
  * In storyline order (the user's slides): Development Site → Current Design →

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type SceneView from "@arcgis/core/views/SceneView";
 import type WebScene from "@arcgis/core/WebScene";
 import type Slide from "@arcgis/core/webscene/Slide";
-import { ALWAYS_HIDDEN, PLAIN, ruleFor, SKIP_SLIDES, STOP_RULES, type CameraPreset, type StopBehaviour, type StopRule } from "./config/tour";
+import { ALWAYS_HIDDEN, APP_STOPS, PLAIN, ruleFor, STOP_RULES, type CameraPreset, type StopBehaviour, type StopRule } from "./config/tour";
 import { SITE } from "./config/site";
 import BuildTimeline from "./components/BuildTimeline";
 import CommsDialog from "./components/CommsDialog";
@@ -75,25 +75,24 @@ export default function App() {
       .when()
       .then((scene: WebScene) => {
         if (cancelled) return;
-        const slides = (scene.presentation?.slides?.toArray() ?? []).filter(
-          (s) => !SKIP_SLIDES.some((re) => re.test(s.title?.text ?? "")),
-        );
-        const authored: Entry[] = slides.map((slide) => ({
-          stop: { id: slide.id, title: slide.title?.text ?? "Slide", thumbnail: slide.thumbnail?.url ?? undefined },
-          rule: ruleFor(slide.title?.text ?? ""),
-          slide,
-        }));
-        // Use the authored slides once they cover most of the storyline (so a
-        // stray "Overview" slide doesn't hijack it). ?stops=slides|builtin forces either.
-        const covered = new Set(authored.map((e) => e.rule?.key).filter(Boolean)).size;
+        // Only the slides for this app's stops (APP_STOPS), in the scene's order.
+        const authored: Entry[] = (scene.presentation?.slides?.toArray() ?? [])
+          .map((slide) => ({
+            stop: { id: slide.id, title: slide.title?.text ?? "Slide", thumbnail: slide.thumbnail?.url ?? undefined },
+            rule: ruleFor(slide.title?.text ?? ""),
+            slide,
+          }))
+          .filter((e) => e.rule && APP_STOPS.includes(e.rule.key));
+        // Built-in stops stand in until both slides exist. ?stops=slides|builtin forces either.
+        const covered = new Set(authored.map((e) => e.rule?.key)).size;
         const force = new URLSearchParams(location.search).get("stops");
-        const useAuthored = force === "slides" || (force !== "builtin" && covered >= 3);
+        const useAuthored = force === "slides" || (force !== "builtin" && covered >= APP_STOPS.length);
         if (!useAuthored)
-          console.info(`[tour] authored slides cover ${covered}/${STOP_RULES.length} stops (see SLIDES.md); using built-in stops`);
+          console.info(`[tour] authored slides cover ${covered}/${APP_STOPS.length} stops (see SLIDES.md); using built-in stops`);
         setEntries(
           useAuthored
             ? withInserted(authored)
-            : STOP_RULES.map((rule) => ({ stop: { id: rule.key, title: rule.builtIn.title }, rule })),
+            : STOP_RULES.filter((rule) => APP_STOPS.includes(rule.key)).map((rule) => ({ stop: { id: rule.key, title: rule.builtIn.title }, rule })),
         );
       })
       .catch(() => undefined);
