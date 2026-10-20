@@ -1,5 +1,12 @@
 # Slide spec: author these in Scene Viewer
 
+> **Superseded for the app (2026-10-20).** The app now plays only two views,
+> Construction Schedule and Schedule Adjustment, with their cameras built in
+> (`SLIDE_VIEWS` in `src/components/SceneCanvas.tsx`), on the public scene copy
+> `fe60b2cfed534542a82d8cd8bb54df27`. The earlier beats are presented in Scene
+> Viewer from the original scene. The spec below is kept for reference;
+> `?stops=slides` still plays a scene's own slides.
+
 The app plays the web scene's own slides (**Denver Office Park**,
 `61a325c274ea4118999c9079c8b6e356`). You author the shots and layers here in
 Scene Viewer; the app adds the live data behaviour, **matched by slide

@@ -25,12 +25,8 @@ export default function SchedulePanel({ twin, selectedId, onSelect, decisions = 
   const by = (d: Decision) => twin.assessments.filter((a) => a.decision === d);
   // Postponed and Proceed are toggles (user, 2026-10-20): click to show only
   // those activities here and on the map, click again for all.
-  const toggle = (d: Decision) => onFilter?.(filter === d ? null : d);
-  const FilterStat = ({ d, label }: { d: Decision; label: string }) => (
-    <button type="button" className={`stat ${d} filter ${filter === d ? "on" : ""}`} aria-pressed={filter === d} onClick={() => toggle(d)}>
-      <b>{by(d).length}</b>
-      <span>{label}</span>
-    </button>
+  const stat = (d: Decision, label: string) => (
+    <FilterStat d={d} label={label} count={by(d).length} on={filter === d} onToggle={() => onFilter?.(filter === d ? null : d)} />
   );
 
   return (
@@ -47,12 +43,12 @@ export default function SchedulePanel({ twin, selectedId, onSelect, decisions = 
       ) : (
         <>
       <div className="summary summary-3">
-        <FilterStat d="postpone" label="postponed" />
+        {stat("postpone", "postponed")}
         <div className="stat watch">
           <b>{by("watch").length}</b>
           <span>watch</span>
         </div>
-        <FilterStat d="go" label="proceed" />
+        {stat("go", "proceed")}
       </div>
 
       <ReplanCard twin={twin} />
@@ -81,6 +77,16 @@ export default function SchedulePanel({ twin, selectedId, onSelect, decisions = 
         Building 1 work follows a level-by-level sequence (structure on level 8). Shift hours, sample items and stop-work limits are placeholders.
       </p>
     </aside>
+  );
+}
+
+/** A summary tile that filters the list and map to one decision. */
+function FilterStat({ d, label, count, on, onToggle }: { d: Decision; label: string; count: number; on: boolean; onToggle: () => void }) {
+  return (
+    <button type="button" className={`stat ${d} filter ${on ? "on" : ""}`} aria-pressed={on} onClick={onToggle}>
+      <b>{count}</b>
+      <span>{label}</span>
+    </button>
   );
 }
 

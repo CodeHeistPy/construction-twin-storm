@@ -70,6 +70,8 @@ export default function App() {
   // Bumped by the progress panel's Reset: remounts the build-out, which then
   // replays from the ground up to Today.
   const [replay, setReplay] = useState(0);
+  // The day before the storm (site.ts PLAN_AHEAD_DAYS): where the build-out stops.
+  const today = useMemo(() => presenterToday(), []);
   // Schedule Adjustment's Postponed / Proceed filter (list + map markers).
   const [decisionFilter, setDecisionFilter] = useState<Decision | null>(null);
   // The scene has streamed in since the stop changed (or 20 s passed). The 4D
@@ -243,7 +245,7 @@ export default function App() {
           twin={twin}
           endOfDay={!!behaviour.outcome}
           asOf={timeline ? timelineDay : undefined}
-          today={presenterToday()}
+          today={today}
           onReset={timeline ? () => setReplay((n) => n + 1) : undefined}
         />
       )}
@@ -264,7 +266,7 @@ export default function App() {
       {behaviour.conditions && <ConditionsPanel twin={twin} />}
 
       <div className="bottom">
-        {timeline && settled && <BuildTimeline key={`${index}-${replay}`} today={presenterToday()} value={timelineDay} onChange={setTimelineDay} onPlayingChange={setBuilding} />}
+        {timeline && settled && <BuildTimeline key={`${index}-${replay}`} today={today} value={timelineDay} onChange={setTimelineDay} onPlayingChange={setBuilding} />}
         <TourStrip
           stops={entries.map((e) => e.stop)}
           index={index}
