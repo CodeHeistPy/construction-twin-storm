@@ -9,7 +9,15 @@
 // instead (camera shots + layer roles from config/layers.ts).
 // =============================================================================
 
-export type CameraPreset = "site" | "development" | "building" | "overview" | "storm" | "underground";
+export type CameraPreset = "site" | "development" | "building" | "overview" | "storm" | "underground" | SlideView;
+
+/**
+ * The app's two views, taken from the user's own slides ("Construction
+ * Schedule", "Schedule Adjustment") in the original web scene 61a325c2…: exact
+ * cameras and sun times. Built into the app (user, 2026-10-20) so it no longer
+ * depends on the scene's slides (the scene copy it now loads has none).
+ */
+export type SlideView = "schedule" | "adjustment";
 
 /** How Building 1 renders. Not-yet-installed parts are hidden in every mode but "design". */
 export type BimMode =
@@ -72,6 +80,8 @@ const LAYERS = {
   today: { reality: true, utilities: false, mesh: true, proposed: "none" as const },
   design: { reality: true, utilities: false, mesh: false, proposed: "all" as const },
   focus: { reality: true, utilities: false, mesh: false, proposed: "focus" as const },
+  // As the user's two slides had it: buildings on, ortho and mesh off.
+  slides: { reality: false, utilities: false, mesh: false, proposed: "all" as const },
 };
 
 const base = (layers: SceneMode["layers"], over: Partial<SceneMode> = {}): SceneMode => ({
@@ -123,8 +133,8 @@ export const STOP_RULES: StopRule[] = [
     key: "schedule",
     // Not "Schedule Adjustment": that's the decision stop.
     match: /^(?!.*adjust).*(when|schedule|4d|progress)/i,
-    behaviour: { scene: base(LAYERS.focus, { bim: "timeline" }), left: "progress", replan: false, hour: 7 },
-    builtIn: { title: "When it will be there", camera: "building" },
+    behaviour: { scene: base(LAYERS.slides, { bim: "timeline" }), left: "progress", replan: false, hour: 7 },
+    builtIn: { title: "Construction Schedule", camera: "schedule" },
   },
   {
     key: "decision",
@@ -133,13 +143,13 @@ export const STOP_RULES: StopRule[] = [
     // change it" stop is gone; its alert moved onto this slide).
     behaviour: {
       alert: true,
-      scene: base(LAYERS.focus, { bim: "decision", markers: true }),
+      scene: base(LAYERS.slides, { bim: "decision", markers: true }),
       left: "schedule",
       decisions: true,
       conditions: true,
       hour: 9,
     },
-    builtIn: { title: "What we do about it", camera: "building" },
+    builtIn: { title: "Schedule Adjustment", camera: "adjustment" },
   },
 ];
 

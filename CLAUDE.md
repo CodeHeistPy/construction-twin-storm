@@ -34,7 +34,18 @@ web scene's own slides (filmstrip at the bottom, arrows/clicker), and the
 presenter calls out the building blocks verbally: **no block cues on screen**.
 The user authors the slides in Scene Viewer from **SLIDES.md**; the app matches
 slides by TITLE (`config/tour.ts` STOP_RULES) and adds data behaviour.
-Until >= 3 storyline stops are authored, built-in stops run (`?stops=slides|builtin` forces).
+**Since 2026-10-20 the app is only the last two beats** (user: the earlier
+beats are told in Scene Viewer): **Construction Schedule** (4D) and **Schedule
+Adjustment** (weather alert + decisions), `APP_STOPS` in tour.ts. Their views
+are BUILT INTO the app (`SlideView` presets `schedule`/`adjustment` in
+SceneCanvas `SLIDE_VIEWS`: the exact cameras and ~1 pm sun copied from the
+user's slides in the original scene), so the app ignores the scene's slides
+(`?stops=slides` opts back in). It loads the user's COPY of the scene
+(`fe60b2cf…`, Topographic basemap): the original now uses the Photorealistic
+(Google 3D tiles) basemap, which needs a sign-in. The copy's basemap 3D
+"Trees" layer is hidden. Opening cold, the 4D waits for the view to finish
+loading (App `settled`) and marker pins retry ~30 s.
+History, for the slides the app used to play:
 The user's own slides, in order: **Development Site for Office
 Park** (reality, ortho) → [*Construction Site*: deleted from the scene 2026-10-19; a re-added one
 is still skipped via `SKIP_SLIDES`] → **Current Design** → **Structural View** (added 2026-10-19; no rule, plays as authored) →
@@ -76,7 +87,7 @@ Every block must tie to an outcome (user: "keep me honest").
 ## Verified data facts (2026-10-16)
 | Item | Value |
 |---|---|
-| Web scene | `61a325c274ea4118999c9079c8b6e356` "Denver Office Park", arcaec.maps.arcgis.com, **public** (replaced 7b4a2a02… on 2026-10-16) |
+| Web scene | App: `fe60b2cfed534542a82d8cd8bb54df27` "Denver Office Park - copy" (public, Topographic basemap, 2026-10-20). Original `61a325c274ea4118999c9079c8b6e356` "Denver Office Park" (public, but its Photorealistic basemap needs a sign-in; holds the user's Scene Viewer story). arcaec.maps.arcgis.com |
 | Reality capture | "3D mesh" (IntegratedMeshLayer) + "Ortho" (tiled imagery), both public |
 | Utilities | "Denver Utilities" group: sanitary manholes/main, storm manholes/inlets/main (City of Denver open data), clipped to the site at load (`clipToSite`). **Electrical: user adding.** Storm mains have upelev/downelev (ft) + width/height (in); sanitary has diameter. Inverts do NOT match the scene ground (1,598.6 m invert vs 1,590.5 m Existing_Ground at Building 2), so pipes draw at a nominal 3 m depth; inverts shown as attributes only. |
 | Utility conflicts (bbox footprints) | Building 1: 15 in VCP sanitary main. Building 2: two 48 in RCP storm mains + a storm manhole. |

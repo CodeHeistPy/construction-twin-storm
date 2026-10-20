@@ -25,8 +25,12 @@ export const SITE = {
 
 };
 
-/** Portal item id of the WebScene (public, so no sign-in needed). */
-export const WEBSCENE_ID = env.VITE_WEBSCENE_ID?.trim() || "61a325c274ea4118999c9079c8b6e356";
+/**
+ * Portal item id of the WebScene (public, so no sign-in needed). The app's own
+ * copy (user, 2026-10-20): the original 61a325c2… now uses the Photorealistic
+ * (Google 3D tiles) basemap, which needs a sign-in.
+ */
+export const WEBSCENE_ID = env.VITE_WEBSCENE_ID?.trim() || "fe60b2cfed534542a82d8cd8bb54df27";
 
 export const PORTAL_URL = env.VITE_PORTAL_URL?.trim() || "https://arcaec.maps.arcgis.com";
 

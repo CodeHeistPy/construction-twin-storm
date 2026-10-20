@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type SceneView from "@arcgis/core/views/SceneView";
+import * as reactiveUtils from "@arcgis/core/core/reactiveUtils";
 import type WebScene from "@arcgis/core/WebScene";
 import type Slide from "@arcgis/core/webscene/Slide";
 import { ALWAYS_HIDDEN, APP_STOPS, PLAIN, ruleFor, STOP_RULES, type CameraPreset, type StopBehaviour, type StopRule } from "./config/tour";
@@ -59,12 +60,32 @@ export default function App() {
   const goToken = useRef(0);
   const [applyLayers, setApplyLayers] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [camera, setCamera] = useState<CameraRequest>({ preset: "site", key: 0 });
+  const [camera, setCamera] = useState<CameraRequest>({ preset: "schedule", key: 0 });
   const [showComms, setShowComms] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
   const [timelineDay, setTimelineDay] = useState<Date>(twin.day);
   const [conflicts, setConflicts] = useState<Conflict[] | null>(null);
   const [building, setBuilding] = useState(false);
+  // The scene has streamed in since the stop changed (or 20 s passed). The 4D
+  // and its orbit wait for this: a camera move every frame starves the first
+  // download, and the app now OPENS on the build-out (nothing is preloaded).
+  const [settled, setSettled] = useState(false);
+  useEffect(() => {
+    if (!view) return;
+    setSettled(false);
+    let cancelled = false;
+    (async () => {
+      await new Promise((r) => setTimeout(r, 500)); // let the stop's flight start
+      await Promise.race([
+        reactiveUtils.whenOnce(() => view.stationary && !view.updating),
+        new Promise((r) => setTimeout(r, 20_000)),
+      ]);
+      if (!cancelled) setSettled(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [view, index]);
 
   // Stops = the web scene's slides, matched to behaviours by title. If none
   // of the authored slides match yet, fall back to the built-in storyline.
@@ -83,12 +104,9 @@ export default function App() {
             slide,
           }))
           .filter((e) => e.rule && APP_STOPS.includes(e.rule.key));
-        // Built-in stops stand in until both slides exist. ?stops=slides|builtin forces either.
-        const covered = new Set(authored.map((e) => e.rule?.key)).size;
-        const force = new URLSearchParams(location.search).get("stops");
-        const useAuthored = force === "slides" || (force !== "builtin" && covered >= APP_STOPS.length);
-        if (!useAuthored)
-          console.info(`[tour] authored slides cover ${covered}/${APP_STOPS.length} stops (see SLIDES.md); using built-in stops`);
+        // The two views are built into the app (tour.ts SlideView), so the
+        // scene's own slides are only used when asked for with ?stops=slides.
+        const useAuthored = new URLSearchParams(location.search).get("stops") === "slides" && authored.length > 0;
         setEntries(
           useAuthored
             ? withInserted(authored)
@@ -225,7 +243,7 @@ export default function App() {
       {behaviour.conditions && <ConditionsPanel twin={twin} />}
 
       <div className="bottom">
-        {timeline && <BuildTimeline key={index} today={twin.day} value={timelineDay} onChange={setTimelineDay} onPlayingChange={setBuilding} />}
+        {timeline && settled && <BuildTimeline key={index} today={twin.day} value={timelineDay} onChange={setTimelineDay} onPlayingChange={setBuilding} />}
         <TourStrip
           stops={entries.map((e) => e.stop)}
           index={index}

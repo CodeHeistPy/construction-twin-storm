@@ -20,7 +20,8 @@ import UniqueValueRenderer from "@arcgis/core/renderers/UniqueValueRenderer";
 import * as webMercatorUtils from "@arcgis/core/geometry/support/webMercatorUtils";
 import * as reactiveUtils from "@arcgis/core/core/reactiveUtils";
 import { SITE, WEBSCENE_ID } from "../config/site";
-import type { CameraPreset, SceneMode } from "../config/tour";
+import type { CameraPreset, SceneMode, SlideView } from "../config/tour";
+import Camera from "@arcgis/core/Camera";
 import { roleOf } from "../config/layers";
 import type FeatureLayer from "@arcgis/core/layers/FeatureLayer";
 import { clipToSite, findConflicts, styleFor, styleSurface, styleUnderground, type Conflict } from "../lib/utilities";
@@ -195,7 +196,18 @@ const mid = (a: { longitude: number; latitude: number }, b: { longitude: number;
   latitude: (a.latitude + b.latitude) / 2,
 });
 
-const SHOTS: Record<CameraPreset, Shot> = {
+/**
+ * The user's two slide views, copied from the original web scene's slides
+ * (Web Mercator camera positions, absolute z: Denver is ~1,600 m up; sun times
+ * as saved, about 1 pm site time).
+ */
+const SLIDE_VIEWS: Record<SlideView, { position: { x: number; y: number; z: number }; heading: number; tilt: number; sun: number }> = {
+  schedule: { position: { x: -11687800.532987272, y: 4822331.038066762, z: 1694.748021907173 }, heading: 112.80272465343161, tilt: 68.43068231452831, sun: 1773601198000 },
+  adjustment: { position: { x: -11687625.02634604, y: 4822451.720885995, z: 1706.327830764465 }, heading: 167.50746775902107, tilt: 60.71242942782043, sun: 1773601198000 },
+};
+const isSlideView = (p: string): p is SlideView => p in SLIDE_VIEWS;
+
+const SHOTS: Record<Exclude<CameraPreset, SlideView>, Shot> = {
   site: { at: SITE, scale: 3500, tilt: 60, heading: 20 },
   development: { at: mid(SITE, BUILDING_1), scale: 2600, tilt: 62, heading: 340 },
   building: { at: BUILDING_1, above: 30, scale: 900, tilt: 70, heading: 25 },
@@ -368,6 +380,11 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     let cancelled = false;
     (async () => {
       await map.loadAll().catch(() => undefined);
+      // No trees anywhere (user): the Topographic basemap brings its own 3D
+      // "Trees" layer, besides the site's Planting (ALWAYS_HIDDEN).
+      [...(map.basemap?.baseLayers.toArray() ?? []), ...(map.basemap?.referenceLayers.toArray() ?? [])]
+        .filter((l) => /^trees$/i.test(l.title ?? ""))
+        .forEach((l) => (l.visible = false));
       // A ground layer that failed to load (Roadway_Ground is private) leaves
       // ground-relative layers waiting on elevation forever. Drop it.
       map.ground.layers
@@ -655,8 +672,9 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       const next = new Map<string, Activity["location"]>();
       const targets = JSON.parse(bimTargets) as [string, string, string[]][];
       // Parts stream in after the camera lands, so a first pass can miss some
-      // trades: retry those a few times.
-      for (let attempt = 0; attempt < 4 && !cancelled; attempt++) {
+      // trades: retry those for up to ~30 s (the app now opens cold on these
+      // stops, so nothing is preloaded by earlier slides).
+      for (let attempt = 0; attempt < 12 && !cancelled; attempt++) {
         if (attempt) await new Promise((r) => setTimeout(r, 2500));
         for (const [id, bimWhere, sublayers] of targets) {
           if (next.has(id)) continue;
@@ -780,7 +798,8 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     // them (the sun used to jump to the app's clock on every slide).
     if (!view || !applyLayers) return;
     const lighting = view.environment.lighting;
-    if (lighting instanceof SunLighting) lighting.date = twin.clock;
+    // The slide views keep their saved sun; other stops follow the clock.
+    if (lighting instanceof SunLighting) lighting.date = isSlideView(camera.preset) ? new Date(SLIDE_VIEWS[camera.preset].sun) : twin.clock;
     const w = twin.now;
     if (!w || !mode.storm) {
       view.environment.weather = new SunnyWeather({ cloudCover: 0.2 });
@@ -794,12 +813,21 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     } else {
       view.environment.weather = new SunnyWeather({ cloudCover: 0.2 });
     }
-  }, [view, twin.clock, twin.now, mode.storm, applyLayers]);
+  }, [view, twin.clock, twin.now, mode.storm, applyLayers, camera.preset]);
 
   // Camera: presets, or the beat's focus activity. Targets are terrain-sampled
   // (a missing z means sea level, ~1,600 m under Denver). The first shot jumps.
   useEffect(() => {
     if (!view || camera.preset === "none") return;
+    const animation = camera.key === 0 ? { animate: false } : { duration: 2500 };
+    if (isSlideView(camera.preset)) {
+      // An exact saved camera: absolute position, no terrain sampling needed.
+      const v = SLIDE_VIEWS[camera.preset];
+      view
+        .goTo(new Camera({ position: new Point({ ...v.position, spatialReference: { wkid: 102100 } }), heading: v.heading, tilt: v.tilt }), animation)
+        .catch(() => undefined);
+      return;
+    }
     let shot: Shot | undefined;
     if (camera.preset === "focus") {
       const a = twin.assessments.find((x) => x.activity.id === focusId)?.activity;
@@ -815,7 +843,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     onGround(view, s.at.longitude, s.at.latitude, s.above ?? 0).then((target) => {
       if (cancelled) return;
       view
-        .goTo({ target, scale: s.scale, tilt: s.tilt, heading: s.heading }, camera.key === 0 ? { animate: false } : { duration: 2500 })
+        .goTo({ target, scale: s.scale, tilt: s.tilt, heading: s.heading }, animation)
         .catch(() => undefined);
     });
     return () => {
@@ -850,15 +878,26 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       .whenOnce(() => view.stationary && !view.animation)
       .then(() => {
       if (stopped) return;
-      // Orbit the point the shot is framed on, so an authored slide keeps its composition.
-      const target = view.center.clone();
-      let heading = view.camera.heading;
-      const tilt = view.camera.tilt;
-      const scale = view.scale;
+      // Orbit the point the shot is framed on, so the saved view keeps its
+      // composition: swing the camera's own position around it at a FIXED
+      // altitude. (Re-framing a target each step pulled the camera down to the
+      // centre's z, which is too low while the ground is still loading.)
+      const start = view.camera.clone();
+      const pivot = view.center;
+      const [cx, cy] = [pivot.x, pivot.y];
+      const [dx, dy] = [start.position.x - cx, start.position.y - cy];
+      let turned = 0;
       const step = () => {
         if (stopped) return;
-        heading = (heading + 0.05) % 360; // gentle: fast orbits starve the per-step redraws
-        view.goTo({ target, heading, tilt, scale }, { animate: false }).catch(() => undefined);
+        turned += 0.05; // degrees per frame, gentle: fast orbits starve the per-step redraws
+        const r = (turned * Math.PI) / 180;
+        const cam = start.clone();
+        cam.position = start.position.clone();
+        // Clockwise seen from above, matching the heading increase.
+        cam.position.x = cx + dx * Math.cos(r) + dy * Math.sin(r);
+        cam.position.y = cy - dx * Math.sin(r) + dy * Math.cos(r);
+        cam.heading = (start.heading + turned) % 360;
+        view.goTo(cam, { animate: false }).catch(() => undefined);
         raf = requestAnimationFrame(step);
       };
       raf = requestAnimationFrame(step);
