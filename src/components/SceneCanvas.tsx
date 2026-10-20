@@ -29,7 +29,7 @@ import {
   BIM_LAYER_TITLE,
   BUILDING_1,
   DATED_SUBLAYERS,
-  dayKey,
+  partsWhere,
   HIDE_DURING_BUILD,
   statusArcade,
   STRUCTURE_SUBLAYERS,
@@ -229,6 +229,9 @@ function keepOff(subs: { visible: boolean }[]): () => void {
     authored.forEach((v, s) => (s.visible = v));
   };
 }
+
+/** How close a picked activity is framed (map scale: ~90 m across the view). */
+const SELECT_SCALE = 450;
 
 function shotFor(a: Activity): Shot {
   // Wide enough to read the whole band of today's parts on the building.
@@ -610,9 +613,19 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     });
   }, [loaded, mode, focusId, twin.assessments, twin.day, twin.replanned, timelineDay]);
 
-  // Put each BIM activity's marker on its real components: query the loaded
-  // Building 1 sublayer views for that day's parts (dated) or the level's parts
-  // (derived), and use the top of their extent. Falls back to the configured spot.
+  // Which parts to pin markers to. Keyed by content: the assessments array is
+  // rebuilt as the clock moves, and each rebuild cancelled the (slower) pass.
+  const bimTargets = JSON.stringify(
+    twin.assessments
+      .filter(({ activity: a }) => a.bimSublayers?.length)
+      .map(({ activity: a }) => [a.id, a.bimWhere ?? "", a.bimSublayers]),
+  );
+
+  // Pin each BIM activity's marker on one of its real parts: sample the parts
+  // on that level, and take the one nearest the camera (a perimeter column, a
+  // panel on the facing façade), keeping markers a few metres apart so labels
+  // don't pile up. Before, they sat at the building's centre and stacked over
+  // the roof. Falls back to the configured spot.
   useEffect(() => {
     const bim = bimRef.current;
     if (!view || !loaded || !bim || !mode.markers) return;
@@ -625,35 +638,65 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
         new Promise((r) => setTimeout(r, 8000)),
       ]);
       if (cancelled) return;
-      const lv = (await view.whenLayerView(bim.layer)) as unknown as {
-        sublayerViews: { find(fn: (s: { sublayer: { modelName?: string } }) => boolean): { queryExtent(q: { where: string }): Promise<{ count: number; extent: { center: { longitude?: number; latitude?: number }; zmax?: number } | null }> } | undefined };
+      type Extent = { zmax?: number; center: { x: number; y: number; longitude?: number; latitude?: number } };
+      type SubView = {
+        sublayer: { modelName?: string; objectIdField?: string };
+        queryObjectIds(q: { where: string }): Promise<number[]>;
+        queryExtent(q: { where: string }): Promise<{ count: number; extent: Extent | null }>;
       };
+      const lv = (await view.whenLayerView(bim.layer)) as unknown as { sublayerViews: { find(fn: (s: SubView) => boolean): SubView | undefined } };
+      // Never let a slow query hold the markers up on stage.
+      const within = <T,>(p: Promise<T>, ms: number) =>
+        Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
+      const cam = view.camera.position;
+      const taken: { x: number; y: number; z: number }[] = [];
+      const SAMPLE = 60;
+      const MIN_GAP_M = 6;
       const next = new Map<string, Activity["location"]>();
-      for (const { activity: a } of twin.assessments) {
-        if (!a.bimSublayers?.length) continue;
-        const where = a.bimWhere ?? `${"Installation_Date"} = '${dayKey(twin.day).replace(/-/g, ".")}'`;
-        for (const name of a.bimSublayers) {
-          const sv = lv.sublayerViews.find((x) => x.sublayer.modelName === name);
-          if (!sv) continue;
-          try {
-            // Never let a slow query hold the markers up on stage.
-            const r = await Promise.race([
-              sv.queryExtent({ where }),
-              new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 4000)),
-            ]);
-            if (r.count && r.extent && r.extent.center.longitude !== undefined) {
-              const ground = await onGround(view, r.extent.center.longitude, r.extent.center.latitude!, 0);
-              next.set(a.id, {
-                longitude: r.extent.center.longitude,
-                latitude: r.extent.center.latitude!,
-                z: Math.max(2, (r.extent.zmax ?? 0) - (ground.z ?? 0)),
+      const targets = JSON.parse(bimTargets) as [string, string, string[]][];
+      // Parts stream in after the camera lands, so a first pass can miss some
+      // trades: retry those a few times.
+      for (let attempt = 0; attempt < 4 && !cancelled; attempt++) {
+        if (attempt) await new Promise((r) => setTimeout(r, 2500));
+        for (const [id, bimWhere, sublayers] of targets) {
+          if (next.has(id)) continue;
+          const level = Number(bimWhere.match(/BldgLevel = (\d+)/)?.[1]);
+          // Interior parts (furniture, fixtures) may not be streamed in at this
+          // distance: then anchor on a column of the same level instead.
+          const anchors = Number.isFinite(level) ? [...new Set([...sublayers, "StructuralColumns"])] : sublayers;
+          for (const name of anchors) {
+            const sv = lv.sublayerViews.find((x) => x.sublayer.modelName === name);
+            const oid = sv?.sublayer.objectIdField;
+            if (!sv || !oid) continue;
+            try {
+              const where = Number.isFinite(level) ? partsWhere(name, level) : bimWhere || "1=0";
+              const ids = await within(sv.queryObjectIds({ where }), 4000);
+              if (!ids.length) continue;
+              const step = Math.max(1, Math.floor(ids.length / SAMPLE));
+              const sample = ids.filter((_, i) => i % step === 0).slice(0, SAMPLE);
+              const parts = (await within(Promise.all(sample.map((oidValue) => sv.queryExtent({ where: `${oid} = ${oidValue}` }))), 4000))
+                .map((r) => r.extent)
+                .filter((e): e is Extent => !!e && e.zmax !== undefined)
+                .map((e) => ({ e, d: Math.hypot(e.center.x - cam.x, e.center.y - cam.y) }))
+                .sort((a, b) => a.d - b.d);
+              const free = (e: Extent) => taken.every((t) => Math.hypot(t.x - e.center.x, t.y - e.center.y, t.z - e.zmax!) >= MIN_GAP_M);
+              const pick = (parts.find((x) => free(x.e)) ?? parts[0])?.e;
+              if (!pick || pick.center.longitude === undefined) continue;
+              taken.push({ x: pick.center.x, y: pick.center.y, z: pick.zmax! });
+              const ground = await onGround(view, pick.center.longitude, pick.center.latitude!, 0);
+              next.set(id, {
+                longitude: pick.center.longitude,
+                latitude: pick.center.latitude!,
+                z: Math.max(2, pick.zmax! - (ground.z ?? 0)),
               });
               break;
+            } catch {
+              // keep the configured location
             }
-          } catch {
-            // keep the configured location
           }
         }
+        if (cancelled || next.size === targets.length) break;
+        if (next.size) setPlaced((prev) => new Map([...prev, ...next]));
       }
       // Keep earlier finds if this pass found fewer (parts may have unloaded).
       if (!cancelled) setPlaced((prev) => (next.size >= prev.size ? next : new Map([...prev, ...next])));
@@ -661,7 +704,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     return () => {
       cancelled = true;
     };
-  }, [view, loaded, twin.assessments, twin.day, mode.markers, camera]);
+  }, [view, loaded, bimTargets, mode.markers, camera]);
 
   // Activity markers.
   useEffect(() => {
@@ -696,7 +739,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
                 verticalAlignment: "bottom",
               },
             ],
-            verticalOffset: { screenLength: 36, maxWorldLength: 120, minWorldLength: 8 },
+            verticalOffset: { screenLength: 24, maxWorldLength: 40, minWorldLength: 3 },
             callout: { type: "line", size: 1, color },
           },
         });
@@ -781,14 +824,18 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, camera]);
 
-  // Fly to an activity picked in the panel or on the map.
+  // Fly to an activity picked in the panel or on the map: close in on the part
+  // its marker is pinned to, keeping the current heading so the façade it's
+  // on stays facing the camera (markers are pinned to the side nearest it).
   useEffect(() => {
     if (!view || !selectedId) return;
     const found = twin.assessments.find((x) => x.activity.id === selectedId)?.activity;
     if (!found) return;
-    const s = shotFor(located(found));
-    onGround(view, s.at.longitude, s.at.latitude, s.above).then((target) =>
-      view.goTo({ target, scale: s.scale, tilt: s.tilt, heading: s.heading }, { duration: 1500 }).catch(() => undefined),
+    const a = located(found);
+    onGround(view, a.location.longitude, a.location.latitude, a.location.z ?? 0).then((target) =>
+      view
+        .goTo({ target, scale: SELECT_SCALE, tilt: 65, heading: view.camera.heading }, { duration: 1500 })
+        .catch(() => undefined),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, selectedId]);

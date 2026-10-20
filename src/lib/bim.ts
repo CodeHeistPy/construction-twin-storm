@@ -177,6 +177,20 @@ while (lo <= hi) {
  * fixture) aren't in the tracked counts and would otherwise read as level 0,
  * i.e. standing above level 8 from day one. They stay hidden.
  */
+/**
+ * SQL for the parts of `sublayer` on `level`, for client-side queries (marker
+ * placement). Curtain wall parts go by their real storey: those measured onto
+ * this storey, plus those tagged to it that weren't moved elsewhere.
+ */
+export function partsWhere(sublayer: string, level: number): string {
+  const t = STOREYS[sublayer];
+  if (!t) return `BldgLevel = ${level}`;
+  const between = (runs: [number, number, number][]) => runs.map(([a, b]) => `(${t.idField} BETWEEN ${a} AND ${b})`).join(" OR ");
+  const here = t.runs.filter((r) => r[2] === level);
+  const stay = `(BldgLevel = ${level} AND NOT (${between(t.runs)}))`;
+  return here.length ? `${stay} OR ${between(here)}` : stay;
+}
+
 export function statusArcade(day: Date, todayClass: TodayClass, sublayer?: string): string {
   const trade = sublayer ? tradeOf.get(sublayer) : undefined;
   if (!trade) return `return "nodate";`;

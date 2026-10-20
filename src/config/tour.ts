@@ -88,8 +88,8 @@ export const SKIP_SLIDES: RegExp[] = [/^construction site$/i];
 
 /**
  * In storyline order (the user's slides): Development Site → Current Design →
- * Current Utilities → Construction Schedule → [What could change it] →
- * Schedule Adjustment. First match wins. A rule with `insertIfMissing` gets a
+ * Current Utilities → Construction Schedule → Schedule Adjustment (with the
+ * weather alert). First match wins. A rule with `insertIfMissing` gets a
  * camera-less stop of its own when no authored slide matches it.
  */
 export const STOP_RULES: StopRule[] = [
@@ -120,17 +120,12 @@ export const STOP_RULES: StopRule[] = [
     builtIn: { title: "When it will be there", camera: "building" },
   },
   {
-    key: "weather",
-    match: /change|weather|real-?time|storm/i,
-    // Just the notification: no camera move, no storm overlay (user, 2026-10-20).
-    behaviour: { scene: base(LAYERS.focus, { bim: "scheduled", markers: true }), alert: true, replan: false, hour: 9 },
-    builtIn: { title: "What could change it", camera: "none" },
-    insertIfMissing: true,
-  },
-  {
     key: "decision",
     match: /adjust|what we do|decision|re-?plan/i,
+    // The incoming-weather alert pops here (user: the separate "What could
+    // change it" stop is gone; its alert moved onto this slide).
     behaviour: {
+      alert: true,
       scene: base(LAYERS.focus, { bim: "decision", markers: true }),
       left: "schedule",
       decisions: true,

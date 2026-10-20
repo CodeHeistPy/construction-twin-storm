@@ -41,13 +41,17 @@ via `SKIP_SLIDES`] → **Current Design** (site Planting sublayer kept off) →
 **Current Utilities** (Foundation: pipes below grade + conflicts; ground stays
 opaque, the slice starts above ground and the presenter drags it down with the
 **Slice** tool) → **Construction Schedule** (4D build-out on the slide's
-camera; orbit keeps its framing) → *What could change it* (inserted by the app,
-no slide: camera and layers stay, just the weather notification) → **Schedule
-Adjustment** (decision: 11 activities, re-plan + notify). No weather slider.
+camera; orbit keeps its framing) → **Schedule Adjustment** (the weather alert
+pops here, user: the separate "What could change it" stop is gone; decision,
+re-plan + notify). No weather slider.
 Activities: one per trade on its working level (levels 4-8) and 7
 SAMPLE site activities placed on real assets (Building 1 faces/core, podium,
-storm MH 2835760). BIM markers are placed on their components by client-side
-sublayer queries once the view settles (4 s timeout, fallback offsets).
+storm MH 2835760). BIM markers are PINNED to a real part once the view settles:
+sample up to 60 parts of that level (curtain wall by real storey,
+`partsWhere`), take the one nearest the camera that is >= 6 m from markers
+already placed; if the trade's parts aren't streamed in (interior, far away),
+a same-level column. Retries 4x 2.5 s. Picking an activity flies to its pin at
+scale 450, keeping the current heading (the pin is on the facing façade).
 4D pace: 3 days per 1.1 s (~40 s to Today); space bar pauses.
 4D is LEVEL-DRIVEN (user, 2026-10-20: "keep building level in mind ...
 everything going up to only level 8"). `lib/bim.ts` TRADES: the structure rises
