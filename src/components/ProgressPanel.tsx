@@ -24,7 +24,7 @@ const PANEL_HIDDEN = new Set(["Furniture"]);
 function phaseAt(day: Date): string {
   const lastLevel = (key: string) => workingLevel(key, day) > MAX_LEVEL;
   if (TRADES.every((t) => lastLevel(t.key))) return "Complete";
-  if (!lastLevel("structure")) return "Superstructure";
+  if (!lastLevel("structure")) return "Office Building"; // user, 2026-10-20 (was "Superstructure")
   if (!lastLevel("envelope")) return "Building enclosure";
   return "Interior fit-out";
 }
