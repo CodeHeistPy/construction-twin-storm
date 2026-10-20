@@ -36,8 +36,8 @@ The user authors the slides in Scene Viewer from **SLIDES.md**; the app matches
 slides by TITLE (`config/tour.ts` STOP_RULES) and adds data behaviour.
 Until >= 3 storyline stops are authored, built-in stops run (`?stops=slides|builtin` forces).
 The user's own slides, in order: **Development Site for Office
-Park** (reality, ortho) → [*Construction Site*: in the scene, skipped by the app
-via `SKIP_SLIDES`] → **Current Design** (site Planting sublayer kept off) →
+Park** (reality, ortho) → [*Construction Site*: deleted from the scene 2026-10-19; a re-added one
+is still skipped via `SKIP_SLIDES`] → **Current Design** (site Planting sublayer kept off) →
 **Current Utilities** (Foundation: pipes below grade + conflicts; ground stays
 opaque, the slice starts above ground and the presenter drags it down with the
 **Slice** tool) → **Construction Schedule** (4D build-out on the slide's
@@ -156,7 +156,7 @@ Re-run it after the model is republished.
 - **Utilities slide slice:** the slide's saved slice (elements.analyses) is handed to
   the Slice tool; utility layers are in its excludedLayers (a slice hides everything
   on the cut side); a horizontal saved plane STARTS above ground (user): kept as
-  saved (~1,607 m, ~7 m up) and only lifted to 1.5 m over the HIGHEST ground
+  saved (resaved 2026-10-19 at ~1,669 m, ~78 m over the 1,590 m ground) and only lifted to 1.5 m over the HIGHEST ground
   across its footprint (3x3 samples) if a re-save puts it below grade.
 - Per-stop building sublayer hiding (`hideSublayers`, `isolateBuilding`) uses
   `keepOff()`: slides re-apply sublayer visibility asynchronously.
