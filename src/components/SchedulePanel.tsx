@@ -16,12 +16,22 @@ interface Props {
   decisions?: boolean;
   /** Activity the current beat is about. */
   focusId?: string | null;
+  /** Show only this decision's activities (list and map); null = all. */
+  filter?: Decision | null;
+  onFilter?: (d: Decision | null) => void;
 }
 
-export default function SchedulePanel({ twin, selectedId, onSelect, decisions = true, focusId = null }: Props) {
+export default function SchedulePanel({ twin, selectedId, onSelect, decisions = true, focusId = null, filter = null, onFilter }: Props) {
   const by = (d: Decision) => twin.assessments.filter((a) => a.decision === d);
-  const postponed = by("postpone");
-  const deferred = postponed.reduce((n, a) => n + (a.activity.components ?? 0), 0);
+  // Postponed and Proceed are toggles (user, 2026-10-20): click to show only
+  // those activities here and on the map, click again for all.
+  const toggle = (d: Decision) => onFilter?.(filter === d ? null : d);
+  const FilterStat = ({ d, label }: { d: Decision; label: string }) => (
+    <button type="button" className={`stat ${d} filter ${filter === d ? "on" : ""}`} aria-pressed={filter === d} onClick={() => toggle(d)}>
+      <b>{by(d).length}</b>
+      <span>{label}</span>
+    </button>
+  );
 
   return (
     <aside className="panel panel-left">
@@ -36,29 +46,19 @@ export default function SchedulePanel({ twin, selectedId, onSelect, decisions = 
         <ScheduledOnly twin={twin} selectedId={selectedId ?? focusId} onSelect={onSelect} />
       ) : (
         <>
-      <div className="summary">
-        <div className="stat postpone">
-          <b>{postponed.length}</b>
-          <span>postponed</span>
-        </div>
+      <div className="summary summary-3">
+        <FilterStat d="postpone" label="postponed" />
         <div className="stat watch">
           <b>{by("watch").length}</b>
           <span>watch</span>
         </div>
-        <div className="stat go">
-          <b>{by("go").length}</b>
-          <span>proceed</span>
-        </div>
-        <div className="stat">
-          <b>{deferred}</b>
-          <span>BIM parts deferred</span>
-        </div>
+        <FilterStat d="go" label="proceed" />
       </div>
 
       <ReplanCard twin={twin} />
 
       <div className="activity-list">
-        {ORDER.map((d) =>
+        {ORDER.filter((d) => !filter || d === filter).map((d) =>
           by(d).length ? (
             <section key={d}>
               <h3 className={`group ${d}`}>{LABEL[d]}</h3>

@@ -167,6 +167,11 @@ button.ghost { background: transparent; }
 
 /* Scheduled (before the weather call) */
 .summary-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.summary-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.stat.filter { font: inherit; color: inherit; border: 1px solid rgba(255, 255, 255, 0.08); cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+.stat.filter:hover { background: rgba(255, 255, 255, 0.08); }
+.stat.filter.postpone.on { border-color: var(--postpone); background: rgba(255, 90, 78, 0.14); }
+.stat.filter.go.on { border-color: var(--go); background: rgba(61, 220, 132, 0.12); }
 .stat.scheduled b, .group.scheduled { color: var(--accent); }
 .activity.scheduled { border-left-color: var(--accent); }
 

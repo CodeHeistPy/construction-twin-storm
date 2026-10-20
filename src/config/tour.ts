@@ -146,7 +146,6 @@ export const STOP_RULES: StopRule[] = [
       scene: base(LAYERS.slides, { bim: "decision", markers: true }),
       left: "schedule",
       decisions: true,
-      conditions: true,
       hour: 9,
     },
     builtIn: { title: "Schedule Adjustment", camera: "adjustment" },

@@ -16,6 +16,7 @@ import SchedulePanel from "./components/SchedulePanel";
 import TourStrip, { type TourStop } from "./components/TourStrip";
 import WeatherAlert from "./components/WeatherAlert";
 import type { Conflict } from "./lib/utilities";
+import type { Decision } from "./domain/types";
 import { useTwin } from "./state/useTwin";
 
 /** Clock hour of the weather stop, for the outcome card's "hours of warning". */
@@ -69,6 +70,8 @@ export default function App() {
   // Bumped by the progress panel's Reset: remounts the build-out, which then
   // replays from the ground up to Today.
   const [replay, setReplay] = useState(0);
+  // Schedule Adjustment's Postponed / Proceed filter (list + map markers).
+  const [decisionFilter, setDecisionFilter] = useState<Decision | null>(null);
   // The scene has streamed in since the stop changed (or 20 s passed). The 4D
   // and its orbit wait for this: a camera move every frame starves the first
   // download, and the app now OPENS on the build-out (nothing is preloaded).
@@ -132,6 +135,7 @@ export default function App() {
       setIndex(i);
       setBehaviour(b);
       setSelectedId(null);
+      setDecisionFilter(null);
       setShowComms(false);
       setShowAlert(!!b.alert);
       if (b.hour !== undefined) twin.setHour(b.hour);
@@ -200,6 +204,7 @@ export default function App() {
   return (
     <div className="app">
       <SceneCanvas
+        markerFilter={decisionFilter}
         twin={twin}
         mode={sceneMode}
         focusId={focusId}
@@ -246,6 +251,11 @@ export default function App() {
           onSelect={setSelectedId}
           decisions={behaviour.decisions !== false}
           focusId={focusId}
+          filter={decisionFilter}
+          onFilter={(d) => {
+            setDecisionFilter(d);
+            setSelectedId(null);
+          }}
         />
       )}
       {behaviour.conditions && <ConditionsPanel twin={twin} />}

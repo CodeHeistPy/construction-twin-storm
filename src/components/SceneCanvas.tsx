@@ -99,6 +99,8 @@ interface Props {
   isolateBuilding?: boolean;
   /** Building sublayers to keep off on this stop. */
   hideSublayers?: { layer: string; sublayers: string[] }[];
+  /** Only show markers for activities with this decision (null = all). */
+  markerFilter?: Decision | null;
   onConflicts?: (c: Conflict[]) => void;
 }
 
@@ -250,7 +252,7 @@ function shotFor(a: Activity): Shot {
   return { at: a.location, above: a.location.z, scale: 1000, tilt: 66, heading: a.viewHeading ?? 30 };
 }
 
-export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect, camera, applyLayers, timelineDay, onView, onConflicts, orbit = false, allowUtilities = false, isolateBuilding = false, hideSublayers }: Props) {
+export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect, camera, applyLayers, timelineDay, onView, onConflicts, orbit = false, allowUtilities = false, isolateBuilding = false, hideSublayers, markerFilter = null }: Props) {
   const [view, setView] = useState<SceneView | null>(null);
   const [loaded, setLoaded] = useState(false);
   // One WebScene for the life of the app. Letting <arcgis-scene> load it from
@@ -731,7 +733,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     layer.removeAll();
     if (!mode.markers) return;
     layer.addMany(
-      twin.assessments.map(({ activity, decision }) => {
+      twin.assessments.filter(({ decision }) => !markerFilter || decision === markerFilter).map(({ activity, decision }) => {
         const a = located(activity);
         const selected = a.id === selectedId || a.id === focusId;
         const color = DECISION_COLORS[markerStatus(mode, decision, twin.replanned)];
@@ -763,7 +765,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
         });
       }),
     );
-  }, [map, mode, twin.assessments, twin.replanned, selectedId, focusId, placed]);
+  }, [map, mode, twin.assessments, twin.replanned, selectedId, focusId, placed, markerFilter]);
 
   // Scripted storm cell: outer rain shield + core, moving with the clock.
   useEffect(() => {
