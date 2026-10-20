@@ -18,6 +18,7 @@ import WeatherAlert from "./components/WeatherAlert";
 import type { Conflict } from "./lib/utilities";
 import type { Decision } from "./domain/types";
 import { useTwin } from "./state/useTwin";
+import { buildStart } from "./lib/bim";
 
 /** Clock hour of the weather stop, for the outcome card's "hours of warning". */
 const ALERT_HOUR = STOP_RULES.find((r) => r.behaviour.alert)?.behaviour.hour ?? 9;
@@ -64,7 +65,9 @@ export default function App() {
   const [camera, setCamera] = useState<CameraRequest>({ preset: "schedule", key: 0 });
   const [showComms, setShowComms] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
-  const [timelineDay, setTimelineDay] = useState<Date>(twin.day);
+  // The app opens on the build-out: start at the ground, so the wait for the
+  // scene to load shows an empty site, not the finished state.
+  const [timelineDay, setTimelineDay] = useState<Date>(() => buildStart());
   const [conflicts, setConflicts] = useState<Conflict[] | null>(null);
   const [building, setBuilding] = useState(false);
   // Bumped by the progress panel's Reset: remounts the build-out, which then
@@ -142,7 +145,7 @@ export default function App() {
       setShowAlert(!!b.alert);
       if (b.hour !== undefined) twin.setHour(b.hour);
       if (b.replan !== undefined) twin.setReplanned(b.replan);
-      if (b.scene.bim !== "timeline") setTimelineDay(twin.day);
+      setTimelineDay(b.scene.bim === "timeline" ? buildStart() : twin.day);
       const token = ++goToken.current;
       // Overlays the next stop doesn't have go NOW (at take-off); new ones
       // arrive when the camera lands. Otherwise the utilities stop's flags and
