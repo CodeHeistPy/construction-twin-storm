@@ -244,6 +244,9 @@ function keepOff(subs: { visible: boolean }[]): () => void {
   };
 }
 
+/** The orbit circles this point on Building 1: metres above its ground, about mid-height of the structure on "Today" (level 8). */
+const ORBIT_TARGET_ABOVE_M = 16;
+
 /** How close a picked activity is framed (map scale: ~90 m across the view). */
 const SELECT_SCALE = 450;
 
@@ -874,39 +877,42 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
   }, [view, selectedId]);
 
   // Slow orbit around Building 1 while the build-out plays: keeps the shot alive.
+  // It circles the BUILDING (not whatever ground is mid-screen) and keeps it
+  // centred in the visible area right of the panel (user, 2026-10-20): each
+  // frame frames a fixed point on Building 1, which goTo centres within
+  // view.padding. The target has an absolute, terrain-sampled z, so the
+  // camera's altitude stays constant (no drift into the site).
   useEffect(() => {
     if (!view || !orbit) return;
     let raf = 0;
     let stopped = false;
-    // Start only once any camera flight has finished, so we never fight it.
-    reactiveUtils
-      .whenOnce(() => view.stationary && !view.animation)
-      .then(() => {
+    (async () => {
+      // Start only once any camera flight has finished, so we never fight it.
+      await reactiveUtils.whenOnce(() => view.stationary && !view.animation);
+      const target = await onGround(view, BUILDING_1.longitude, BUILDING_1.latitude, ORBIT_TARGET_ABOVE_M);
       if (stopped) return;
-      // Orbit the point the shot is framed on, so the saved view keeps its
-      // composition: swing the camera's own position around it at a FIXED
-      // altitude. (Re-framing a target each step pulled the camera down to the
-      // centre's z, which is too low while the ground is still loading.)
-      const start = view.camera.clone();
-      const pivot = view.center;
-      const [cx, cy] = [pivot.x, pivot.y];
-      const [dx, dy] = [start.position.x - cx, start.position.y - cy];
-      let turned = 0;
+      // Keep the shot's distance: the view's scale is measured at its centre,
+      // so rescale it to the building's distance from the camera. (Web
+      // Mercator stretches x/y by 1/cos(latitude); undo that to compare with z.)
+      const cam = view.camera;
+      const k = 1 / Math.cos((SITE.latitude * Math.PI) / 180);
+      const dist = (pt: { x: number; y: number; z?: number }) =>
+        Math.hypot((pt.x - cam.position.x) / k, (pt.y - cam.position.y) / k, (pt.z ?? 0) - (cam.position.z ?? 0));
+      const t = webMercatorUtils.geographicToWebMercator(target) as Point;
+      const scale = view.scale * (dist(t) / Math.max(1, dist(view.center)));
+      const tilt = cam.tilt;
+      let heading = cam.heading;
+      // Ease the building into the centre, then circle it.
+      await view.goTo({ target, heading, tilt, scale }, { duration: 1500 }).catch(() => undefined);
+      if (stopped) return;
       const step = () => {
         if (stopped) return;
-        turned += 0.05; // degrees per frame, gentle: fast orbits starve the per-step redraws
-        const r = (turned * Math.PI) / 180;
-        const cam = start.clone();
-        cam.position = start.position.clone();
-        // Clockwise seen from above, matching the heading increase.
-        cam.position.x = cx + dx * Math.cos(r) + dy * Math.sin(r);
-        cam.position.y = cy - dx * Math.sin(r) + dy * Math.cos(r);
-        cam.heading = (start.heading + turned) % 360;
-        view.goTo(cam, { animate: false }).catch(() => undefined);
+        heading = (heading + 0.05) % 360; // degrees per frame, gentle: fast orbits starve the per-step redraws
+        view.goTo({ target, heading, tilt, scale }, { animate: false }).catch(() => undefined);
         raf = requestAnimationFrame(step);
       };
       raf = requestAnimationFrame(step);
-    });
+    })();
     return () => {
       stopped = true;
       cancelAnimationFrame(raf);

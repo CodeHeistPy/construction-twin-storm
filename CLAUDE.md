@@ -71,7 +71,9 @@ sample up to 60 parts of that level (curtain wall by real storey,
 already placed; if the trade's parts aren't streamed in (interior, far away),
 a same-level column. Retries 4x 2.5 s. Picking an activity flies to its pin at
 scale 450, keeping the current heading (the pin is on the facing façade).
-4D pace: 3 days per 1.1 s (~40 s to Today); space bar pauses.
+4D pace: 3 days per 0.9 s (~33 s to Today); space bar pauses. The orbit circles a
+fixed point on Building 1 (16 m up) via target goTo, so the building stays centred
+in the padded (visible) area at constant altitude.
 4D is LEVEL-DRIVEN (user, 2026-10-20: "keep building level in mind ...
 everything going up to only level 8"). `lib/bim.ts` TRADES: the structure rises
 a level at a time and is on **level 8 today** (demo day); each trade follows a
