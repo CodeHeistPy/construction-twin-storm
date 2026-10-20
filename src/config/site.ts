@@ -69,6 +69,23 @@ export function presenterToday(): Date {
   return new Date(demoDay().getTime() - PLAN_AHEAD_DAYS * 86_400_000);
 }
 
+/**
+ * DISPLAY-ONLY date shift (user, 2026-10-20): the build-out's dates on screen
+ * end on the real current date ("Today"), not on the model's day. The data,
+ * install dates and sequencing are untouched; only the panel pill and the
+ * timeline slider label use this. Whole days, so the weekday stays plausible.
+ */
+const DISPLAY_SHIFT_MS = (() => {
+  const [y, m, d] = todayIn(SITE.timeZone);
+  const days = Math.round((zonedMidnight(y, m, d, SITE.timeZone).getTime() - presenterToday().getTime()) / 86_400_000);
+  return days * 86_400_000;
+})();
+
+/** A model date as shown on screen (see DISPLAY_SHIFT_MS). */
+export function displayDate(d: Date): Date {
+  return new Date(d.getTime() + DISPLAY_SHIFT_MS);
+}
+
 /** "Tomorrow" / "Day after tomorrow" / "In N days" for N days after the demo day. */
 export function planDayLabel(daysAfterDemoDay: number): string {
   const n = daysAfterDemoDay + PLAN_AHEAD_DAYS;

@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildFinish, buildStart } from "../lib/bim";
 import { fmtDate } from "../lib/units";
+import { displayDate } from "../config/site";
 
 const DAY = 86_400_000;
 
 /** The build-out's date (user, 2026-10-20: dates instead of "N days elapsed"). */
 function dateLabel(day: Date, today: Date): string {
   const isToday = Math.round((day.getTime() - today.getTime()) / DAY) === 0;
-  return `${fmtDate(day)}${isToday ? " · Today" : ""}`;
+  return `${fmtDate(displayDate(day))}${isToday ? " · Today" : ""}`;
 }
 
 interface Props {

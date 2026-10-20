@@ -18,7 +18,8 @@ do we tell the crews?*
   `@arcgis/ai-components` until the user decides.
 - **Dates** (user, 2026-10-16, revised 2026-10-20): the Construction Schedule
   view now SHOWS dates ("May 04, 2026", `fmtDate`, site time) on its pill and
-  timeline, ending "May 10, 2026 · Today"; Elapsed / Remaining tiles are bare
+  timeline, DISPLAY-SHIFTED (`displayDate`, site.ts) so the build-out ends on the
+  real current date ("Oct 20, 2026 · Today" on 2026-10-20; data untouched); Elapsed / Remaining tiles are bare
   numbers. Schedule Adjustment still says "Tomorrow" / "Day after tomorrow".
   `DEFAULT_DEMO_DATE` (2026-05-11) is the storm day; it is settled.
 - **Layer filter:** clicking a layer row in the progress panel shows only that

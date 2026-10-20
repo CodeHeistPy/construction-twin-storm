@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { buildFinish, buildStart, levelAt, MAX_LEVEL, progressAsOf, TRADES, workingLevel } from "../lib/bim";
 import { fmtDate } from "../lib/units";
+import { displayDate } from "../config/site";
 import type { Twin } from "../state/useTwin";
 
 const DAY = 86_400_000;
@@ -74,7 +75,7 @@ export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, t
 
   return (
     <aside className="panel panel-left seq">
-      <div className="seq-pill">{fmtDate(when)}{isToday ? " · Today" : ""}</div>
+      <div className="seq-pill">{fmtDate(displayDate(when))}{isToday ? " · Today" : ""}</div>
 
       <div className="seq-hero">
         <div className="seq-ring" style={{ ["--p" as string]: `${complete}` }}>
