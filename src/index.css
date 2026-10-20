@@ -188,6 +188,40 @@ button.ghost { background: transparent; }
 .pkg .bar .done { background: var(--go); }
 .pkg .bar .today { background: var(--accent); }
 
+/* Progress panel: "planned construction sequencing" layout (user, 2026-10-20) */
+.seq { gap: 12px; overflow-y: auto; }
+.seq-pill { align-self: flex-start; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 700; color: #5eead4;
+  background: rgba(94, 234, 212, 0.08); border: 1px solid rgba(94, 234, 212, 0.45); }
+.seq-hero, .seq-stats > div, .seq-layer { background: rgba(255, 255, 255, 0.035); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 12px; }
+.seq-hero { display: flex; align-items: center; gap: 16px; padding: 14px; }
+.seq-ring { --p: 0; width: 92px; height: 92px; border-radius: 50%; flex: none; display: grid; place-content: center; text-align: center;
+  background: radial-gradient(closest-side, #111a2b 80%, transparent 81%), conic-gradient(#22d3ee calc(var(--p) * 1%), rgba(255, 255, 255, 0.08) 0);
+  filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.35)); }
+.seq-ring b { font-size: 22px; line-height: 1; }
+.seq-ring span { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+.seq-phase { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.seq-phase span { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.seq-phase b { font-size: 15px; }
+.seq-phase small { font-size: 12px; color: #5eead4; }
+.seq-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.seq-stats > div { padding: 9px 10px; display: flex; flex-direction: column; justify-content: space-between; gap: 6px; }
+.seq-stats span { font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 600; line-height: 1.25; }
+.seq-stats b { font-size: 18px; font-variant-numeric: tabular-nums; }
+.seq-head { display: flex; align-items: center; justify-content: space-between; margin-top: 2px; }
+.seq-head span { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; font-weight: 700; }
+.seq-head button { font: inherit; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; color: #5eead4; cursor: pointer;
+  padding: 4px 10px; border-radius: 7px; background: rgba(94, 234, 212, 0.08); border: 1px solid rgba(94, 234, 212, 0.45); }
+.seq-head button:hover { background: rgba(94, 234, 212, 0.18); }
+.seq-layers { display: flex; flex-direction: column; gap: 7px; }
+.seq-layer { --c: var(--accent); padding: 9px 12px 10px; }
+.seq-row { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; margin-bottom: 7px; }
+.seq-row > i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); box-shadow: 0 0 6px var(--c); flex: none; }
+.seq-row b { margin-left: auto; font-variant-numeric: tabular-nums; }
+.seq-bar { height: 7px; border-radius: 4px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
+.seq-bar i { display: block; height: 100%; border-radius: 4px; background: var(--c); box-shadow: 0 0 8px var(--c); transition: width 0.6s ease; }
+.seq-layer.idle .seq-row { color: var(--muted); }
+.seq-layer.idle .seq-row > i { opacity: 0.35; box-shadow: none; }
+
 /* Weather alert */
 @keyframes alert-in { from { transform: translate(-50%, -20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
 .weather-alert { position: absolute; top: 100px; left: 50%; transform: translateX(-50%); z-index: 4; width: min(520px, 92vw);

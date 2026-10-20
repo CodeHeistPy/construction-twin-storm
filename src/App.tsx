@@ -66,6 +66,9 @@ export default function App() {
   const [timelineDay, setTimelineDay] = useState<Date>(twin.day);
   const [conflicts, setConflicts] = useState<Conflict[] | null>(null);
   const [building, setBuilding] = useState(false);
+  // Bumped by the progress panel's Reset: remounts the build-out, which then
+  // replays from the ground up to Today.
+  const [replay, setReplay] = useState(0);
   // The scene has streamed in since the stop changed (or 20 s passed). The 4D
   // and its orbit wait for this: a camera move every frame starves the first
   // download, and the app now OPENS on the build-out (nothing is preloaded).
@@ -229,7 +232,12 @@ export default function App() {
 
       {behaviour.left === "conflicts" && <ConflictsPanel conflicts={conflicts} />}
       {behaviour.left === "progress" && (
-        <ProgressPanel twin={twin} endOfDay={!!behaviour.outcome} asOf={timeline ? timelineDay : undefined} />
+        <ProgressPanel
+          twin={twin}
+          endOfDay={!!behaviour.outcome}
+          asOf={timeline ? timelineDay : undefined}
+          onReset={timeline ? () => setReplay((n) => n + 1) : undefined}
+        />
       )}
       {behaviour.left === "schedule" && (
         <SchedulePanel
@@ -243,7 +251,7 @@ export default function App() {
       {behaviour.conditions && <ConditionsPanel twin={twin} />}
 
       <div className="bottom">
-        {timeline && settled && <BuildTimeline key={index} today={twin.day} value={timelineDay} onChange={setTimelineDay} onPlayingChange={setBuilding} />}
+        {timeline && settled && <BuildTimeline key={`${index}-${replay}`} today={twin.day} value={timelineDay} onChange={setTimelineDay} onPlayingChange={setBuilding} />}
         <TourStrip
           stops={entries.map((e) => e.stop)}
           index={index}

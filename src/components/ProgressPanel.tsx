@@ -1,87 +1,127 @@
 import { useMemo } from "react";
-import { levelAt, MAX_LEVEL, progressAsOf } from "../lib/bim";
+import { buildFinish, buildStart, levelAt, MAX_LEVEL, progressAsOf, TRADES, workingLevel } from "../lib/bim";
 import type { Twin } from "../state/useTwin";
 
+const DAY = 86_400_000;
 const pct = (n: number, d: number) => (d ? (100 * n) / d : 0);
 
+/** One colour per construction layer (trade), in sequence order. */
+const LAYER_COLORS: Record<string, string> = {
+  Structure: "#5eead4",
+  "Curtain wall": "#38bdf8",
+  "Interior walls": "#818cf8",
+  "Doors & ceilings": "#c084fc",
+  "MEP fixtures": "#f472b6",
+  "Specialty & casework": "#facc15",
+  Furniture: "#fb923c",
+};
+
+/** The phase the build is in on a date, from where the trades are working. */
+function phaseAt(day: Date): string {
+  const lastLevel = (key: string) => workingLevel(key, day) > MAX_LEVEL;
+  if (TRADES.every((t) => lastLevel(t.key))) return "Complete";
+  if (!lastLevel("structure")) return "Superstructure";
+  if (!lastLevel("envelope")) return "Building enclosure";
+  return "Interior fit-out";
+}
+
+interface Props {
+  twin: Twin;
+  /** With `endOfDay`, today's work that ran counts as installed and moved work doesn't. */
+  endOfDay?: boolean;
+  /** During the 4D build-out the panel follows the timeline date. */
+  asOf?: Date;
+  /** Restart the build-out from the ground. */
+  onReset?: () => void;
+}
+
 /**
- * Building 1 progress straight from the model's install dates. With
- * `endOfDay`, today's work that ran counts as installed and moved work doesn't.
+ * Building 1 progress, laid out like the construction-timelapse reference's
+ * "planned construction sequencing" panel (user, 2026-10-20): a day pill, a
+ * % complete ring with the current phase, three stat tiles, then one coloured
+ * bar per construction layer. Days, never calendar dates.
  */
-export default function ProgressPanel({ twin, endOfDay = false, asOf }: { twin: Twin; endOfDay?: boolean; asOf?: Date }) {
-  // During the 4D build-out the panel follows the timeline date.
+export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset }: Props) {
   const when = asOf ?? twin.day;
-  const isToday = when.getTime() === twin.day.getTime();
   const p = useMemo(() => progressAsOf(when), [when]);
+  const start = useMemo(() => buildStart(), []);
+  const finish = useMemo(() => buildFinish(), []);
+  const isToday = Math.round((when.getTime() - twin.day.getTime()) / DAY) === 0;
+  const elapsed = Math.max(0, Math.round((when.getTime() - start.getTime()) / DAY));
+  const remaining = Math.max(0, Math.round((finish.getTime() - when.getTime()) / DAY));
 
   // Parts that actually went in today = today's BIM work that wasn't postponed.
   const ranToday = twin.assessments
     .filter((a) => a.activity.source === "bim" && a.decision !== "postpone")
     .reduce((n, a) => n + (a.activity.components ?? 0), 0);
-  const moved = twin.assessments
-    .filter((a) => a.activity.source === "bim" && a.decision === "postpone")
-    .reduce((n, a) => n + (a.activity.components ?? 0), 0);
-
   const installed = p.installed + (endOfDay ? ranToday : 0);
-  const now = pct(installed, p.total);
-  const start = pct(p.installed, p.total);
+  const complete = pct(installed, p.total);
+  const active = p.packages.filter((k) => k.today > 0).length;
+  const level = Math.max(0, Math.min(MAX_LEVEL, levelAt(when)));
+  const phase = phaseAt(when);
 
   return (
-    <aside className="panel panel-left">
-      <header className="panel-head">
+    <aside className="panel panel-left seq">
+      <div className="seq-pill">{isToday ? "Today" : `Day ${elapsed}`}</div>
+
+      <div className="seq-hero">
+        <div className="seq-ring" style={{ ["--p" as string]: `${complete}` }}>
+          <b>{Math.round(complete)}%</b>
+          <span>Complete</span>
+        </div>
+        <div className="seq-phase">
+          <span>Current phase</span>
+          <b>{phase}</b>
+          {phase !== "Complete" && (
+            <small>
+              Level {level} of {MAX_LEVEL}
+            </small>
+          )}
+        </div>
+      </div>
+
+      <div className="seq-stats">
         <div>
-          <div className="eyebrow">{endOfDay ? "End of day" : "Progress"}</div>
-          <h2>Building 1</h2>
+          <span>Active layers</span>
+          <b>{active}</b>
         </div>
-      </header>
+        <div>
+          <span>Elapsed</span>
+          <b>{elapsed}d</b>
+        </div>
+        <div>
+          <span>Remaining</span>
+          <b>{remaining}d</b>
+        </div>
+      </div>
 
-      <div className="progress-hero">
-        <div className="ring" style={{ ["--p" as string]: `${now}` }}>
-          <b>{now.toFixed(1)}%</b>
-          <span>installed</span>
-        </div>
-        <div className="hero-facts">
-          <div>
-            <b>{installed.toLocaleString()}</b> of {p.total.toLocaleString()} tracked parts
-          </div>
-          {asOf && levelAt(asOf) < MAX_LEVEL && (
-            <div className="today">Structure rising: level {Math.max(0, levelAt(asOf))} of {MAX_LEVEL}</div>
-          )}
-          {endOfDay ? (
-            <>
-              <div className="up">
-                +{ranToday.toLocaleString()} parts today ({start.toFixed(1)}% → {now.toFixed(1)}%)
+      <div className="seq-head">
+        <span>Construction layers</span>
+        {onReset && (
+          <button type="button" onClick={onReset}>
+            Reset
+          </button>
+        )}
+      </div>
+
+      <div className="seq-layers">
+        {p.packages.map((k) => {
+          const share = pct(k.installed, k.total);
+          const color = LAYER_COLORS[k.label] ?? "var(--accent)";
+          return (
+            <div key={k.label} className={`seq-layer ${share > 0 || k.today > 0 ? "" : "idle"}`} style={{ ["--c" as string]: color }}>
+              <div className="seq-row">
+                <i />
+                <span>{k.label}</span>
+                <b>{Math.round(share)}%</b>
               </div>
-              {moved > 0 && <div className="moved">{moved.toLocaleString()} parts moved to tomorrow</div>}
-            </>
-          ) : (
-            <div className="today">
-              {p.today.toLocaleString()} parts {isToday ? "scheduled today" : "going in"}
+              <div className="seq-bar">
+                <i style={{ width: `${share}%` }} />
+              </div>
             </div>
-          )}
-        </div>
+          );
+        })}
       </div>
-
-      <div className="packages">
-        {p.packages.map((k) => (
-          <div key={k.label} className="pkg">
-            <div className="pkg-row">
-              <span>{k.label}</span>
-              <span>
-                {pct(k.installed, k.total).toFixed(0)}%{k.today ? ` · ${k.today} today` : ""}
-              </span>
-            </div>
-            <div className="bar">
-              <i className="done" style={{ width: `${pct(k.installed, k.total)}%` }} />
-              <i className="today" style={{ width: `${pct(k.today, k.total)}%` }} />
-            </div>
-          </div>
-        ))}
-      </div>
-      <p className="footnote">
-        From each component's install date in the BIM model. Structure, walls, floors and roofs carry no date and are
-        shown as in place.
-      </p>
     </aside>
   );
 }
