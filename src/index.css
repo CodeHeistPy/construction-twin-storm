@@ -205,7 +205,7 @@ button.ghost { background: transparent; }
   background: radial-gradient(closest-side, #111a2b 80%, transparent 81%), conic-gradient(#22d3ee calc(var(--p) * 1%), rgba(255, 255, 255, 0.08) 0);
   filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.35)); }
 .seq-ring b { font-size: 19px; line-height: 1; }
-.seq-ring span { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+.seq-ring span { font-size: 8.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-top: 3px; max-width: 54px; line-height: 1.15; }
 .seq-phase { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .seq-phase span { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
 .seq-phase b { font-size: 15px; }

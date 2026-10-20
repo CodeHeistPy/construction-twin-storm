@@ -79,7 +79,8 @@ export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, t
       <div className="seq-hero">
         <div className="seq-ring" style={{ ["--p" as string]: `${complete}` }}>
           <b>{Math.round(complete)}%</b>
-          <span>Complete</span>
+          {/* Total project progress, so it reads apart from the per-layer bars (user). */}
+          <span>Total complete</span>
         </div>
         <div className="seq-phase">
           <b>{phase}</b>
