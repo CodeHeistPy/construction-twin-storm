@@ -382,11 +382,14 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     let cancelled = false;
     (async () => {
       await map.loadAll().catch(() => undefined);
-      // No trees anywhere (user): the Topographic basemap brings its own 3D
-      // "Trees" layer, besides the site's Planting (ALWAYS_HIDDEN).
-      [...(map.basemap?.baseLayers.toArray() ?? []), ...(map.basemap?.referenceLayers.toArray() ?? [])]
-        .filter((l) => /^trees$/i.test(l.title ?? ""))
-        .forEach((l) => (l.visible = false));
+      // The Topographic 3D basemap as designed (user, 2026-10-20): its 3D
+      // "Buildings" on (the scene saved them off), but its 3D "Trees" off, as
+      // there are no trees anywhere (user), besides the site's Planting
+      // (ALWAYS_HIDDEN).
+      [...(map.basemap?.baseLayers.toArray() ?? []), ...(map.basemap?.referenceLayers.toArray() ?? [])].forEach((l) => {
+        if (/^trees$/i.test(l.title ?? "")) l.visible = false;
+        if (/^buildings$/i.test(l.title ?? "")) l.visible = true;
+      });
       // A ground layer that failed to load (Roadway_Ground is private) leaves
       // ground-relative layers waiting on elevation forever. Drop it.
       map.ground.layers

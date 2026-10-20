@@ -217,7 +217,9 @@ export default function App() {
         onConflicts={setConflicts}
         orbit={building && timeline}
         allowUtilities={behaviour.scene.underground}
-        isolateBuilding={behaviour.scene.bim === "timeline"}
+        // Buildings 2-4 off in both of the app's views: the build-out and the
+        // adjustment (user, 2026-10-20).
+        isolateBuilding={behaviour.scene.bim === "timeline" || behaviour.scene.bim === "decision"}
         hideSublayers={[...ALWAYS_HIDDEN, ...(behaviour.hideSublayers ?? [])]}
       />
 

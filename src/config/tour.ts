@@ -80,8 +80,8 @@ const LAYERS = {
   today: { reality: true, utilities: false, mesh: true, proposed: "none" as const },
   design: { reality: true, utilities: false, mesh: false, proposed: "all" as const },
   focus: { reality: true, utilities: false, mesh: false, proposed: "focus" as const },
-  // As the user's two slides had it: buildings on, ortho and mesh off.
-  slides: { reality: false, utilities: false, mesh: false, proposed: "all" as const },
+  // The app's two views: buildings and the 3D mesh on, ortho off (user, 2026-10-20).
+  slides: { reality: false, utilities: false, mesh: true, proposed: "all" as const },
 };
 
 const base = (layers: SceneMode["layers"], over: Partial<SceneMode> = {}): SceneMode => ({
