@@ -246,7 +246,9 @@ export function bimActivities(day: Date): Activity[] {
     if (!count) return;
     out.push({
       id: `L${level}-${t.key.slice(0, 3).toUpperCase()}`,
-      name: `${t.key === "structure" ? "Erect" : "Install"} ${t.work}, level ${level} (${count} parts)`,
+      // No part count in the title: a whole level's parts read as an unrealistic
+      // day's install (user, 2026-10-20). The count stays in `components`.
+      name: `${t.key === "structure" ? "Erect" : "Install"} ${t.work}, level ${level}`,
       type: t.type,
       trade: t.crew,
       zone: `Building 1, level ${level}`,

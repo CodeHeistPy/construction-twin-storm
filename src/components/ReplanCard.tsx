@@ -58,7 +58,7 @@ function ReplanRow({ r, day }: { r: Rescheduled; day: Date }) {
       {knock && r.daysLater !== null && (
         <div className="knock">
           +{r.daysLater} day{r.daysLater > 1 ? "s" : ""} to {a.name.replace(/^Install /, "").replace(/ \(.*\)$/, "")}{" "}
-          completion · {knock.installDays} install days, {knock.parts.toLocaleString()} parts still ahead
+          completion · {knock.installDays} install days still ahead
         </div>
       )}
     </li>
