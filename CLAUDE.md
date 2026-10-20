@@ -69,8 +69,10 @@ storm MH 2835760). BIM markers are PINNED to a real part once the view settles:
 sample up to 60 parts of that level (curtain wall by real storey,
 `partsWhere`), take the one nearest the camera that is >= 6 m from markers
 already placed; if the trade's parts aren't streamed in (interior, far away),
-a same-level column. Retries 4x 2.5 s. Picking an activity flies to its pin at
-scale 450, keeping the current heading (the pin is on the facing façade).
+a same-level column. Retries 12x 2.5 s. Picking an activity flies to its pin at
+scale 280 (same distance every pick), centred on the drawn pin (pins float >= 8 m
+up on a leader line so slabs and the podium never hide them), approached from
+OUTSIDE the building (heading = bearing pin -> Building 1), 1.8 s cubic ease.
 4D pace: 3 days per 0.9 s (~33 s to Today); space bar pauses. The orbit circles a
 fixed point on Building 1 (16 m up) via target goTo, so the building stays centred
 in the padded (visible) area at constant altitude.

@@ -247,8 +247,32 @@ function keepOff(subs: { visible: boolean }[]): () => void {
 /** The orbit circles this point on Building 1: metres above its ground, about mid-height of the structure on "Today" (level 8). */
 const ORBIT_TARGET_ABOVE_M = 16;
 
-/** How close a picked activity is framed (map scale: ~90 m across the view). */
-const SELECT_SCALE = 450;
+/**
+ * Framing for a picked activity (user, 2026-10-20: "zoom in and center more
+ * effectively", the same for every point, smooth between them).
+ *  - SELECT_SCALE: the same close distance for every pick.
+ *  - SELECT_LIFT_M: centre on the drawn pin, which sits on a short leader line
+ *    above its anchor (the marker symbol's verticalOffset), not on the anchor.
+ *  - Points away from Building 1's core are approached from OUTSIDE: the
+ *    camera looks past the point toward the building, so nothing stands
+ *    between them (points on the far side were seen through the building).
+ */
+const SELECT_SCALE = 280;
+/** Pins float at least this high above their part on a leader line (marker verticalOffset). */
+const MARKER_LIFT_M = 8;
+const SELECT_LIFT_M = MARKER_LIFT_M + 1; // the pin icon's centre
+const SELECT_TILT = 65;
+/** Points closer than this to Building 1's centre (the core, the roof) keep the current heading. */
+const SELECT_CORE_M = 8;
+const SELECT_FLIGHT = { duration: 1800, easing: "cubic-in-out" } as const;
+
+/** Compass bearing (degrees) from a point to Building 1's centre, and how far it is. */
+function towardBuilding(lon: number, lat: number): { heading: number; metres: number } {
+  const k = Math.cos((lat * Math.PI) / 180);
+  const dx = (BUILDING_1.longitude - lon) * 111_320 * k;
+  const dy = (BUILDING_1.latitude - lat) * 110_540;
+  return { heading: ((Math.atan2(dx, dy) * 180) / Math.PI + 360) % 360, metres: Math.hypot(dx, dy) };
+}
 
 function shotFor(a: Activity): Shot {
   // Wide enough to read the whole band of today's parts on the building.
@@ -765,7 +789,9 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
                 verticalAlignment: "bottom",
               },
             ],
-            verticalOffset: { screenLength: 24, maxWorldLength: 40, minWorldLength: 3 },
+            // At least MARKER_LIFT_M up, so a pin clears the slab overhang or podium it is
+            // pinned under when zoomed in close (it was hidden behind them).
+            verticalOffset: { screenLength: 24, maxWorldLength: 40, minWorldLength: MARKER_LIFT_M },
             callout: { type: "line", size: 1, color },
           },
         });
@@ -860,19 +886,26 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, camera]);
 
-  // Fly to an activity picked in the panel or on the map: close in on the part
-  // its marker is pinned to, keeping the current heading so the façade it's
-  // on stays facing the camera (markers are pinned to the side nearest it).
+  // Fly to an activity picked in the panel or on the map: the same close,
+  // centred framing on its drawn pin every time, approached from outside the
+  // building, with one smooth eased flight from wherever the camera is (a new
+  // pick mid-flight just takes over). Centred in the visible area: target goTo
+  // honours view.padding (the panel).
   useEffect(() => {
     if (!view || !selectedId) return;
     const found = twin.assessments.find((x) => x.activity.id === selectedId)?.activity;
     if (!found) return;
     const a = located(found);
-    onGround(view, a.location.longitude, a.location.latitude, a.location.z ?? 0).then((target) =>
-      view
-        .goTo({ target, scale: SELECT_SCALE, tilt: 65, heading: view.camera.heading }, { duration: 1500 })
-        .catch(() => undefined),
-    );
+    let cancelled = false;
+    const toward = towardBuilding(a.location.longitude, a.location.latitude);
+    const heading = toward.metres > SELECT_CORE_M ? toward.heading : view.camera.heading;
+    onGround(view, a.location.longitude, a.location.latitude, (a.location.z ?? 0) + SELECT_LIFT_M).then((target) => {
+      if (cancelled) return;
+      view.goTo({ target, scale: SELECT_SCALE, tilt: SELECT_TILT, heading }, SELECT_FLIGHT).catch(() => undefined);
+    });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, selectedId]);
 
