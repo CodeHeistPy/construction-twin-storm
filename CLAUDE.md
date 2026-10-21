@@ -92,7 +92,8 @@ a level at a time and is on **level 8 today** (demo day); each trade follows a
 fixed number of levels behind (curtain wall 1, so a storey is clad only once
 its floor is in (user); interior walls/railings 1, doors/ceilings/MEP 2,
 specialty/casework 3, furniture 4). Nothing above level 8
-today. The model's Installation_Date values are NOT used for sequencing (they
+today; stairs go in one level behind the structure (`SUBLAYER_LAG`, user: a flight on
+the top level stood floating over the slab). The model's Installation_Date values are NOT used for sequencing (they
 don't follow the levels); counts per level come from the BldgLevel statistics.
 **Curtain wall exception:** multi-storey curtain walls are tagged to their BASE
 level (769 panels on "level 3" span 3-7, 776 on "level 9" span 9-13), so panels

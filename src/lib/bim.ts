@@ -125,6 +125,20 @@ export function workingLevel(tradeKey: string, day: Date): number {
   return Math.floor(progressLevels(day)) - t.lag;
 }
 
+/**
+ * Sublayers that go in further behind their trade, in levels. A stair flight
+ * runs from its floor up to the next one, so on the top working level it stood
+ * "floating" over the slab (user, 2026-10-21): stairs go in once the floor
+ * above them exists, one level behind the rest of the structure.
+ */
+const SUBLAYER_LAG: Record<string, number> = { Stairs: 1 };
+
+/** The level a sublayer's parts go in on at a date (its trade's, less any extra lag). */
+export function sublayerWorkingLevel(sublayer: string, day: Date): number {
+  const trade = tradeOf.get(sublayer);
+  return trade ? workingLevel(trade.key, day) - (SUBLAYER_LAG[sublayer] ?? 0) : -Infinity;
+}
+
 /** Highest structural level standing on a date: -1 (nothing) to MAX_LEVEL. */
 export function levelAt(day: Date): number {
   return Math.min(MAX_LEVEL, workingLevel("structure", day));
@@ -194,7 +208,7 @@ export function partsWhere(sublayer: string, level: number): string {
 export function statusArcade(day: Date, todayClass: TodayClass, sublayer?: string): string {
   const trade = sublayer ? tradeOf.get(sublayer) : undefined;
   if (!trade) return `return "nodate";`;
-  const working = workingLevel(trade.key, day);
+  const working = sublayerWorkingLevel(sublayer!, day);
   return `
 var lv = null;
 if (HasKey($feature, "BldgLevel")) { lv = $feature.BldgLevel; }
@@ -217,15 +231,16 @@ export interface PackageProgress {
 /** Building 1 progress at a date, by trade, from element counts per level. */
 export function progressAsOf(day: Date): { packages: PackageProgress[]; total: number; installed: number; today: number } {
   const packages = TRADES.map((t) => {
-    const working = workingLevel(t.key, day);
     const p: PackageProgress = { label: t.label, total: 0, installed: 0, today: 0 };
-    for (const sub of t.sublayers)
+    for (const sub of t.sublayers) {
+      const working = sublayerWorkingLevel(sub, day);
       for (const [lvl, n] of Object.entries(levelCounts(sub))) {
         const l = Number(lvl);
         p.total += n;
         if (l < working) p.installed += n;
         else if (l === working) p.today += n;
       }
+    }
     return p;
   }).filter((p) => p.total > 0);
   const sum = (k: keyof Omit<PackageProgress, "label">) => packages.reduce((s, p) => s + p[k], 0);
@@ -241,7 +256,8 @@ export function bimActivities(day: Date): Activity[] {
   TRADES.forEach((t) => {
     const level = workingLevel(t.key, day);
     if (level < 0 || level > MAX_LEVEL) return;
-    const subs = t.sublayers.filter((s) => (levelCounts(s)[String(level)] ?? 0) > 0);
+    // Sublayers that lag their trade (stairs) aren't on this level today.
+    const subs = t.sublayers.filter((s) => !SUBLAYER_LAG[s] && (levelCounts(s)[String(level)] ?? 0) > 0);
     const count = subs.reduce((n, s) => n + (levelCounts(s)[String(level)] ?? 0), 0);
     if (!count) return;
     out.push({
