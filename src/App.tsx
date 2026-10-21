@@ -199,14 +199,6 @@ export default function App() {
   }, [entries, index, go]);
 
   // The activity a stop is about.
-  // How far the storm re-plan pushes the building's finish: the longest move
-  // of any postponed Building 1 activity (one crew per trade, so its trade and
-  // everything sequenced after it slip by the same days).
-  const slipDays = useMemo(
-    () => Math.max(0, ...twin.replans.filter((r) => r.original.activity.source === "bim").map((r) => r.daysLater ?? 0)),
-    [twin.replans],
-  );
-
   // Before the weather is revealed (alertButton stops), the stop shows the plain
   // schedule: every activity listed, building and pins in "scheduled" colours.
   const decided = !behaviour.alertButton || weatherShown;
@@ -282,8 +274,6 @@ export default function App() {
           onReset={timeline ? () => setReplay((n) => n + 1) : undefined}
           layerFilter={layerFilter}
           onLayerFilter={setLayerFilter}
-          // The slip only exists once the storm is known: Completed Building view.
-          slipDays={behaviour.completion ? slipDays : 0}
           showFinish={!!behaviour.completion}
         />
       )}
@@ -312,7 +302,6 @@ export default function App() {
             onChange={setTimelineDay}
             onPlayingChange={setBuilding}
             toFinish={!!behaviour.completion}
-            slipDays={behaviour.completion ? slipDays : 0}
           />
         )}
         <TourStrip

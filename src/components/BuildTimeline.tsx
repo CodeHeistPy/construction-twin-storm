@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildFinish, buildStart } from "../lib/bim";
 import { fmtDate } from "../lib/units";
-import { displayDateWithSlip } from "../config/site";
+import { displayDate } from "../config/site";
 
 const DAY = 86_400_000;
 /** Days the build-out advances per step (every 0.75 s). */
 const DAYS_PER_STEP = 4;
 
 /** The build-out's date (user, 2026-10-20: dates instead of "N days elapsed"). */
-function dateLabel(day: Date, today: Date, slipDays: number, isEnd: boolean): string {
+function dateLabel(day: Date, today: Date, isEnd: boolean): string {
   const isToday = Math.round((day.getTime() - today.getTime()) / DAY) === 0;
-  return `${fmtDate(displayDateWithSlip(day, slipDays))}${isToday ? " · Today" : isEnd ? " · Complete" : ""}`;
+  return `${fmtDate(displayDate(day))}${isToday ? " · Today" : isEnd ? " · Complete" : ""}`;
 }
 
 interface Props {
@@ -21,8 +21,6 @@ interface Props {
   autoplay?: boolean;
   /** Play on from today to the finished building instead (Completed Building view). */
   toFinish?: boolean;
-  /** Days the storm re-plan pushed everything after the storm day back. */
-  slipDays?: number;
   onPlayingChange?: (playing: boolean) => void;
 }
 
@@ -31,7 +29,7 @@ interface Props {
  * the construction-timelapse reference. Each step re-renders the model as of
  * that day (installed solid, that day's work highlighted, the rest hidden).
  */
-export default function BuildTimeline({ today, value, onChange, autoplay = true, onPlayingChange, toFinish = false, slipDays = 0 }: Props) {
+export default function BuildTimeline({ today, value, onChange, autoplay = true, onPlayingChange, toFinish = false }: Props) {
   // From the first structural level (ground up), not the first dated install.
   const start = useMemo(() => buildStart(), []);
   const end = useMemo(() => buildFinish(), []);
@@ -123,7 +121,7 @@ export default function BuildTimeline({ today, value, onChange, autoplay = true,
           <span>Finish</span>
         </div>
       </div>
-      <div className="when">{dateLabel(value, today, slipDays, at >= total)}</div>
+      <div className="when">{dateLabel(value, today, at >= total)}</div>
     </div>
   );
 }

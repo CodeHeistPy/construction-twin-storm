@@ -64,7 +64,7 @@ export interface StopBehaviour {
   alertButton?: boolean;
   /**
    * The 4D plays on from Today to the finished building (user, 2026-10-21:
-   * a closing view of the completed building), with the storm re-plan's slip.
+   * a closing view of the completed building); the completion date holds.
    */
   completion?: boolean;
   /** Force the re-plan state on arrival (undefined = leave as the presenter set it). */

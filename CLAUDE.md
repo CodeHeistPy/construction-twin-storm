@@ -53,9 +53,9 @@ Topographic 3D basemap with its 3D Buildings on and Trees off, Buildings 2-4 hid
 **Completed Building (user, 2026-10-21):** a third stop after Schedule Adjustment
 (`completion` rule, `SlideView` "completion": the schedule heading pulled back 1.75x, aimed
 at mid-height of the 16-level tower; orbit target 33 m up). The 4D plays on from Today to
-the finish (`toFinish`), Building 1 only, and dates after the storm day carry the re-plan
-slip (`displayDateWithSlip`; slip = longest move of a postponed BIM activity): "Finish
-Apr 06, 2027 · +1 day, storm re-plan" (on 2026-10-21).
+the finish (`toFinish`), Building 1 only, ending on "Substantial completion <date>".
+NO storm slip (user, 2026-10-21: unrealistic; a single weather day is absorbed by the
+schedule's weather allowance / float, so the completion date holds).
 **Since 2026-10-20 the app is only the last two beats** (user: the earlier
 beats are told in Scene Viewer): **Construction Schedule** (4D) and **Schedule
 Adjustment** (weather alert + decisions), `APP_STOPS` in tour.ts. Their views
