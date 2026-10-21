@@ -81,9 +81,11 @@ a same-level column. Retries 12x 2.5 s. Picking an activity flies to its pin at
 scale 280 (same distance every pick), centred on the drawn pin (pins float >= 8 m
 up on a leader line so slabs and the podium never hide them), approached from
 OUTSIDE the building (heading = bearing pin -> Building 1), 1.8 s cubic ease.
-4D pace: 3 days per 0.75 s (~28 s to Today); space bar pauses. The orbit circles a
-fixed point on Building 1 (16 m up) via target goTo, so the building stays centred
-in the padded (visible) area at constant altitude.
+4D pace: 4 days per 0.75 s (~21 s to Today); space bar pauses. The orbit circles a
+fixed point on Building 1 (16 m up) at the camera's REAL distance and height (never from
+view.scale/center: that flew the camera ~2.7 km out on a cold load), aiming off-centre
+for the panel and correcting the aim each frame from toScreen, so the building
+stays centred in the padded (visible) area at constant altitude.
 4D is LEVEL-DRIVEN (user, 2026-10-20: "keep building level in mind ...
 everything going up to only level 8"). `lib/bim.ts` TRADES: the structure rises
 a level at a time and is on **level 8 today** (demo day); each trade follows a

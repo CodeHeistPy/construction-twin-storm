@@ -931,11 +931,12 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
   }, [view, selectedId]);
 
   // Slow orbit around Building 1 while the build-out plays: keeps the shot alive.
-  // It circles the BUILDING (not whatever ground is mid-screen) and keeps it
-  // centred in the visible area right of the panel (user, 2026-10-20): each
-  // frame frames a fixed point on Building 1, which goTo centres within
-  // view.padding. The target has an absolute, terrain-sampled z, so the
-  // camera's altitude stays constant (no drift into the site).
+  // The camera circles a fixed point on the building at its CURRENT distance
+  // and height (the saved view's), and aims a little left / up of it so the
+  // building sits centred in the visible area right of the panel (user,
+  // 2026-10-20). Built from real distances only: deriving the distance from
+  // view.scale / view.center went wrong on a cold load (the camera flew out
+  // ~2.7 km), because the centre's ground wasn't loaded yet.
   useEffect(() => {
     if (!view || !orbit) return;
     let raf = 0;
@@ -943,26 +944,63 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     (async () => {
       // Start only once any camera flight has finished, so we never fight it.
       await reactiveUtils.whenOnce(() => view.stationary && !view.animation);
-      const target = await onGround(view, BUILDING_1.longitude, BUILDING_1.latitude, ORBIT_TARGET_ABOVE_M);
+      const ground = await onGround(view, BUILDING_1.longitude, BUILDING_1.latitude, ORBIT_TARGET_ABOVE_M);
       if (stopped) return;
-      // Keep the shot's distance: the view's scale is measured at its centre,
-      // so rescale it to the building's distance from the camera. (Web
-      // Mercator stretches x/y by 1/cos(latitude); undo that to compare with z.)
-      const cam = view.camera;
+      const t = webMercatorUtils.geographicToWebMercator(ground) as Point;
+      // Web Mercator stretches x/y by k = 1/cos(latitude); work in true metres.
       const k = 1 / Math.cos((SITE.latitude * Math.PI) / 180);
-      const dist = (pt: { x: number; y: number; z?: number }) =>
-        Math.hypot((pt.x - cam.position.x) / k, (pt.y - cam.position.y) / k, (pt.z ?? 0) - (cam.position.z ?? 0));
-      const t = webMercatorUtils.geographicToWebMercator(target) as Point;
-      const scale = view.scale * (dist(t) / Math.max(1, dist(view.center)));
-      const tilt = cam.tilt;
-      let heading = cam.heading;
-      // Ease the building into the centre, then circle it.
-      await view.goTo({ target, heading, tilt, scale }, { duration: 1500 }).catch(() => undefined);
+      const c = view.camera.position;
+      const east = (c.x - t.x) / k;
+      const north = (c.y - t.y) / k;
+      const up = (c.z ?? 0) - (t.z ?? 0);
+      const radius = Math.hypot(east, north); // horizontal distance, kept
+      const height = up; // height above the target, kept
+      let bearing = (Math.atan2(-east, -north) * 180) / Math.PI; // camera -> building
+      const lookTilt = (Math.atan2(radius, height) * 180) / Math.PI; // 0 = down, 90 = level
+      // Aim offset so the target lands mid-way in the padded (visible) area,
+      // not mid-screen (the panel covers the left). Start from a first guess,
+      // then each frame measure where the target actually lands and nudge the
+      // aim toward the visible centre: right for any window or panel size.
+      const f = Math.hypot(view.width, view.height) / 2 / Math.tan(((view.camera.fov ?? 55) * Math.PI) / 360);
+      const visibleCentre = () => {
+        const pad = view.padding;
+        return {
+          x: (pad.left ?? 0) + (view.width - (pad.left ?? 0) - (pad.right ?? 0)) / 2,
+          y: (pad.top ?? 0) + (view.height - (pad.top ?? 0) - (pad.bottom ?? 0)) / 2,
+        };
+      };
+      const deg = (r: number) => (r * 180) / Math.PI;
+      let aimLeft = deg(Math.atan(((view.padding.left ?? 0) - (view.padding.right ?? 0)) / 2 / f));
+      let aimUp = deg(Math.atan(((view.padding.top ?? 0) - (view.padding.bottom ?? 0)) / 2 / f));
+      const correctAim = () => {
+        const sp = view.toScreen(t);
+        if (!sp) return;
+        const c = visibleCentre();
+        // Right of centre -> turn right (less aimLeft); below -> tilt down (less aimUp).
+        aimLeft -= 0.4 * deg(Math.atan((sp.x - c.x) / f));
+        aimUp -= 0.4 * deg(Math.atan((sp.y - c.y) / f));
+      };
+      const cameraAt = (b: number) => {
+        const r = (b * Math.PI) / 180;
+        const cam = view.camera.clone();
+        cam.position = new Point({
+          x: t.x - Math.sin(r) * radius * k,
+          y: t.y - Math.cos(r) * radius * k,
+          z: (t.z ?? 0) + height,
+          spatialReference: view.spatialReference,
+        });
+        cam.heading = (b - aimLeft + 360) % 360;
+        cam.tilt = Math.min(89, lookTilt + aimUp);
+        return cam;
+      };
+      // Ease the building towards the centre, then circle it, refining the aim.
+      await view.goTo(cameraAt(bearing), { duration: 1500 }).catch(() => undefined);
       if (stopped) return;
       const step = () => {
         if (stopped) return;
-        heading = (heading + 0.05) % 360; // degrees per frame, gentle: fast orbits starve the per-step redraws
-        view.goTo({ target, heading, tilt, scale }, { animate: false }).catch(() => undefined);
+        correctAim();
+        bearing = (bearing + 0.05) % 360; // degrees per frame, gentle: fast orbits starve the per-step redraws
+        view.goTo(cameraAt(bearing), { animate: false }).catch(() => undefined);
         raf = requestAnimationFrame(step);
       };
       raf = requestAnimationFrame(step);

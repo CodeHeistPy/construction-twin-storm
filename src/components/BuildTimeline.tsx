@@ -4,6 +4,8 @@ import { fmtDate } from "../lib/units";
 import { displayDate } from "../config/site";
 
 const DAY = 86_400_000;
+/** Days the build-out advances per step (every 0.75 s). */
+const DAYS_PER_STEP = 4;
 
 /** The build-out's date (user, 2026-10-20: dates instead of "N days elapsed"). */
 function dateLabel(day: Date, today: Date): string {
@@ -56,10 +58,11 @@ export default function BuildTimeline({ today, value, onChange, autoplay = true,
     if (!playing) return;
     const id = window.setInterval(() => {
       const cur = Math.round((valueRef.current.getTime() - start.getTime()) / DAY);
-      // 3 days per 0.75 s step: about 28 s from the ground to Today, so the
-      // presenter can talk to it (user: slowed to 1.1 s, then sped up twice). Space pauses.
-      // Near the floor: one renderer step takes ~0.45 s to settle.
-      const next = Math.min(stopAt.current, cur + 3);
+      // 4 days per 0.75 s step: about 21 s from the ground to Today, so the
+      // presenter can talk to it (user: slowed to 1.1 s, then sped up three times). Space pauses.
+      // Faster = more days per step, not shorter steps: one renderer step takes
+      // ~0.45 s to settle, so 0.75 s is near the floor.
+      const next = Math.min(stopAt.current, cur + DAYS_PER_STEP);
       onChange(new Date(start.getTime() + next * DAY));
       if (next >= stopAt.current) setPlaying(false);
     }, 750);
