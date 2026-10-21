@@ -809,13 +809,23 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
           attributes: { id: a.id },
           symbol: {
             type: "point-3d",
+            // Pins sat on parts of the same colour (a green pin on green work,
+            // red on red) and vanished (user, 2026-10-21): keep the decision
+            // colour, but on a dark backing disc with a white ring, and a white
+            // leader with a dark edge, so they read on any background.
             symbolLayers: [
+              {
+                type: "icon",
+                resource: { primitive: "circle" },
+                size: (selected ? 22 : 14) + 7,
+                material: { color: hex("#0b1220", faded ? 0.2 : 0.9) },
+              },
               {
                 type: "icon",
                 resource: { primitive: "circle" },
                 size: selected ? 22 : 14,
                 material: { color },
-                outline: { color: selected ? "#ffffff" : hex("#0b1220", alpha), size: selected ? 3 : 1.5 },
+                outline: { color: hex("#ffffff", faded ? 0.25 : 1), size: selected ? 3 : 2 },
               },
               {
                 type: "text",
@@ -829,7 +839,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
             // At least MARKER_LIFT_M up, so a pin clears the slab overhang or podium it is
             // pinned under when zoomed in close (it was hidden behind them).
             verticalOffset: { screenLength: 24, maxWorldLength: 40, minWorldLength: MARKER_LIFT_M },
-            callout: { type: "line", size: 1, color },
+            callout: { type: "line", size: 1.5, color: hex("#ffffff", faded ? 0.2 : 0.95), border: { color: hex("#0b1220", faded ? 0.15 : 0.9) } },
           },
         });
       }),
