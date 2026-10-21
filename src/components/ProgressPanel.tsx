@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { buildFinish, buildStart, levelAt, MAX_LEVEL, progressAsOf, TRADES, workingLevel } from "../lib/bim";
 import { fmtDate } from "../lib/units";
-import { displayDate } from "../config/site";
+import { displayDateWithSlip } from "../config/site";
 import type { Twin } from "../state/useTwin";
 
 const DAY = 86_400_000;
@@ -42,6 +42,10 @@ interface Props {
   /** The layer (trade label) the 3D building is filtered to; null = all. */
   layerFilter?: string | null;
   onLayerFilter?: (label: string | null) => void;
+  /** Days the storm re-plan pushed everything after the storm day back. */
+  slipDays?: number;
+  /** Show the finish date and the slip (Completed Building view). */
+  showFinish?: boolean;
 }
 
 /**
@@ -50,7 +54,7 @@ interface Props {
  * % complete ring with the current phase, three stat tiles, then one coloured
  * bar per construction layer. Days, never calendar dates.
  */
-export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, today = twin.day, layerFilter = null, onLayerFilter }: Props) {
+export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, today = twin.day, layerFilter = null, onLayerFilter, slipDays = 0, showFinish = false }: Props) {
   const when = asOf ?? today;
   const p = useMemo(() => progressAsOf(when), [when]);
   // The layers shown, and the totals over just those, so the ring matches the list.
@@ -58,10 +62,17 @@ export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, t
   const shownTotal = layers.reduce((n, k) => n + k.total, 0);
   const shownInstalled = layers.reduce((n, k) => n + k.installed, 0);
   const start = useMemo(() => buildStart(), []);
-  const finish = useMemo(() => buildFinish(), []);
+  // The finish on the same whole-day grid as the timeline slider, so the
+  // "Finish" line and the slider's last date agree.
+  const finish = useMemo(() => {
+    const st = buildStart().getTime();
+    return new Date(st + Math.round((buildFinish().getTime() - st) / DAY) * DAY);
+  }, []);
   const isToday = Math.round((when.getTime() - today.getTime()) / DAY) === 0;
-  const elapsed = Math.max(0, Math.round((when.getTime() - start.getTime()) / DAY));
-  const remaining = Math.max(0, Math.round((finish.getTime() - when.getTime()) / DAY));
+  // After the storm day, the re-plan's slip moves every date (and the count) on.
+  const afterStorm = when.getTime() > today.getTime() + DAY;
+  const elapsed = Math.max(0, Math.round((when.getTime() - start.getTime()) / DAY) + (afterStorm ? slipDays : 0));
+  const remaining = Math.max(0, Math.round((finish.getTime() - when.getTime()) / DAY) + (afterStorm ? 0 : slipDays));
 
   // Parts that actually went in today = today's BIM work that wasn't postponed.
   const ranToday = twin.assessments
@@ -74,7 +85,7 @@ export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, t
 
   return (
     <aside className="panel panel-left seq">
-      <div className="seq-pill">{fmtDate(displayDate(when))}{isToday ? " · Today" : ""}</div>
+      <div className="seq-pill">{fmtDate(displayDateWithSlip(when, slipDays))}{isToday ? " · Today" : ""}</div>
 
       <div className="seq-hero">
         <div className="seq-ring" style={{ ["--p" as string]: `${complete}` }}>
@@ -87,6 +98,12 @@ export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, t
           {phase !== "Complete" && (
             <small>
               Level {level} of {MAX_LEVEL}
+            </small>
+          )}
+          {showFinish && (
+            <small className="seq-finish">
+              Finish {fmtDate(displayDateWithSlip(finish, slipDays))}
+              {slipDays > 0 ? ` · +${slipDays} day${slipDays > 1 ? "s" : ""}, storm re-plan` : ""}
             </small>
           )}
         </div>

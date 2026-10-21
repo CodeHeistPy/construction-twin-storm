@@ -17,7 +17,7 @@ export type CameraPreset = "site" | "development" | "building" | "overview" | "s
  * cameras and sun times. Built into the app (user, 2026-10-20) so it no longer
  * depends on the scene's slides (the scene copy it now loads has none).
  */
-export type SlideView = "schedule" | "adjustment";
+export type SlideView = "schedule" | "adjustment" | "completion";
 
 /** How Building 1 renders. Not-yet-installed parts are hidden in every mode but "design". */
 export type BimMode =
@@ -62,6 +62,11 @@ export interface StopBehaviour {
    * and switches the panel, building and pins to postpone / proceed.
    */
   alertButton?: boolean;
+  /**
+   * The 4D plays on from Today to the finished building (user, 2026-10-21:
+   * a closing view of the completed building), with the storm re-plan's slip.
+   */
+  completion?: boolean;
   /** Force the re-plan state on arrival (undefined = leave as the presenter set it). */
   replan?: boolean;
   outcome?: boolean;
@@ -108,7 +113,7 @@ export const ALWAYS_HIDDEN: { layer: string; sublayers: string[] }[] = [{ layer:
  * 4D schedule and the weather adjustment. Every other slide in the scene is
  * left out, so slides added there for the rest of the story never show up here.
  */
-export const APP_STOPS = ["schedule", "decision"];
+export const APP_STOPS = ["schedule", "decision", "completion"];
 
 /**
  * In storyline order (the user's slides): Development Site → Current Design →
@@ -155,6 +160,12 @@ export const STOP_RULES: StopRule[] = [
       hour: 9,
     },
     builtIn: { title: "Schedule Adjustment", camera: "adjustment" },
+  },
+  {
+    key: "completion",
+    match: /complet|finish/i,
+    behaviour: { scene: base(LAYERS.slides, { bim: "timeline" }), left: "progress", completion: true },
+    builtIn: { title: "Completed Building", camera: "completion" },
   },
 ];
 

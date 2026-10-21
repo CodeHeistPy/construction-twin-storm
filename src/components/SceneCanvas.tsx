@@ -105,6 +105,8 @@ interface Props {
   isolateBuilding?: boolean;
   /** Building sublayers to keep off on this stop. */
   hideSublayers?: { layer: string; sublayers: string[] }[];
+  /** Metres above Building 1's ground the orbit circles (mid-height of what's built). */
+  orbitTargetAbove?: number;
   /** Only show markers for activities with this decision (null = all). */
   markerFilter?: Decision | null;
   /** Building 1: show only these sublayers (one trade, picked in the progress panel); null = all. */
@@ -214,6 +216,9 @@ const mid = (a: { longitude: number; latitude: number }, b: { longitude: number;
  */
 const SLIDE_VIEWS: Record<SlideView, { position: { x: number; y: number; z: number }; heading: number; tilt: number; sun: number }> = {
   schedule: { position: { x: -11687800.532987272, y: 4822331.038066762, z: 1694.748021907173 }, heading: 112.80272465343161, tilt: 68.43068231452831, sun: 1773601198000 },
+  // Completed Building: the schedule view's heading, pulled back 1.75x and
+  // aimed at mid-height of the finished 16-level tower (~33 m up).
+  completion: { position: { x: -11687978.246085212, y: 4822395.644396591, z: 1747.5090383375527 }, heading: 110, tilt: 70.1, sun: 1773601198000 },
   adjustment: { position: { x: -11687625.02634604, y: 4822451.720885995, z: 1706.327830764465 }, heading: 167.50746775902107, tilt: 60.71242942782043, sun: 1773601198000 },
 };
 const isSlideView = (p: string): p is SlideView => p in SLIDE_VIEWS;
@@ -288,7 +293,7 @@ function shotFor(a: Activity): Shot {
   return { at: a.location, above: a.location.z, scale: 1000, tilt: 66, heading: a.viewHeading ?? 30 };
 }
 
-export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect, camera, applyLayers, timelineDay, onView, onConflicts, orbit = false, allowUtilities = false, isolateBuilding = false, hideSublayers, markerFilter = null, onlySublayers = null }: Props) {
+export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect, camera, applyLayers, timelineDay, onView, onConflicts, orbit = false, allowUtilities = false, isolateBuilding = false, hideSublayers, markerFilter = null, onlySublayers = null, orbitTargetAbove = ORBIT_TARGET_ABOVE_M }: Props) {
   const [view, setView] = useState<SceneView | null>(null);
   const [loaded, setLoaded] = useState(false);
   // One WebScene for the life of the app. Letting <arcgis-scene> load it from
@@ -944,7 +949,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     (async () => {
       // Start only once any camera flight has finished, so we never fight it.
       await reactiveUtils.whenOnce(() => view.stationary && !view.animation);
-      const ground = await onGround(view, BUILDING_1.longitude, BUILDING_1.latitude, ORBIT_TARGET_ABOVE_M);
+      const ground = await onGround(view, BUILDING_1.longitude, BUILDING_1.latitude, orbitTargetAbove);
       if (stopped) return;
       const t = webMercatorUtils.geographicToWebMercator(ground) as Point;
       // Web Mercator stretches x/y by k = 1/cos(latitude); work in true metres.
@@ -1009,7 +1014,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       stopped = true;
       cancelAnimationFrame(raf);
     };
-  }, [view, orbit]);
+  }, [view, orbit, orbitTargetAbove]);
 
   // Pad the view so its corner UI and camera targets sit in the visible gap
   // between the overlay panels. Re-measured when panels come and go.

@@ -148,7 +148,8 @@ export default function App() {
       setWeatherShown(false);
       if (b.hour !== undefined) twin.setHour(b.hour);
       if (b.replan !== undefined) twin.setReplanned(b.replan);
-      setTimelineDay(b.scene.bim === "timeline" ? buildStart() : twin.day);
+      // The build-out starts at the ground; the Completed Building view plays on from today.
+      setTimelineDay(b.scene.bim === "timeline" ? (b.completion ? today : buildStart()) : twin.day);
       const token = ++goToken.current;
       // Overlays the next stop doesn't have go NOW (at take-off); new ones
       // arrive when the camera lands. Otherwise the utilities stop's flags and
@@ -198,6 +199,14 @@ export default function App() {
   }, [entries, index, go]);
 
   // The activity a stop is about.
+  // How far the storm re-plan pushes the building's finish: the longest move
+  // of any postponed Building 1 activity (one crew per trade, so its trade and
+  // everything sequenced after it slip by the same days).
+  const slipDays = useMemo(
+    () => Math.max(0, ...twin.replans.filter((r) => r.original.activity.source === "bim").map((r) => r.daysLater ?? 0)),
+    [twin.replans],
+  );
+
   // Before the weather is revealed (alertButton stops), the stop shows the plain
   // schedule: every activity listed, building and pins in "scheduled" colours.
   const decided = !behaviour.alertButton || weatherShown;
@@ -236,6 +245,8 @@ export default function App() {
         allowUtilities={behaviour.scene.underground}
         // Buildings 2-4 off in both of the app's views: the build-out and the
         // adjustment (user, 2026-10-20).
+        // The finished tower is ~67 m: circle its mid-height on the completion view.
+        orbitTargetAbove={behaviour.completion ? 33 : undefined}
         isolateBuilding={behaviour.scene.bim === "timeline" || behaviour.scene.bim === "decision"}
         hideSublayers={[...ALWAYS_HIDDEN, ...(behaviour.hideSublayers ?? [])]}
       />
@@ -271,6 +282,9 @@ export default function App() {
           onReset={timeline ? () => setReplay((n) => n + 1) : undefined}
           layerFilter={layerFilter}
           onLayerFilter={setLayerFilter}
+          // The slip only exists once the storm is known: Completed Building view.
+          slipDays={behaviour.completion ? slipDays : 0}
+          showFinish={!!behaviour.completion}
         />
       )}
       {behaviour.left === "schedule" && (
@@ -290,7 +304,17 @@ export default function App() {
       {behaviour.conditions && <ConditionsPanel twin={twin} />}
 
       <div className="bottom">
-        {timeline && settled && <BuildTimeline key={`${index}-${replay}`} today={today} value={timelineDay} onChange={setTimelineDay} onPlayingChange={setBuilding} />}
+        {timeline && settled && (
+          <BuildTimeline
+            key={`${index}-${replay}`}
+            today={today}
+            value={timelineDay}
+            onChange={setTimelineDay}
+            onPlayingChange={setBuilding}
+            toFinish={!!behaviour.completion}
+            slipDays={behaviour.completion ? slipDays : 0}
+          />
+        )}
         <TourStrip
           stops={entries.map((e) => e.stop)}
           index={index}

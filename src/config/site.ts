@@ -86,6 +86,15 @@ export function displayDate(d: Date): Date {
   return new Date(d.getTime() + DISPLAY_SHIFT_MS);
 }
 
+/**
+ * As displayDate, plus the storm re-plan's slip for dates after the storm day
+ * (Completed Building view: postponed work pushes everything after it back).
+ */
+export function displayDateWithSlip(d: Date, slipDays: number): Date {
+  const after = d.getTime() > demoDay().getTime();
+  return new Date(displayDate(d).getTime() + (after ? slipDays * 86_400_000 : 0));
+}
+
 /** "Tomorrow" / "Day after tomorrow" / "In N days" for N days after the demo day. */
 export function planDayLabel(daysAfterDemoDay: number): string {
   const n = daysAfterDemoDay + PLAN_AHEAD_DAYS;
