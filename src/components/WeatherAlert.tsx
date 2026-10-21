@@ -32,7 +32,7 @@ export default function WeatherAlert({ twin, onClose }: { twin: Twin; onClose: (
       </div>
       <div className="alert-body">
         <div className="alert-head">
-          <b>Severe weather arriving tomorrow, {fmtDayDate(displayDate(twin.day))}</b>
+          <b>Severe Weather Arriving, {fmtDayDate(displayDate(twin.day))}</b>
         </div>
         <p>
           {fmtHour(alert.from)}–{fmtHour(new Date(alert.to.getTime() + 3_600_000))}: gusts to {fmtWind(alert.peak.windGust)}

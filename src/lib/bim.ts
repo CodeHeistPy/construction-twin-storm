@@ -5,7 +5,7 @@ import type { Activity, ActivityType, Decision } from "../domain/types";
 import { atHour, zonedMidnight } from "./time";
 
 /** How today's components of a sublayer are shown (see SceneCanvas renderer). */
-export type TodayClass = Decision | "rescheduled" | "scheduled" | "hidden" | "done" | "dim";
+export type TodayClass = Decision | "rescheduled" | "scheduled" | "building" | "hidden" | "done" | "dim";
 
 // =============================================================================
 // LEVEL-DRIVEN SCHEDULE for Office_Park_Building_1 (user, 2026-10-20: "keep

@@ -42,6 +42,12 @@ import type { Twin } from "../state/useTwin";
 /** Display status: a decision, postponed work that has been re-planned, or scheduled (no call yet). */
 export type Status = Decision | "rescheduled" | "scheduled";
 
+/**
+ * The level going in during the 4D build-out (user, 2026-10-20: the cyan read
+ * as confusing). A soft sage green, a shade apart from Proceed's green.
+ */
+const BUILD_OUT_COLOR = "#7ccf8b";
+
 export const DECISION_COLORS: Record<Status, string> = {
   scheduled: "#39d0ff",
   rescheduled: "#a78bfa",
@@ -130,6 +136,7 @@ function statusRenderer(valueExpression: string) {
       today("done", INSTALLED),
       today("dim", mesh([200, 205, 215, 1], "tint")),
       today("scheduled", mesh(hex(DECISION_COLORS.scheduled))),
+      today("building", mesh(hex(BUILD_OUT_COLOR))),
       today("postpone", mesh(hex(DECISION_COLORS.postpone))),
       today("watch", mesh(hex(DECISION_COLORS.watch))),
       today("go", mesh(hex(DECISION_COLORS.go))),
@@ -639,7 +646,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       }
       if (building) {
         // 4D: in place before the timeline date, that day's work highlighted, the rest hidden.
-        sub.renderer = statusRenderer(statusArcade(timelineDay, "scheduled", name));
+        sub.renderer = statusRenderer(statusArcade(timelineDay, "building", name));
         continue;
       }
       // Sublayers with work in today's plan take its decision colour; the rest
