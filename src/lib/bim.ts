@@ -1,5 +1,6 @@
 import bimSchedule from "../data/bim-schedule.json";
 import curtainWallStoreys from "../data/curtain-wall-storeys.json";
+import typeSplits from "../data/type-splits.json";
 import { SITE, demoDay } from "../config/site";
 import type { Activity, ActivityType, Decision } from "../domain/types";
 import { atHour, zonedMidnight } from "./time";
@@ -16,15 +17,19 @@ export type TodayClass = Decision | "rescheduled" | "scheduled" | "building" | "
 //
 //   The structure rises one level at a time from the build start; on the demo
 //   day ("today") it is working level 8. Each trade follows a fixed number of
-//   levels behind it:
-//     structure .................. level 8 today   (0 behind)
-//     curtain wall ............... level 7         (1: a storey's panels go
-//                                                  on once its floor is in)
-//     interior walls, railings ... level 7         (1)
-//     doors, ceilings, MEP ....... level 6         (2)
-//     specialty, casework ........ level 5         (3)
-//     furniture .................. level 4         (4)
-//   Nothing above level 8 exists today.
+//   levels behind it, in the order a high-rise floor is really built (user,
+//   2026-10-21: "ensure sequencing is logical"):
+//     structure + core shear walls ...... level 8 today (0 behind; stairs 1)
+//     curtain wall + curtain-wall doors . level 6       (2: dries the floor in)
+//     interior walls (CMU, partitions) .. level 5       (3: once dried in)
+//     doors, ceilings (grid) ............ level 4       (4)
+//     MEP fixtures (lights, plumbing) ... level 3       (5: lights drop into
+//                                                       the finished grid)
+//     specialties, casework, fire
+//       extinguisher cabinets ........... level 2       (6)
+//     furniture ......................... level 1       (7: fit-out)
+//   Nothing above level 8 exists today. Shear walls (Walls) and curtain-wall
+//   doors (Doors) are split off their sublayer by Type (TYPE_SPLITS).
 //
 // Element counts per level come from the model's BldgLevel statistics
 // (scripts/extract-bim-schedule.mjs -> levels). The curtain wall is the
@@ -62,12 +67,13 @@ interface Trade {
 /** ⚠️ ASSUMPTION: trade order and lags are a standard high-rise sequence. */
 export const TRADES: Trade[] = [
   { key: "structure", label: "Structure", work: "structural frame", type: "steel-erection", crew: "Ironworkers", lag: 0, sublayers: ["StructuralColumns", "Floors", "Stairs", "Roofs"] },
-  { key: "envelope", label: "Curtain wall", work: "curtain wall", type: "curtain-wall", crew: "Glazing", lag: 1, sublayers: ["CurtainWallPanels", "CurtainWallMullions"] },
-  { key: "walls", label: "Interior walls", work: "interior walls and stair railings", type: "interior", crew: "Drywall / framing", lag: 1, sublayers: ["Walls", "StairsRailing"] },
-  { key: "finishes", label: "Doors & ceilings", work: "doors and ceilings", type: "interior", crew: "Carpentry / ceilings", lag: 2, sublayers: ["Doors", "Ceilings"] },
-  { key: "mep", label: "MEP fixtures", work: "lighting, fire protection and plumbing", type: "interior", crew: "MEP", lag: 2, sublayers: ["LightingFixtures", "FireProtection", "PlumbingFixtures"] },
-  { key: "specialty", label: "Specialty & casework", work: "specialty equipment and casework", type: "interior", crew: "Millwork / specialties", lag: 3, sublayers: ["SpecialtyEquipment", "Casework"] },
-  { key: "furniture", label: "Furniture", work: "furniture", type: "interior", crew: "FF&E", lag: 4, sublayers: ["Furniture", "FurnitureSystems"] },
+  { key: "envelope", label: "Curtain wall", work: "curtain wall", type: "curtain-wall", crew: "Glazing", lag: 2, sublayers: ["CurtainWallPanels", "CurtainWallMullions"] },
+  { key: "walls", label: "Interior walls", work: "interior walls and stair railings", type: "interior", crew: "Masonry / drywall", lag: 3, sublayers: ["Walls", "StairsRailing"] },
+  { key: "finishes", label: "Doors & ceilings", work: "doors and ceilings", type: "interior", crew: "Carpentry / ceilings", lag: 4, sublayers: ["Doors", "Ceilings"] },
+  { key: "mep", label: "MEP fixtures", work: "lighting and plumbing fixtures", type: "interior", crew: "MEP", lag: 5, sublayers: ["LightingFixtures", "PlumbingFixtures"] },
+  // FireProtection in this model is 99 fire-extinguisher cabinets: a late specialty, not sprinkler work.
+  { key: "specialty", label: "Specialty & casework", work: "specialties, casework and fire-extinguisher cabinets", type: "interior", crew: "Millwork / specialties", lag: 6, sublayers: ["SpecialtyEquipment", "Casework", "FireProtection"] },
+  { key: "furniture", label: "Furniture", work: "furniture", type: "interior", crew: "FF&E", lag: 7, sublayers: ["Furniture", "FurnitureSystems"] },
 ];
 
 const tradeOf = new Map(TRADES.flatMap((t) => t.sublayers.map((s) => [s, t] as const)));
@@ -158,6 +164,22 @@ const STOREYS = curtainWallStoreys.sublayers as unknown as Record<string, Storey
 const levelCounts = (sublayer: string): Record<string, number> =>
   STOREYS[sublayer]?.counts ?? ((bimSchedule as { levels?: Record<string, Record<string, number>> }).levels ?? {})[sublayer] ?? {};
 
+type TypeSplit = { match: string; trade: string; counts: Record<string, number> };
+/**
+ * Parts sequenced with a different trade than the rest of their sublayer, by
+ * Type (scripts/extract-type-splits.mjs): core shear walls rise with the
+ * structure; curtain-wall doors go in with the curtain wall.
+ */
+const TYPE_SPLITS = typeSplits.sublayers as unknown as Record<string, TypeSplit>;
+
+/** Per-level counts of a sublayer's own parts (without any split-off type). */
+const ownCounts = (sublayer: string): Record<string, number> => {
+  const all = levelCounts(sublayer);
+  const split = TYPE_SPLITS[sublayer];
+  if (!split) return all;
+  return Object.fromEntries(Object.entries(all).map(([l, n]) => [l, n - (split.counts[l] ?? 0)]));
+};
+
 /**
  * Arcade setting `lv` to a curtain wall part's real storey: a binary search of
  * the measured id runs, falling back to BldgLevel for parts within one storey.
@@ -183,15 +205,6 @@ while (lo <= hi) {
 );
 
 /**
- * Arcade classifying an element by its level against the trade's working level
- * on `day`: installed (below) | today-<class> (the working level) | upcoming.
- * Plain number comparisons, so the 4D steps re-render quickly.
- *
- * Elements with NO level (the crown spires, some railings, every plumbing
- * fixture) aren't in the tracked counts and would otherwise read as level 0,
- * i.e. standing above level 8 from day one. They stay hidden.
- */
-/**
  * SQL for the parts of `sublayer` on `level`, for client-side queries (marker
  * placement). Curtain wall parts go by their real storey: those measured onto
  * this storey, plus those tagged to it that weren't moved elsewhere.
@@ -205,17 +218,49 @@ export function partsWhere(sublayer: string, level: number): string {
   return here.length ? `${stay} OR ${between(here)}` : stay;
 }
 
-export function statusArcade(day: Date, todayClass: TodayClass, sublayer?: string, cutAbove?: number | null): string {
+/** The trade a sublayer's split-off parts follow (shear walls -> structure), if any. */
+export function splitTrade(sublayer: string): string | undefined {
+  return TYPE_SPLITS[sublayer]?.trade;
+}
+
+/**
+ * Arcade classifying an element by its level against the trade's working level
+ * on `day`: installed (below) | today-<class> (the working level) | upcoming.
+ * Plain number comparisons, so the 4D steps re-render quickly. Parts split off
+ * by Type (TYPE_SPLITS) compare against their own trade's working level and
+ * take `splitClass` on it.
+ *
+ * Elements with NO level (the crown spires, some railings, every plumbing
+ * fixture) aren't in the tracked counts and would otherwise read as level 0,
+ * i.e. standing above level 8 from day one. They stay hidden.
+ */
+export function statusArcade(
+  day: Date,
+  todayClass: TodayClass,
+  sublayer?: string,
+  cutAbove?: number | null,
+  splitClass: TodayClass = todayClass,
+): string {
   const trade = sublayer ? tradeOf.get(sublayer) : undefined;
   if (!trade) return `return "nodate";`;
   const working = sublayerWorkingLevel(sublayer!, day);
+  const split = TYPE_SPLITS[sublayer!];
+  const splitLines = split
+    ? `
+if (HasKey($feature, "Type") && Find("${split.match}", DefaultValue($feature.Type, "")) > -1) {
+  w = ${workingLevel(split.trade, day)};
+  cls = "today-${splitClass}";
+}`
+    : "";
   return `
 var lv = null;
 if (HasKey($feature, "BldgLevel")) { lv = $feature.BldgLevel; }
 if (IsEmpty(lv)) { return "upcoming"; }${storeyArcade.get(sublayer!) ?? ""}${cutAbove == null ? "" : `
 if (lv > ${cutAbove}) { return "upcoming"; }`}
-if (lv < ${working}) { return "installed"; }
-if (lv == ${working}) { return "today-${todayClass}"; }
+var w = ${working};
+var cls = "today-${todayClass}";${splitLines}
+if (lv < w) { return "installed"; }
+if (lv == w) { return cls; }
 return "upcoming";
 `;
 }
@@ -233,15 +278,17 @@ export interface PackageProgress {
 export function progressAsOf(day: Date): { packages: PackageProgress[]; total: number; installed: number; today: number } {
   const packages = TRADES.map((t) => {
     const p: PackageProgress = { label: t.label, total: 0, installed: 0, today: 0 };
-    for (const sub of t.sublayers) {
-      const working = sublayerWorkingLevel(sub, day);
-      for (const [lvl, n] of Object.entries(levelCounts(sub))) {
+    const add = (counts: Record<string, number>, working: number) => {
+      for (const [lvl, n] of Object.entries(counts)) {
         const l = Number(lvl);
         p.total += n;
         if (l < working) p.installed += n;
         else if (l === working) p.today += n;
       }
-    }
+    };
+    for (const sub of t.sublayers) add(ownCounts(sub), sublayerWorkingLevel(sub, day));
+    // Parts of other sublayers that follow this trade (shear walls -> structure).
+    for (const split of Object.values(TYPE_SPLITS)) if (split.trade === t.key) add(split.counts, workingLevel(t.key, day));
     return p;
   }).filter((p) => p.total > 0);
   const sum = (k: keyof Omit<PackageProgress, "label">) => packages.reduce((s, p) => s + p[k], 0);

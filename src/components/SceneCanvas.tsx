@@ -33,8 +33,10 @@ import {
   partsWhere,
   HIDE_DURING_BUILD,
   levelAt,
+  splitTrade,
   statusArcade,
   STRUCTURE_SUBLAYERS,
+  TRADES,
   type TodayClass,
 } from "../lib/bim";
 import { ellipseRing } from "../lib/geo";
@@ -667,12 +669,18 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       }
       // Sublayers with work in today's plan take its decision colour; the rest
       // just show what's in place (today's derived work counts as done).
-      const cls: TodayClass = decisionFor.has(name)
-        ? todayClass(mode, decisionFor.get(name)!, twin.replanned, focusSubs.has(name), !!focus)
-        : mode.bim === "progress"
-          ? "hidden"
-          : "done";
-      sub.renderer = statusRenderer(statusArcade(twin.day, cls, name, cutAbove));
+      const classFor = (sublayer: string): TodayClass =>
+        decisionFor.has(sublayer)
+          ? todayClass(mode, decisionFor.get(sublayer)!, twin.replanned, focusSubs.has(sublayer), !!focus)
+          : mode.bim === "progress"
+            ? "hidden"
+            : "done";
+      // Split-off parts (core shear walls, curtain-wall doors) take their own
+      // trade's call: a level 8 shear wall goes red with the postponed structure.
+      const splitKey = splitTrade(name);
+      const splitRep = splitKey ? TRADES.find((t) => t.key === splitKey)?.sublayers[0] : undefined;
+      const cls = classFor(name);
+      sub.renderer = statusRenderer(statusArcade(twin.day, cls, name, cutAbove, splitRep ? classFor(splitRep) : cls));
     }
     for (const sub of bim.hide) {
       sub.renderer = building ? statusRenderer(`return "upcoming";`) : (bim.original.get(sub)?.clone() ?? null);

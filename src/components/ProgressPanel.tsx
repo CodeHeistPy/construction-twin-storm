@@ -18,7 +18,7 @@ const LAYER_COLORS: Record<string, string> = {
 };
 
 /** Layers the panel leaves out (user, 2026-10-20); the 3D build-out still installs them. */
-const PANEL_HIDDEN = new Set(["Furniture"]);
+const PANEL_HIDDEN = new Set(["Specialty & casework", "Furniture"]);
 
 /** The phase the build is in on a date, from where the trades are working. */
 function phaseAt(day: Date): string {

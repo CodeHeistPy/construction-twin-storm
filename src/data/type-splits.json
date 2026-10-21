@@ -1,0 +1,55 @@
+{
+ "source": {
+  "layerUrl": "https://tiles.arcgis.com/tiles/hAJQfubNy25iblZJ/arcgis/rest/services/Office_Park_Building_1/SceneServer/layers/0",
+  "extractedAt": "2026-10-21T23:36:17.704Z"
+ },
+ "sublayers": {
+  "Walls": {
+   "match": "Shear Wall",
+   "trade": "structure",
+   "total": 231,
+   "parts": 1317,
+   "counts": {
+    "0": 14,
+    "1": 14,
+    "2": 15,
+    "3": 14,
+    "4": 14,
+    "5": 14,
+    "6": 14,
+    "7": 14,
+    "8": 14,
+    "9": 14,
+    "10": 14,
+    "11": 14,
+    "12": 14,
+    "13": 14,
+    "14": 14,
+    "15": 17,
+    "16": 3
+   }
+  },
+  "Doors": {
+   "match": "Curtain-Wall",
+   "trade": "envelope",
+   "total": 136,
+   "parts": 429,
+   "counts": {
+    "2": 2,
+    "3": 7,
+    "4": 14,
+    "5": 11,
+    "6": 10,
+    "7": 10,
+    "8": 6,
+    "9": 12,
+    "10": 10,
+    "11": 10,
+    "12": 14,
+    "13": 14,
+    "14": 14,
+    "15": 2
+   }
+  }
+ }
+}
