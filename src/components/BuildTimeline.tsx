@@ -56,12 +56,13 @@ export default function BuildTimeline({ today, value, onChange, autoplay = true,
     if (!playing) return;
     const id = window.setInterval(() => {
       const cur = Math.round((valueRef.current.getTime() - start.getTime()) / DAY);
-      // 3 days per 0.9 s step: about 33 s from the ground to Today, so the
-      // presenter can talk to it (user: slowed to 1.1 s, then "slightly faster"). Space pauses.
+      // 3 days per 0.75 s step: about 28 s from the ground to Today, so the
+      // presenter can talk to it (user: slowed to 1.1 s, then sped up twice). Space pauses.
+      // Near the floor: one renderer step takes ~0.45 s to settle.
       const next = Math.min(stopAt.current, cur + 3);
       onChange(new Date(start.getTime() + next * DAY));
       if (next >= stopAt.current) setPlaying(false);
-    }, 900);
+    }, 750);
     return () => window.clearInterval(id);
   }, [playing, start, onChange]);
 
