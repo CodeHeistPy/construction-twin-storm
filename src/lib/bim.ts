@@ -205,14 +205,15 @@ export function partsWhere(sublayer: string, level: number): string {
   return here.length ? `${stay} OR ${between(here)}` : stay;
 }
 
-export function statusArcade(day: Date, todayClass: TodayClass, sublayer?: string): string {
+export function statusArcade(day: Date, todayClass: TodayClass, sublayer?: string, cutAbove?: number | null): string {
   const trade = sublayer ? tradeOf.get(sublayer) : undefined;
   if (!trade) return `return "nodate";`;
   const working = sublayerWorkingLevel(sublayer!, day);
   return `
 var lv = null;
 if (HasKey($feature, "BldgLevel")) { lv = $feature.BldgLevel; }
-if (IsEmpty(lv)) { return "upcoming"; }${storeyArcade.get(sublayer!) ?? ""}
+if (IsEmpty(lv)) { return "upcoming"; }${storeyArcade.get(sublayer!) ?? ""}${cutAbove == null ? "" : `
+if (lv > ${cutAbove}) { return "upcoming"; }`}
 if (lv < ${working}) { return "installed"; }
 if (lv == ${working}) { return "today-${todayClass}"; }
 return "upcoming";

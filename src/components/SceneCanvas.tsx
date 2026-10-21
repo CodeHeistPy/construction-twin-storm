@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArcgisBuildingExplorer, ArcgisExpand, ArcgisLayerList, ArcgisScene, ArcgisSlice } from "@arcgis/map-components-react";
 import type { ArcgisBuildingExplorer as BuildingExplorerElement } from "@arcgis/map-components/components/arcgis-building-explorer/customElement";
 import type { ArcgisSlice as SliceElement } from "@arcgis/map-components/components/arcgis-slice/customElement";
@@ -32,6 +32,7 @@ import {
   DATED_SUBLAYERS,
   partsWhere,
   HIDE_DURING_BUILD,
+  levelAt,
   statusArcade,
   STRUCTURE_SUBLAYERS,
   type TodayClass,
@@ -271,7 +272,7 @@ const ORBIT_TARGET_ABOVE_M = 16;
  *    camera looks past the point toward the building, so nothing stands
  *    between them (points on the far side were seen through the building).
  */
-const SELECT_SCALE = 280;
+const SELECT_SCALE = 200; // user, 2026-10-21: "a little more closely" (was 280)
 /** Pins float at least this high above their part on a leader line (marker verticalOffset). */
 const MARKER_LIFT_M = 8;
 const SELECT_LIFT_M = MARKER_LIFT_M + 1; // the pin icon's centre
@@ -622,6 +623,16 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     };
   }, [view, map, loaded, mode.underground]);
 
+  // A picked Proceed activity on a floor below the top: cut Building 1 away
+  // above that floor so the work inside shows (user, 2026-10-21). Postponed,
+  // top-floor and site picks (or none) show the whole building.
+  const cutAbove = useMemo(() => {
+    const picked = twin.assessments.find((x) => x.activity.id === selectedId);
+    if (!picked || picked.decision !== "go") return null;
+    const level = Number(picked.activity.bimWhere?.match(/BldgLevel = (\d+)/)?.[1]);
+    return Number.isFinite(level) && level < levelAt(twin.day) ? level : null;
+  }, [selectedId, twin.assessments, twin.day]);
+
   // Building 1: as designed, or filtered to progress and coloured by today's plan.
   useEffect(() => {
     const bim = bimRef.current;
@@ -661,7 +672,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
         : mode.bim === "progress"
           ? "hidden"
           : "done";
-      sub.renderer = statusRenderer(statusArcade(twin.day, cls, name));
+      sub.renderer = statusRenderer(statusArcade(twin.day, cls, name, cutAbove));
     }
     for (const sub of bim.hide) {
       sub.renderer = building ? statusRenderer(`return "upcoming";`) : (bim.original.get(sub)?.clone() ?? null);
@@ -674,7 +685,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
         (s as BuildingComponentSublayer).opacity = seeThrough ? 0.15 : 1;
       }
     });
-  }, [loaded, mode, focusId, twin.assessments, twin.day, twin.replanned, timelineDay]);
+  }, [loaded, mode, focusId, twin.assessments, twin.day, twin.replanned, timelineDay, cutAbove]);
 
   // A layer picked in the progress panel: only that trade's parts draw.
   const onlyKey = onlySublayers?.join(",") ?? "";
