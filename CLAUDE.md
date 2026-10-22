@@ -54,6 +54,15 @@ Topographic 3D basemap with its 3D Buildings on and Trees off, Buildings 2-4 hid
 (`completion` rule, `SlideView` "completion": the schedule heading pulled back 1.75x, aimed
 at mid-height of the 16-level tower; orbit target 33 m up). The 4D plays on from Today to
 the finish (`toFinish`), Building 1 only, ending on "Substantial completion <date>".
+**Photorealistic finale (user, 2026-10-22), presenter sign-in only:** with
+`VITE_ARCGIS_OAUTH_APP_ID` set, a top-bar "Sign in" (OAuth redirect; hidden once signed in;
+`?signout` clears) stores a credential WITHOUT turning on useIdentity (no secured-service
+prompts). Signed in, `lib/photoreal.ts` fetches the Google 3D tiles key from
+`portals/self/modules/g3dtiles` (what the SDK itself calls; needs the org's Google 3D tiles
+enabled) and adds `tile.googleapis.com` 3D tiles with `customParameters.key`, flattened
+("replace") over the Office_Park_Site extent at z 1589.5. Shown only on Completed Building;
+there the 3D mesh and the basemap's 3D Buildings/labels go off (keepOff) and a
+"Photorealistic 3D: Google" credit shows. Signed out = no change.
 NO storm slip (user, 2026-10-21: unrealistic; a single weather day is absorbed by the
 schedule's weather allowance / float, so the completion date holds).
 **Since 2026-10-20 the app is only the last two beats** (user: the earlier

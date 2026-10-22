@@ -15,6 +15,7 @@ import SunnyWeather from "@arcgis/core/views/3d/environment/SunnyWeather";
 import type BuildingSceneLayer from "@arcgis/core/layers/BuildingSceneLayer";
 import type BuildingComponentSublayer from "@arcgis/core/layers/buildingSublayers/BuildingComponentSublayer";
 import type BuildingGroupSublayer from "@arcgis/core/layers/buildingSublayers/BuildingGroupSublayer";
+import type IntegratedMesh3DTilesLayer from "@arcgis/core/layers/IntegratedMesh3DTilesLayer";
 import WebScene from "@arcgis/core/WebScene";
 import UniqueValueRenderer from "@arcgis/core/renderers/UniqueValueRenderer";
 import * as webMercatorUtils from "@arcgis/core/geometry/support/webMercatorUtils";
@@ -112,6 +113,10 @@ interface Props {
   orbitTargetAbove?: number;
   /** Only show markers for activities with this decision (null = all). */
   markerFilter?: Decision | null;
+  /** Google Photorealistic tiles (signed-in presenter only; lib/photoreal.ts). */
+  photoLayer?: IntegratedMesh3DTilesLayer | null;
+  /** Show them (Completed Building view). */
+  photoreal?: boolean;
   /** Building 1: show only these sublayers (one trade, picked in the progress panel); null = all. */
   onlySublayers?: string[] | null;
   onConflicts?: (c: Conflict[]) => void;
@@ -296,7 +301,7 @@ function shotFor(a: Activity): Shot {
   return { at: a.location, above: a.location.z, scale: 1000, tilt: 66, heading: a.viewHeading ?? 30 };
 }
 
-export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect, camera, applyLayers, timelineDay, onView, onConflicts, orbit = false, allowUtilities = false, isolateBuilding = false, hideSublayers, markerFilter = null, onlySublayers = null, orbitTargetAbove = ORBIT_TARGET_ABOVE_M }: Props) {
+export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect, camera, applyLayers, timelineDay, onView, onConflicts, orbit = false, allowUtilities = false, isolateBuilding = false, hideSublayers, markerFilter = null, onlySublayers = null, orbitTargetAbove = ORBIT_TARGET_ABOVE_M, photoLayer = null, photoreal = false }: Props) {
   const [view, setView] = useState<SceneView | null>(null);
   const [loaded, setLoaded] = useState(false);
   // One WebScene for the life of the app. Letting <arcgis-scene> load it from
@@ -694,6 +699,29 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       }
     });
   }, [loaded, mode, focusId, twin.assessments, twin.day, twin.replanned, timelineDay, cutAbove]);
+
+  // Google Photorealistic tiles (signed-in presenter): added once, shown on the
+  // Completed Building view. While shown, the local 3D mesh and the basemap's
+  // 3D buildings and labels go off (they'd double up with Google's city).
+  useEffect(() => {
+    if (!map || !photoLayer) return;
+    if (!map.layers.includes(photoLayer)) map.add(photoLayer, 0);
+    photoLayer.load().catch((e) => console.warn("[photoreal] Google 3D tiles failed to load", e));
+  }, [map, photoLayer]);
+  useEffect(() => {
+    if (!map || !loaded || !photoLayer) return;
+    photoLayer.visible = photoreal;
+    if (!photoreal) return;
+    const doubled = [
+      ...map.allLayers.filter((l) => roleOf(l.title) === "mesh").toArray(),
+      ...(map.basemap?.referenceLayers.toArray() ?? []).filter((l) => /^(buildings|places and labels)$/i.test(l.title ?? "")),
+    ];
+    const restore = keepOff(doubled);
+    return () => {
+      photoLayer.visible = false;
+      restore();
+    };
+  }, [map, loaded, photoLayer, photoreal]);
 
   // A layer picked in the progress panel: only that trade's parts draw.
   const onlyKey = onlySublayers?.join(",") ?? "";
