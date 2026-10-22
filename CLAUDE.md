@@ -98,7 +98,7 @@ Picking an activity flies to its pin at
 scale 200 (same distance every pick), centred on the drawn pin (pins float >= 8 m
 up on a leader line so slabs and the podium never hide them), approached from
 OUTSIDE the building (heading = bearing pin -> Building 1), 1.8 s cubic ease.
-4D pace: 4 days per 0.75 s (~21 s to Today); space bar pauses. The orbit circles a
+4D pace: 6 days per 0.75 s (~14 s to Today); space bar pauses. The orbit circles a
 fixed point on Building 1 (16 m up) at the camera's REAL distance and height (never from
 view.scale/center: that flew the camera ~2.7 km out on a cold load), aiming off-centre
 for the panel and correcting the aim each frame from toScreen, so the building

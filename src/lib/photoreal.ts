@@ -32,18 +32,40 @@ const SITE_FOOTPRINT = {
 };
 
 /** Ask the portal for the Google 3D tiles key, with the presenter's token. */
-export async function fetchGoogleTilesKey(token: string): Promise<string | null> {
+export async function fetchGoogleTilesKey(token: string): Promise<{ key: string | null; problem?: string }> {
   try {
     const r = await esriRequest(`${PORTAL_URL}/sharing/rest/portals/self/modules/g3dtiles`, {
       query: { f: "json", token },
       responseType: "json",
     });
     const key = (r.data as { keyString?: string })?.keyString ?? null;
-    if (!key) console.warn("[photoreal] the portal returned no Google 3D tiles key", r.data);
-    return key;
+    if (key) return { key };
+    console.warn("[photoreal] the portal returned no Google 3D tiles key", r.data);
+    return { key: null, problem: "the portal returned no Google 3D tiles key" };
   } catch (e) {
-    console.warn("[photoreal] Google 3D tiles aren't available for this sign-in (org setting or permission)", e);
-    return null;
+    console.warn("[photoreal] Google 3D tiles key request failed (org setting or permission)", e);
+    return { key: null, problem: `no Google 3D tiles key for this sign-in (${(e as Error).message})` };
+  }
+}
+
+/**
+ * Ask Google for the root tileset with the key, to say WHY tiles won't draw
+ * (e.g. a key restricted to other websites). Null when Google accepts it.
+ */
+export async function probeGoogleTiles(key: string): Promise<string | null> {
+  try {
+    const r = await fetch(`${GOOGLE_TILES_URL}?key=${encodeURIComponent(key)}`);
+    if (r.ok) return null;
+    let detail = "";
+    try {
+      detail = ((await r.json()) as { error?: { message?: string } }).error?.message ?? "";
+    } catch {
+      // not JSON
+    }
+    console.warn("[photoreal] Google refused the tiles request", r.status, detail);
+    return `Google answered ${r.status}${detail ? `: ${detail}` : ""}`;
+  } catch (e) {
+    return `Google tiles request failed: ${(e as Error).message}`;
   }
 }
 

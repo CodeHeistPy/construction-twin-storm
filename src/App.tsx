@@ -20,7 +20,7 @@ import { useTwin } from "./state/useTwin";
 import { buildStart, TRADES } from "./lib/bim";
 import type IntegratedMesh3DTilesLayer from "@arcgis/core/layers/IntegratedMesh3DTilesLayer";
 import { presenterCredential, presenterSignIn, SIGN_IN_AVAILABLE } from "./lib/arcgis";
-import { createPhotorealLayer, fetchGoogleTilesKey } from "./lib/photoreal";
+import { createPhotorealLayer, fetchGoogleTilesKey, probeGoogleTiles } from "./lib/photoreal";
 
 /** Clock hour of the weather stop, for the outcome card's "hours of warning". */
 const ALERT_HOUR = STOP_RULES.find((r) => r.behaviour.alert || r.behaviour.alertButton)?.behaviour.hour ?? 9;
@@ -70,6 +70,8 @@ export default function App() {
   // view (lib/photoreal.ts). "checked" hides the Sign in button until we know.
   const [signIn, setSignIn] = useState<{ checked: boolean; signedIn: boolean }>({ checked: !SIGN_IN_AVAILABLE, signedIn: false });
   const [photoLayer, setPhotoLayer] = useState<IntegratedMesh3DTilesLayer | null>(null);
+  // Why the photorealistic tiles aren't showing, for a signed-in presenter (null = fine).
+  const [photoProblem, setPhotoProblem] = useState<string | null>(null);
   useEffect(() => {
     if (!SIGN_IN_AVAILABLE) return;
     let cancelled = false;
@@ -78,8 +80,19 @@ export default function App() {
       if (cancelled) return;
       setSignIn({ checked: true, signedIn: !!cred });
       if (!cred) return;
-      const key = await fetchGoogleTilesKey(cred.token);
-      if (!cancelled && key) setPhotoLayer(createPhotorealLayer(key));
+      const { key, problem } = await fetchGoogleTilesKey(cred.token);
+      if (cancelled) return;
+      if (!key) return setPhotoProblem(problem ?? "no Google 3D tiles key");
+      const refused = await probeGoogleTiles(key);
+      if (cancelled) return;
+      if (refused) return setPhotoProblem(refused);
+      const layer = createPhotorealLayer(key);
+      try {
+        await layer.load();
+        if (!cancelled) setPhotoLayer(layer);
+      } catch (e) {
+        if (!cancelled) setPhotoProblem(`the Google tiles layer failed to load (${(e as Error).message})`);
+      }
     })();
     return () => {
       cancelled = true;
@@ -346,6 +359,10 @@ export default function App() {
       </div>
 
       {behaviour.completion && photoLayer && <div className="photoreal-credit">Photorealistic 3D: Google</div>}
+      {/* Signed-in presenter only: say why the photorealistic finale isn't on. */}
+      {behaviour.completion && signIn.signedIn && !photoLayer && photoProblem && (
+        <div className="photoreal-credit problem">Photorealistic unavailable: {photoProblem}</div>
+      )}
       {showAlert && <WeatherAlert twin={twin} onClose={() => setShowAlert(false)} />}
       {behaviour.outcome && <OutcomeCard twin={twin} alertHour={ALERT_HOUR} />}
     </div>
