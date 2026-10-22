@@ -145,7 +145,7 @@ export const STOP_RULES: StopRule[] = [
     // Not "Schedule Adjustment": that's the decision stop.
     match: /^(?!.*adjust).*(when|schedule|4d|progress)/i,
     behaviour: { scene: base(LAYERS.slides, { bim: "timeline" }), left: "progress", replan: false, hour: 7 },
-    builtIn: { title: "Construction Schedule", camera: "schedule" },
+    builtIn: { title: "Construction Progress", camera: "schedule" },
   },
   {
     key: "decision",

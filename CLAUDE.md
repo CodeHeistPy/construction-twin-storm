@@ -16,8 +16,8 @@ do we tell the crews?*
 - Decisions: **deterministic rules engine** (`src/domain/rules.ts`) plus an AI
   *explanation* layer. Which AI approach is still open; don't add
   `@arcgis/ai-components` until the user decides.
-- **Dates** (user, 2026-10-16, revised 2026-10-20): the Construction Schedule
-  view now SHOWS dates ("May 04, 2026", `fmtDate`, site time) on its pill and
+- **Dates** (user, 2026-10-16, revised 2026-10-20): the Construction Progress
+  view (titled "Construction Schedule" until 2026-10-22) now SHOWS dates ("May 04, 2026", `fmtDate`, site time) on its pill and
   timeline, DISPLAY-SHIFTED (`displayDate`, site.ts) so the build-out ends on the
   real current date ("Oct 20, 2026 · Today" on 2026-10-20; data untouched); Elapsed / Remaining tiles are bare
   numbers. Schedule Adjustment still says "Tomorrow" / "Day after tomorrow".
@@ -53,7 +53,9 @@ Topographic 3D basemap with its 3D Buildings on and Trees off, Buildings 2-4 hid
 **Completed Building (user, 2026-10-21):** a third stop after Schedule Adjustment
 (`completion` rule, `SlideView` "completion": the schedule heading pulled back 1.75x, aimed
 at mid-height of the 16-level tower; orbit target 33 m up). The 4D plays on from Today to
-the finish (`toFinish`), Building 1 only, ending on "Substantial completion <date>".
+the finish (`toFinish`) on Building 1, ending on "Substantial completion <date>".
+Buildings 2-4 are ON here (user, 2026-10-22: the fully completed site); `isolateBuilding`
+only for the other two views.
 **Photorealistic finale (user, 2026-10-22), presenter sign-in only:** with
 `VITE_ARCGIS_OAUTH_APP_ID` set, a top-bar "Sign in" (OAuth redirect; hidden once signed in;
 `?signout` clears) stores a credential WITHOUT turning on useIdentity (no secured-service
@@ -66,7 +68,8 @@ there the 3D mesh and the basemap's 3D Buildings/labels go off (keepOff) and a
 NO storm slip (user, 2026-10-21: unrealistic; a single weather day is absorbed by the
 schedule's weather allowance / float, so the completion date holds).
 **Since 2026-10-20 the app is only the last two beats** (user: the earlier
-beats are told in Scene Viewer): **Construction Schedule** (4D) and **Schedule
+beats are told in Scene Viewer): **Construction Progress** (4D; user renamed it from
+"Construction Schedule", 2026-10-22) and **Schedule
 Adjustment** (weather alert + decisions), `APP_STOPS` in tour.ts. Their views
 are BUILT INTO the app (`SlideView` presets `schedule`/`adjustment` in
 SceneCanvas `SLIDE_VIEWS`: the exact cameras and ~1 pm sun copied from the
@@ -103,6 +106,9 @@ fixed point on Building 1 (16 m up) at the camera's REAL distance and height (ne
 view.scale/center: that flew the camera ~2.7 km out on a cold load), aiming off-centre
 for the panel and correcting the aim each frame from toScreen, so the building
 stays centred in the padded (visible) area at constant altitude.
+The orbit STARTS from the exact current camera (aim = its heading/tilt offsets) and
+eases the aim to the visible centre over ~1 s (time-based); a computed first aim
+overshot and panned left then back (user, 2026-10-22).
 4D is LEVEL-DRIVEN (user, 2026-10-20: "keep building level in mind ...
 everything going up to only level 8"). `lib/bim.ts` TRADES: the structure rises
 a level at a time and is on **level 8 today** (demo day); each trade follows a

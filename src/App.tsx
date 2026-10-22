@@ -110,7 +110,7 @@ export default function App() {
   const [replay, setReplay] = useState(0);
   // The day before the storm (site.ts PLAN_AHEAD_DAYS): where the build-out stops.
   const today = useMemo(() => presenterToday(), []);
-  // Construction Schedule's layer filter: one trade's parts in the 3D building.
+  // Construction Progress's layer filter: one trade's parts in the 3D building.
   const [layerFilter, setLayerFilter] = useState<string | null>(null);
   // Schedule Adjustment's Postponed / Proceed filter (list + map markers).
   const [decisionFilter, setDecisionFilter] = useState<Decision | null>(null);
@@ -270,13 +270,13 @@ export default function App() {
         onConflicts={setConflicts}
         orbit={building && timeline}
         allowUtilities={behaviour.scene.underground}
-        // Buildings 2-4 off in both of the app's views: the build-out and the
-        // adjustment (user, 2026-10-20).
         // The finished tower is ~67 m: circle its mid-height on the completion view.
         orbitTargetAbove={behaviour.completion ? 33 : undefined}
         photoLayer={photoLayer}
         photoreal={!!behaviour.completion && !!photoLayer}
-        isolateBuilding={behaviour.scene.bim === "timeline" || behaviour.scene.bim === "decision"}
+        // Buildings 2-4 off for the build-out and the adjustment (user,
+        // 2026-10-20); on for the completed site (user, 2026-10-22).
+        isolateBuilding={!behaviour.completion && (behaviour.scene.bim === "timeline" || behaviour.scene.bim === "decision")}
         hideSublayers={[...ALWAYS_HIDDEN, ...(behaviour.hideSublayers ?? [])]}
       />
 

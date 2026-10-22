@@ -1020,9 +1020,12 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       let bearing = (Math.atan2(-east, -north) * 180) / Math.PI; // camera -> building
       const lookTilt = (Math.atan2(radius, height) * 180) / Math.PI; // 0 = down, 90 = level
       // Aim offset so the target lands mid-way in the padded (visible) area,
-      // not mid-screen (the panel covers the left). Start from a first guess,
-      // then each frame measure where the target actually lands and nudge the
-      // aim toward the visible centre: right for any window or panel size.
+      // not mid-screen (the panel covers the left). Start from EXACTLY the
+      // current camera (the slide's view already frames the building), so the
+      // first orbit frame doesn't move; then each frame measure where the target
+      // lands and drift the aim gently toward the visible centre. (A computed
+      // first guess overshot: the camera panned left, then swung back; user,
+      // 2026-10-22.)
       const f = Math.hypot(view.width, view.height) / 2 / Math.tan(((view.camera.fov ?? 55) * Math.PI) / 360);
       const visibleCentre = () => {
         const pad = view.padding;
@@ -1032,15 +1035,18 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
         };
       };
       const deg = (r: number) => (r * 180) / Math.PI;
-      let aimLeft = deg(Math.atan(((view.padding.left ?? 0) - (view.padding.right ?? 0)) / 2 / f));
-      let aimUp = deg(Math.atan(((view.padding.top ?? 0) - (view.padding.bottom ?? 0)) / 2 / f));
-      const correctAim = () => {
+      const cam0 = view.camera;
+      let aimLeft = ((bearing - cam0.heading + 540) % 360) - 180; // heading = bearing - aimLeft
+      let aimUp = cam0.tilt - lookTilt;
+      const correctAim = (dt: number) => {
         const sp = view.toScreen(t);
         if (!sp) return;
         const c = visibleCentre();
         // Right of centre -> turn right (less aimLeft); below -> tilt down (less aimUp).
-        aimLeft -= 0.4 * deg(Math.atan((sp.x - c.x) / f));
-        aimUp -= 0.4 * deg(Math.atan((sp.y - c.y) / f));
+        // Eased over ~1 s whatever the frame rate: never overshoots.
+        const gain = 1 - Math.exp(-dt / 400);
+        aimLeft -= gain * deg(Math.atan((sp.x - c.x) / f));
+        aimUp -= gain * deg(Math.atan((sp.y - c.y) / f));
       };
       const cameraAt = (b: number) => {
         const r = (b * Math.PI) / 180;
@@ -1055,12 +1061,12 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
         cam.tilt = Math.min(89, lookTilt + aimUp);
         return cam;
       };
-      // Ease the building towards the centre, then circle it, refining the aim.
-      await view.goTo(cameraAt(bearing), { duration: 1500 }).catch(() => undefined);
-      if (stopped) return;
-      const step = () => {
+      // Circle the building from where the camera already is, refining the aim.
+      let last = performance.now();
+      const step = (now: number) => {
         if (stopped) return;
-        correctAim();
+        correctAim(Math.min(250, now - last));
+        last = now;
         bearing = (bearing + 0.05) % 360; // degrees per frame, gentle: fast orbits starve the per-step redraws
         view.goTo(cameraAt(bearing), { animate: false }).catch(() => undefined);
         raf = requestAnimationFrame(step);
