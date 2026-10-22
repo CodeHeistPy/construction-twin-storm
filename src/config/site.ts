@@ -34,11 +34,6 @@ export const WEBSCENE_ID = env.VITE_WEBSCENE_ID?.trim() || "fe60b2cfed534542a82d
 
 export const PORTAL_URL = env.VITE_PORTAL_URL?.trim() || "https://arcaec.maps.arcgis.com";
 
-// Presenter sign-in for the photorealistic finale (OAuth credentials item in the
-// arcaec org, user 2026-10-22; redirect URLs: the live site and localhost:5180).
-// A client ID is public (it is in every sign-in URL); no secret is used.
-export const OAUTH_APP_ID = env.VITE_ARCGIS_OAUTH_APP_ID?.trim() || "rYEFq7k29XhPQArh";
-
 /**
  * ⚠️ PROVISIONAL demo "today", pending the user's pick. The BIM install dates
  * run Mar–Oct 2026, so the real date would show a finished building. May 11

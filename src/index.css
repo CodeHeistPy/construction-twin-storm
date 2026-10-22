@@ -337,10 +337,3 @@ button.ghost { background: transparent; }
 .tour-dots .dot { width: 8px; height: 8px; padding: 0; border-radius: 50%; border: none; background: rgba(255, 255, 255, 0.25); transition: all 0.2s; }
 .tour-dots .dot:hover { background: rgba(255, 255, 255, 0.55); }
 .tour-dots .dot.on { width: 22px; border-radius: 4px; background: var(--accent); box-shadow: 0 0 8px rgba(57, 208, 255, 0.5); }
-
-/* Presenter sign-in (photorealistic finale) and Google's required credit. */
-.sign-in { font-size: 12px; padding: 4px 10px; opacity: 0.75; }
-.sign-in:hover { opacity: 1; }
-.photoreal-credit { position: absolute; right: 12px; bottom: 30px; z-index: 2; font-size: 11px; color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); pointer-events: none; }
-.photoreal-credit.problem { max-width: 520px; text-align: right; color: #ffd2cc; }

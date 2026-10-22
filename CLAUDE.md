@@ -57,15 +57,10 @@ at mid-height of the 16-level tower; orbit target 33 m up). The 4D plays on from
 the finish (`toFinish`) on Building 1, ending on "Substantial completion <date>".
 Buildings 2-4 are ON here (user, 2026-10-22: the fully completed site); `isolateBuilding`
 only for the other two views.
-**Photorealistic finale (user, 2026-10-22), presenter sign-in only:** with
-`VITE_ARCGIS_OAUTH_APP_ID` set, a top-bar "Sign in" (OAuth redirect; hidden once signed in;
-`?signout` clears) stores a credential WITHOUT turning on useIdentity (no secured-service
-prompts). Signed in, `lib/photoreal.ts` fetches the Google 3D tiles key from
-`portals/self/modules/g3dtiles` (what the SDK itself calls; needs the org's Google 3D tiles
-enabled) and adds `tile.googleapis.com` 3D tiles with `customParameters.key`, flattened
-("replace") over the Office_Park_Site extent at z 1589.5. Shown only on Completed Building;
-there the 3D mesh and the basemap's 3D Buildings/labels go off (keepOff) and a
-"Photorealistic 3D: Google" credit shows. Signed out = no change.
+**Photorealistic finale: tried and DROPPED (user, 2026-10-22).** Google 3D tiles via a
+presenter OAuth sign-in never drew in this app; the sign-in, `lib/photoreal.ts` and the
+OAuth client ID are gone (git history: b987a0e..c7de68b). The user will switch to a
+separate scene at the end to show the completed park.
 NO storm slip (user, 2026-10-21: unrealistic; a single weather day is absorbed by the
 schedule's weather allowance / float, so the completion date holds).
 **Since 2026-10-20 the app is only the last beats** (three since Completed Building, 2026-10-21) (user: the earlier
@@ -177,7 +172,7 @@ Re-run it after the model is republished.
 - **BSL sublayer renderers:** `await sublayer.load()` before setting
   `renderer`, or the load overwrites it. And `WebScene.loadAll()` rejects if any
   layer fails, so `.catch()` it before continuing.
-- `esriConfig.request.useIdentity = false` when no OAuth app is configured:
+- `esriConfig.request.useIdentity = false`, always (no OAuth, no sign-in):
   the buildings' associated feature services are secured, and without it the
   SDK pops a sign-in prompt. Popups fall back to binary attributes.
 - **Create the WebScene once and pass `map={map}`** to `<ArcgisScene>`. With
@@ -224,8 +219,4 @@ Re-run it after the model is republished.
 - The site's Planting (trees) is off on EVERY stop (user; `ALWAYS_HIDDEN` in tour.ts).
 - Per-stop building sublayer hiding (`hideSublayers`, `isolateBuilding`) uses
   `keepOff()`: slides re-apply sublayer visibility asynchronously.
-- **Presenter sign-in:** `?signout` clears the stored session and is then removed from
-  the URL (the OAuth redirect returns to the current URL, so it would undo the next
-  sign-in). Photorealistic problem text is shown on screen: always pass it through
-  `redact()` (lib/photoreal.ts) so no token or key reaches the projector.
   Utility site-copies keep the original layer ids (slides list layers by id).

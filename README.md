@@ -39,7 +39,6 @@ npm test
 | The tour | `src/config/tour.ts` | Three built-in views (cameras in `SceneCanvas.tsx`); `?stops=slides` plays the scene's own slides instead (`SLIDES.md`) |
 | Underground utilities | `src/lib/utilities.ts` | Pipes at nominal depth, conflicts vs building footprints |
 | 4D build-out | `src/components/BuildTimeline.tsx` + `src/lib/bim.ts` | Building 1 rises level by level, each trade a fixed number of levels behind the structure |
-| Photorealistic finale | `src/lib/photoreal.ts` | Google 3D tiles on Completed Building, presenter sign-in only |
 
 Decisions are deterministic: an activity is **postponed** when any limit is
 reached during its working window, flagged **watch** within 80% of a limit, and
@@ -49,11 +48,6 @@ time zone the presenting laptop is set to.
 Present by stepping through the views in the filmstrip (arrow keys or a clicker,
 PageUp/PageDown). Space pauses the build-out.
 
-**Presenter sign-in (optional).** The top-bar **Sign in** (ArcGIS Online, OAuth)
-turns on Google's photorealistic 3D tiles for the Completed Building view; it needs
-an org with Google 3D tiles enabled. Signed out, nothing changes. On a shared
-machine, open the app with `?signout` afterwards to clear the stored session.
-
 ## Deploy to GitHub Pages
 
 1. Create the GitHub repo `construction-twin-storm` and push `main`. If you use
@@ -61,5 +55,3 @@ machine, open the app with `?signout` afterwards to clear the stored session.
 2. In the repo, go to **Settings → Pages → Source** and choose **GitHub Actions**.
 3. Under **Settings → Secrets and variables → Actions → Variables**, add the
    `VITE_*` values. They're public config, not secrets.
-4. Add the Pages URL as a redirect URI on the OAuth credentials item (presenter
-   sign-in).

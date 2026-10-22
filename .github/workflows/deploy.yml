@@ -33,7 +33,6 @@ jobs:
           # (Settings -> Secrets and variables -> Actions -> Variables).
           VITE_WEBSCENE_ID: ${{ vars.VITE_WEBSCENE_ID }}
           VITE_PORTAL_URL: ${{ vars.VITE_PORTAL_URL }}
-          VITE_ARCGIS_OAUTH_APP_ID: ${{ vars.VITE_ARCGIS_OAUTH_APP_ID }}
           VITE_SITE_NAME: ${{ vars.VITE_SITE_NAME }}
           VITE_SITE_LON: ${{ vars.VITE_SITE_LON }}
           VITE_SITE_LAT: ${{ vars.VITE_SITE_LAT }}

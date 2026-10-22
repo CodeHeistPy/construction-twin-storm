@@ -18,9 +18,6 @@ import type { Conflict } from "./lib/utilities";
 import type { Decision } from "./domain/types";
 import { useTwin } from "./state/useTwin";
 import { buildStart, TRADES } from "./lib/bim";
-import type IntegratedMesh3DTilesLayer from "@arcgis/core/layers/IntegratedMesh3DTilesLayer";
-import { presenterCredential, presenterSignIn, SIGN_IN_AVAILABLE } from "./lib/arcgis";
-import { createPhotorealLayer, fetchGoogleTilesKey, probeGoogleTiles, redact } from "./lib/photoreal";
 
 /** Clock hour of the weather stop, for the outcome card's "hours of warning". */
 const ALERT_HOUR = STOP_RULES.find((r) => r.behaviour.alert || r.behaviour.alertButton)?.behaviour.hour ?? 9;
@@ -66,38 +63,6 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [camera, setCamera] = useState<CameraRequest>({ preset: "schedule", key: 0 });
   const [showAlert, setShowAlert] = useState(false);
-  // Presenter sign-in -> Google Photorealistic tiles for the Completed Building
-  // view (lib/photoreal.ts). "checked" hides the Sign in button until we know.
-  const [signIn, setSignIn] = useState<{ checked: boolean; signedIn: boolean }>({ checked: !SIGN_IN_AVAILABLE, signedIn: false });
-  const [photoLayer, setPhotoLayer] = useState<IntegratedMesh3DTilesLayer | null>(null);
-  // Why the photorealistic tiles aren't showing, for a signed-in presenter (null = fine).
-  const [photoProblem, setPhotoProblem] = useState<string | null>(null);
-  useEffect(() => {
-    if (!SIGN_IN_AVAILABLE) return;
-    let cancelled = false;
-    (async () => {
-      const cred = await presenterCredential();
-      if (cancelled) return;
-      setSignIn({ checked: true, signedIn: !!cred });
-      if (!cred) return;
-      const { key, problem } = await fetchGoogleTilesKey(cred.token);
-      if (cancelled) return;
-      if (!key) return setPhotoProblem(problem ?? "no Google 3D tiles key");
-      const refused = await probeGoogleTiles(key);
-      if (cancelled) return;
-      if (refused) return setPhotoProblem(refused);
-      const layer = createPhotorealLayer(key);
-      try {
-        await layer.load();
-        if (!cancelled) setPhotoLayer(layer);
-      } catch (e) {
-        if (!cancelled) setPhotoProblem(redact(`the Google tiles layer failed to load (${(e as Error).message})`, key));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
   // On a stop with alertButton: has the presenter revealed the weather calls yet?
   const [weatherShown, setWeatherShown] = useState(false);
   // The app opens on the build-out: start at the ground, so the wait for the
@@ -272,8 +237,6 @@ export default function App() {
         allowUtilities={behaviour.scene.underground}
         // The finished tower is ~67 m: circle its mid-height on the completion view.
         orbitTargetAbove={behaviour.completion ? 33 : undefined}
-        photoLayer={photoLayer}
-        photoreal={!!behaviour.completion && !!photoLayer}
         // Buildings 2-4 off for the build-out and the adjustment (user,
         // 2026-10-20); on for the completed site (user, 2026-10-22).
         isolateBuilding={!behaviour.completion && (behaviour.scene.bim === "timeline" || behaviour.scene.bim === "decision")}
@@ -285,15 +248,6 @@ export default function App() {
           <div className="eyebrow">Design &amp; construction digital twin</div>
           <h1>{SITE.name}</h1>
         </div>
-        {/* Presenter sign-in for the photorealistic finale: only until signed in,
-            so nothing auth-related is on screen during the talk. */}
-        {signIn.checked && SIGN_IN_AVAILABLE && !signIn.signedIn && (
-          <div className="topbar-actions">
-            <button type="button" className="ghost sign-in" onClick={presenterSignIn} title="Presenter sign-in: enables the photorealistic Completed Building view">
-              Sign in
-            </button>
-          </div>
-        )}
         {behaviour.alertButton && (
           <div className="topbar-actions">
             <button
@@ -358,11 +312,6 @@ export default function App() {
         />
       </div>
 
-      {behaviour.completion && photoLayer && <div className="photoreal-credit">Photorealistic 3D: Google</div>}
-      {/* Signed-in presenter only: say why the photorealistic finale isn't on. */}
-      {behaviour.completion && signIn.signedIn && !photoLayer && photoProblem && (
-        <div className="photoreal-credit problem">Photorealistic unavailable: {photoProblem}</div>
-      )}
       {showAlert && <WeatherAlert twin={twin} onClose={() => setShowAlert(false)} />}
       {behaviour.outcome && <OutcomeCard twin={twin} alertHour={ALERT_HOUR} />}
     </div>
