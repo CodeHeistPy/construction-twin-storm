@@ -20,7 +20,7 @@ import { useTwin } from "./state/useTwin";
 import { buildStart, TRADES } from "./lib/bim";
 import type IntegratedMesh3DTilesLayer from "@arcgis/core/layers/IntegratedMesh3DTilesLayer";
 import { presenterCredential, presenterSignIn, SIGN_IN_AVAILABLE } from "./lib/arcgis";
-import { createPhotorealLayer, fetchGoogleTilesKey, probeGoogleTiles } from "./lib/photoreal";
+import { createPhotorealLayer, fetchGoogleTilesKey, probeGoogleTiles, redact } from "./lib/photoreal";
 
 /** Clock hour of the weather stop, for the outcome card's "hours of warning". */
 const ALERT_HOUR = STOP_RULES.find((r) => r.behaviour.alert || r.behaviour.alertButton)?.behaviour.hour ?? 9;
@@ -91,7 +91,7 @@ export default function App() {
         await layer.load();
         if (!cancelled) setPhotoLayer(layer);
       } catch (e) {
-        if (!cancelled) setPhotoProblem(`the Google tiles layer failed to load (${(e as Error).message})`);
+        if (!cancelled) setPhotoProblem(redact(`the Google tiles layer failed to load (${(e as Error).message})`, key));
       }
     })();
     return () => {

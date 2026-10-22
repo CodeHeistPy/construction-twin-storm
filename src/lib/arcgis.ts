@@ -37,7 +37,15 @@ export function initArcgis(): void {
       new OAuthInfo({ appId: OAUTH_APP_ID, portalUrl: PORTAL_URL, popup: false, flowType: "auto" }),
     ]);
     // "?signout" in the URL clears the stored session (there's no on-screen sign-out on stage).
-    if (new URLSearchParams(location.search).has("signout")) IdentityManager.destroyCredentials();
+    // Then drop it from the URL: the OAuth redirect returns to the current URL,
+    // so a sign-in started there would come back to "?signout" and be undone.
+    const params = new URLSearchParams(location.search);
+    if (params.has("signout")) {
+      IdentityManager.destroyCredentials();
+      params.delete("signout");
+      const query = params.toString();
+      history.replaceState(history.state, "", location.pathname + (query ? `?${query}` : "") + location.hash);
+    }
   }
 }
 

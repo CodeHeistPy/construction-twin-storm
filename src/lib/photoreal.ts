@@ -31,7 +31,17 @@ const SITE_FOOTPRINT = {
   z: 1589.5,
 };
 
-/** Ask the portal for the Google 3D tiles key, with the presenter's token. */
+/**
+ * Problem text goes on screen, in front of an audience: strip the token and
+ * key values, and any token= / key= parameter of a URL quoted in an error.
+ */
+export function redact(text: string, ...secrets: string[]): string {
+  let out = text.replace(/\b(token|key)=[^&\s)]+/gi, "$1=…");
+  for (const s of secrets) if (s) out = out.split(s).join("…");
+  return out;
+}
+
+/** Ask the portal for the Google 3D tiles key, with the presenter's token (a GET, as the SDK's own request). */
 export async function fetchGoogleTilesKey(token: string): Promise<{ key: string | null; problem?: string }> {
   try {
     const r = await esriRequest(`${PORTAL_URL}/sharing/rest/portals/self/modules/g3dtiles`, {
@@ -44,7 +54,7 @@ export async function fetchGoogleTilesKey(token: string): Promise<{ key: string 
     return { key: null, problem: "the portal returned no Google 3D tiles key" };
   } catch (e) {
     console.warn("[photoreal] Google 3D tiles key request failed (org setting or permission)", e);
-    return { key: null, problem: `no Google 3D tiles key for this sign-in (${(e as Error).message})` };
+    return { key: null, problem: redact(`no Google 3D tiles key for this sign-in (${(e as Error).message})`, token) };
   }
 }
 
@@ -63,9 +73,9 @@ export async function probeGoogleTiles(key: string): Promise<string | null> {
       // not JSON
     }
     console.warn("[photoreal] Google refused the tiles request", r.status, detail);
-    return `Google answered ${r.status}${detail ? `: ${detail}` : ""}`;
+    return redact(`Google answered ${r.status}${detail ? `: ${detail}` : ""}`, key);
   } catch (e) {
-    return `Google tiles request failed: ${(e as Error).message}`;
+    return redact(`Google tiles request failed: ${(e as Error).message}`, key);
   }
 }
 

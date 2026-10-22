@@ -30,7 +30,8 @@ do we tell the crews?*
   days. The scripted forecast includes a cleared "tomorrow".
 - Earlier plenary segments already showed **Foundation, Reality, Integration,
   Decision**. **Real-time Monitoring** and **Simulation** are new in this
-  segment (`shownEarlier` in `config/buildingBlocks.ts`).
+  segment (the presenter says so; there is no on-screen block config since
+  2026-10-22, when the unused `config/buildingBlocks.ts` was removed).
 
 ## The tour (user, 2026-10-19): web scene SLIDES, no Present mode
 Review feedback: the custom "Present" mode felt gimmicky. Now the app plays the
@@ -67,7 +68,7 @@ there the 3D mesh and the basemap's 3D Buildings/labels go off (keepOff) and a
 "Photorealistic 3D: Google" credit shows. Signed out = no change.
 NO storm slip (user, 2026-10-21: unrealistic; a single weather day is absorbed by the
 schedule's weather allowance / float, so the completion date holds).
-**Since 2026-10-20 the app is only the last two beats** (user: the earlier
+**Since 2026-10-20 the app is only the last beats** (three since Completed Building, 2026-10-21) (user: the earlier
 beats are told in Scene Viewer): **Construction Progress** (4D; user renamed it from
 "Construction Schedule", 2026-10-22) and **Schedule
 Adjustment** (weather alert + decisions), `APP_STOPS` in tour.ts. Their views
@@ -131,8 +132,8 @@ runs; the renderer binary-searches them in Arcade). Re-measure if the model is
 republished. `InstanceElev`/`BldgLevel_Elev` give the wall's base, not the panel's.
 Today's BIM activities = each trade on its working level (bimWhere
 `BldgLevel = n`); today's curtain wall is level 6.
-Pacing: a week per step every 0.9 s, gentle orbit (faster starves redraws;
-one renderer step takes ~0.45 s to settle).
+Pacing: see "4D pace" above; gentle orbit (faster starves redraws; one renderer
+step takes ~0.45 s to settle).
 Every block must tie to an outcome (user: "keep me honest").
 
 ## Verified data facts (2026-10-16)
@@ -223,4 +224,8 @@ Re-run it after the model is republished.
 - The site's Planting (trees) is off on EVERY stop (user; `ALWAYS_HIDDEN` in tour.ts).
 - Per-stop building sublayer hiding (`hideSublayers`, `isolateBuilding`) uses
   `keepOff()`: slides re-apply sublayer visibility asynchronously.
+- **Presenter sign-in:** `?signout` clears the stored session and is then removed from
+  the URL (the OAuth redirect returns to the current URL, so it would undo the next
+  sign-in). Photorealistic problem text is shown on screen: always pass it through
+  `redact()` (lib/photoreal.ts) so no token or key reaches the projector.
   Utility site-copies keep the original layer ids (slides list layers by id).

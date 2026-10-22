@@ -2,9 +2,10 @@
 
 The closing demo for the IMGIS plenary. A 3D construction site in Denver with
 today's schedule and an incoming storm. The app decides which activities to
-postpone and why, then drafts the notice to the crews. Each part of the app maps to one of
-the six building blocks of a Digital Twin in ArcGIS, and presentation mode lights
-them up as the story builds.
+postpone and why. It closes the plenary's story of the six building blocks of a
+Digital Twin in ArcGIS; the presenter calls the blocks out, nothing on screen does.
+Three views: **Construction Progress** (4D build-out to today), **Schedule
+Adjustment** (weather alert, postpone / proceed) and **Completed Building**.
 
 Built with the ArcGIS Maps SDK for JavaScript 5.1 (`<arcgis-scene>`), React,
 Vite and TypeScript. Modelled on
@@ -35,18 +36,23 @@ npm test
 | Scripted storm | `src/data/storm.scripted.ts` | Invented curve, tune to the story |
 | Live forecast (optional) | `src/lib/liveWeather.ts` | Open-Meteo, no key |
 | Postponement rules | `src/domain/rules.ts` + `src/config/thresholds.ts` | Engine tested; **limits are placeholders** |
-| Six building blocks | `src/config/buildingBlocks.ts` | Draft wording |
-| The tour | `src/config/tour.ts` + `SLIDES.md` | Plays the web scene slides; behaviour by slide title |
+| The tour | `src/config/tour.ts` | Three built-in views (cameras in `SceneCanvas.tsx`); `?stops=slides` plays the scene's own slides instead (`SLIDES.md`) |
 | Underground utilities | `src/lib/utilities.ts` | Pipes at nominal depth, conflicts vs building footprints |
-| 4D build-out | `src/components/BuildTimeline.tsx` | Building 1 assembles through its install dates |
+| 4D build-out | `src/components/BuildTimeline.tsx` + `src/lib/bim.ts` | Building 1 rises level by level, each trade a fixed number of levels behind the structure |
+| Photorealistic finale | `src/lib/photoreal.ts` | Google 3D tiles on Completed Building, presenter sign-in only |
 
 Decisions are deterministic: an activity is **postponed** when any limit is
 reached during its working window, flagged **watch** within 80% of a limit, and
 otherwise **proceeds**. All times are site-local (`VITE_SITE_TZ`), whatever
 time zone the presenting laptop is set to.
 
-Present by stepping through the slides in the filmstrip (arrow keys or a clicker,
-PageUp/PageDown). Author the slides in Scene Viewer from `SLIDES.md`.
+Present by stepping through the views in the filmstrip (arrow keys or a clicker,
+PageUp/PageDown). Space pauses the build-out.
+
+**Presenter sign-in (optional).** The top-bar **Sign in** (ArcGIS Online, OAuth)
+turns on Google's photorealistic 3D tiles for the Completed Building view; it needs
+an org with Google 3D tiles enabled. Signed out, nothing changes. On a shared
+machine, open the app with `?signout` afterwards to clear the stored session.
 
 ## Deploy to GitHub Pages
 
@@ -55,5 +61,5 @@ PageUp/PageDown). Author the slides in Scene Viewer from `SLIDES.md`.
 2. In the repo, go to **Settings → Pages → Source** and choose **GitHub Actions**.
 3. Under **Settings → Secrets and variables → Actions → Variables**, add the
    `VITE_*` values. They're public config, not secrets.
-4. If the scene is secured, add the Pages URL as a redirect URI on the OAuth
-   credentials item.
+4. Add the Pages URL as a redirect URI on the OAuth credentials item (presenter
+   sign-in).
