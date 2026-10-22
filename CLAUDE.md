@@ -55,8 +55,8 @@ Topographic 3D basemap with its 3D Buildings on and Trees off, Buildings 2-4 hid
 (`completion` rule, `SlideView` "completion": the schedule heading pulled back 1.75x, aimed
 at mid-height of the 16-level tower; orbit target 33 m up). The 4D plays on from Today to
 the finish (`toFinish`) on Building 1, ending on "Substantial completion <date>".
-Buildings 2-4 are ON here (user, 2026-10-22: the fully completed site); `isolateBuilding`
-only for the other two views.
+Building 1 ONLY here too (user, 2026-10-22: briefly showed Buildings 2-4, then reverted;
+the completed park is a separate scene). Same 4D pace as the build-out (`DAYS_PER_STEP`).
 **Photorealistic finale: tried and DROPPED (user, 2026-10-22).** Google 3D tiles via a
 presenter OAuth sign-in never drew in this app; the sign-in, `lib/photoreal.ts` and the
 OAuth client ID are gone (git history: b987a0e..c7de68b). The user will switch to a

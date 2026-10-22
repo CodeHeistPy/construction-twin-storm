@@ -237,9 +237,10 @@ export default function App() {
         allowUtilities={behaviour.scene.underground}
         // The finished tower is ~67 m: circle its mid-height on the completion view.
         orbitTargetAbove={behaviour.completion ? 33 : undefined}
-        // Buildings 2-4 off for the build-out and the adjustment (user,
-        // 2026-10-20); on for the completed site (user, 2026-10-22).
-        isolateBuilding={!behaviour.completion && (behaviour.scene.bim === "timeline" || behaviour.scene.bim === "decision")}
+        // Buildings 2-4 off in all three views: Building 1 alone, from build-out
+        // to completion (user, 2026-10-20 and 2026-10-22; the completed park is a
+        // separate scene).
+        isolateBuilding={behaviour.scene.bim === "timeline" || behaviour.scene.bim === "decision"}
         hideSublayers={[...ALWAYS_HIDDEN, ...(behaviour.hideSublayers ?? [])]}
       />
 
