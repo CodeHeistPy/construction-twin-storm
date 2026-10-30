@@ -129,10 +129,34 @@ function progressLevels(day: Date): number {
   return (day.getTime() - buildStart().getTime()) / DAY_MS / daysPerLevel();
 }
 
-/** The level a trade is working on at a date (below = done, above = not started). */
+/**
+ * The curtain wall waits for the frame (user, 2026-10-30: "wait for all of the
+ * structural to be up first ... ok for some of it to start at the very
+ * bottom"). Its bottom storey goes in at the usual lag, over `bottomSteps`
+ * structure levels; the rest waits until the frame tops out, then climbs at
+ * `levelsPerStep` (~a floor a week, a unitized-wall pace), so the glass is the
+ * last trade to finish the top.
+ */
+const GLASS = { bottomSteps: 3, levelsPerStep: 2 };
+/** From this structure step on, the whole frame is up. */
+const TOPPED_OUT = MAX_LEVEL + 1;
+/** Lowest storey with curtain wall (by real storey). */
+const glassBottom = () => Math.min(...["CurtainWallPanels", "CurtainWallMullions"].flatMap((s) => Object.keys(levelCounts(s)).map(Number)));
+
+/**
+ * The level a trade is working on at a date (below = done, above = not
+ * started). Can be fractional: between levels, nothing in progress (the
+ * curtain wall while it waits for the frame).
+ */
 export function workingLevel(tradeKey: string, day: Date): number {
   const t = TRADES.find((x) => x.key === tradeKey)!;
-  return Math.floor(progressLevels(day)) - t.lag;
+  const p = progressLevels(day);
+  const step = Math.floor(p);
+  if (t.key !== "envelope") return step - t.lag;
+  const bottom = glassBottom();
+  if (step < bottom + t.lag + GLASS.bottomSteps) return Math.min(step - t.lag, bottom);
+  if (step < TOPPED_OUT) return bottom + 0.5; // bottom storey done; the rest waits
+  return bottom + 1 + Math.floor((p - TOPPED_OUT) * GLASS.levelsPerStep);
 }
 
 /**
@@ -154,10 +178,12 @@ export function levelAt(day: Date): number {
   return Math.min(MAX_LEVEL, workingLevel("structure", day));
 }
 
-/** When the last trade (furniture) finishes the top level. */
+/** When the last trade finishes the top level (the curtain wall, since it waits for the frame). */
 export function buildFinish(): Date {
-  const maxLag = Math.max(...TRADES.map((t) => t.lag));
-  return new Date(buildStart().getTime() + (MAX_LEVEL + maxLag + 1) * daysPerLevel() * DAY_MS);
+  const steps = TRADES.map((t) =>
+    t.key === "envelope" ? TOPPED_OUT + (MAX_LEVEL - glassBottom()) / GLASS.levelsPerStep : MAX_LEVEL + t.lag + 1,
+  );
+  return new Date(buildStart().getTime() + Math.max(...steps) * daysPerLevel() * DAY_MS);
 }
 
 type StoreyTable = { idField: string; counts: Record<string, number>; runs: [number, number, number][] };
@@ -350,7 +376,7 @@ export function remainingWork(sublayers: string[], day: Date): { installDays: nu
   const working = workingLevel(trade.key, day);
   let parts = 0;
   let levels = 0;
-  for (let l = Math.max(0, working); l <= MAX_LEVEL; l++) {
+  for (let l = Math.max(0, Math.ceil(working)); l <= MAX_LEVEL; l++) {
     const n = trade.sublayers.reduce((sum, s) => sum + (levelCounts(s)[String(l)] ?? 0), 0);
     if (n) {
       parts += n;

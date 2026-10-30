@@ -18,7 +18,8 @@ describe("level-driven schedule", () => {
     expect(workingLevel("walls", today)).toBe(7);
     expect(workingLevel("finishes", today)).toBe(6);
     expect(workingLevel("mep", today)).toBe(5);
-    expect(workingLevel("envelope", today)).toBe(4);
+    // The curtain wall waits for the frame: only its bottom storey (2) so far.
+    expect(workingLevel("envelope", today)).toBe(2);
     expect(workingLevel("specialty", today)).toBe(3);
     expect(workingLevel("furniture", today)).toBe(2);
   });
@@ -29,6 +30,21 @@ describe("level-driven schedule", () => {
     for (let i = 1; i < lags.length; i++) expect(lags[i]).toBeGreaterThan(lags[i - 1]);
     // The progress panel lists the trades in the same order.
     expect(TRADES.map((t) => t.key)).toEqual(order);
+  });
+
+  it("holds the curtain wall above its bottom storey until the frame is up, then glazes last", () => {
+    const start = buildStart().getTime();
+    const step = (today.getTime() - start) / 8.5; // ms per structure level
+    for (let k = 0; k <= 16; k++) {
+      const d = new Date(start + (k + 0.5) * step);
+      expect(workingLevel("envelope", d)).toBeLessThanOrEqual(2.5);
+    }
+    const toppedOut = new Date(start + 17.5 * step);
+    expect(workingLevel("envelope", toppedOut)).toBeGreaterThan(2.5);
+    // Last trade to finish: the finish date is the glass reaching the top.
+    const justBefore = new Date(buildFinish().getTime() - DAY);
+    expect(workingLevel("envelope", justBefore)).toBeLessThanOrEqual(16);
+    expect(workingLevel("furniture", justBefore)).toBeGreaterThan(16);
   });
 
   it("counts every part once after the type splits (shear walls, curtain-wall doors)", () => {
@@ -93,7 +109,7 @@ describe("today's work", () => {
       expect(level).toBeLessThanOrEqual(TODAY_LEVEL);
       expect(a.name).toContain(`level ${level}`);
     }
-    expect(acts.find((a) => a.type === "curtain-wall")?.name).toContain("level 4");
+    expect(acts.find((a) => a.type === "curtain-wall")?.name).toContain("level 2");
   });
 
   it("counts progress below each trade's working level", () => {

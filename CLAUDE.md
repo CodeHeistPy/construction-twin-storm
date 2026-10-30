@@ -114,10 +114,16 @@ core shear walls 0, interior walls 1, doors/ceilings 2, MEP fixtures (lights, pl
 curtain wall + curtain-wall doors 4, specialties/casework/fire-extinguisher cabinets 5
 (FireProtection is 99 extinguisher cabinets), furniture 6. TRADES is listed in that order
 (the panel follows it). Before 2026-10-30 the glass went 2nd (lag 2).
+**Curtain wall waits for the frame** (user, 2026-10-30: "wait for all of the structural
+to be up first ... ok for some of it to start at the very bottom"): only its bottom
+storey (2) glazes at the usual lag, for 3 structure steps (so on the storm day too); the
+rest waits (working level 2.5 = nothing in progress) until the frame tops out (step 17),
+then climbs 2 levels per step (`GLASS` in bim.ts). The glass finishes last: substantial
+completion May 23, 2027 on screen (was May 15).
 Shear walls and curtain-wall doors are split off their sublayer by Type
 (`TYPE_SPLITS`, counts from scripts/extract-type-splits.mjs -> data/type-splits.json).
 Panel hides Specialty & casework and Furniture. Today: 14 activities, 6 postponed / 8
-proceed (furniture on level 2). Sample S-05 sealant is levels 1-3, behind the glazing. Nothing above level 8
+proceed (furniture on level 2). Sample S-05 sealant is level 2, behind the bottom glazing. Nothing above level 8
 today; stairs go in one level behind the structure (`SUBLAYER_LAG`, user: a flight on
 the top level stood floating over the slab). The model's Installation_Date values are NOT used for sequencing (they
 don't follow the levels); counts per level come from the BldgLevel statistics.
@@ -128,7 +134,7 @@ vs. floor slab heights) into `src/data/curtain-wall-storeys.json` (OBJECTID_1
 runs; the renderer binary-searches them in Arcade). Re-measure if the model is
 republished. `InstanceElev`/`BldgLevel_Elev` give the wall's base, not the panel's.
 Today's BIM activities = each trade on its working level (bimWhere
-`BldgLevel = n`); today's curtain wall is level 4.
+`BldgLevel = n`); today's curtain wall is level 2 (its bottom storey).
 Pacing: see "4D pace" above; gentle orbit (faster starves redraws; one renderer
 step takes ~0.45 s to settle).
 Every block must tie to an outcome (user: "keep me honest").
