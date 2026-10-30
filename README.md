@@ -22,36 +22,35 @@ Dev server runs at http://localhost:5180. It loads the public Office Park web
 scene (Denver) with no sign-in. Optional overrides go in `.env.local`
 (copy `.env.example`).
 
-
 ```bash
 npm test
 ```
 
 ## How it works
 
-| Piece | File | Status |
+| Piece | File | Notes |
 |---|---|---|
-| 3D scene, markers, storm cell, sun and weather | `src/components/SceneCanvas.tsx` | Office Park web scene; Building 1 coloured by install status |
-| Today's schedule | `src/lib/bim.ts` + `src/data/bim-schedule.json` | From Building 1 `Installation_Date`; 2 sample logistics items in `schedule.sample.ts` |
-| Scripted storm | `src/data/storm.scripted.ts` | Invented curve, tune to the story |
-| Live forecast (optional) | `src/lib/liveWeather.ts` | Open-Meteo, no key |
+| 3D scene, activity pins, cameras, orbit | `src/components/SceneCanvas.tsx` | Office Park web scene; Building 1 coloured by build-out, schedule or decision |
+| The three views | `src/config/tour.ts` | Cameras and sun in `SceneCanvas.tsx` (`SLIDE_VIEWS`) |
+| Build sequence and today's work | `src/lib/bim.ts` + `src/data/*.json` | The whole frame first, then each floor fitted out from the bottom up: interior, glass, specialties, furniture |
+| 4D build-out | `src/components/BuildTimeline.tsx` | A level a week, one level per step; space pauses |
+| Sample site work | `src/data/schedule.sample.ts` | Invented, labelled "Sample" on screen |
+| Scripted storm | `src/data/storm.scripted.ts` | Invented curve, repeatable on stage |
 | Postponement rules | `src/domain/rules.ts` + `src/config/thresholds.ts` | Engine tested; **limits are placeholders** |
-| The tour | `src/config/tour.ts` | Three built-in views (cameras in `SceneCanvas.tsx`); `?stops=slides` plays the scene's own slides instead (`SLIDES.md`) |
-| Underground utilities | `src/lib/utilities.ts` | Pipes at nominal depth, conflicts vs building footprints |
-| 4D build-out | `src/components/BuildTimeline.tsx` + `src/lib/bim.ts` | Building 1 rises level by level, each trade a fixed number of levels behind the structure |
+| Adapt the plan | `src/domain/replan.ts` | Postponed work moves to its first workable window |
 
 Decisions are deterministic: an activity is **postponed** when any limit is
 reached during its working window, flagged **watch** within 80% of a limit, and
 otherwise **proceeds**. All times are site-local (`VITE_SITE_TZ`), whatever
 time zone the presenting laptop is set to.
 
-Present by stepping through the views in the filmstrip (arrow keys or a clicker,
-PageUp/PageDown). Space pauses the build-out.
+Present by stepping through the views with the bar at the bottom (arrow keys or a
+clicker, PageUp/PageDown). Space pauses the build-out.
 
 ## Deploy to GitHub Pages
 
 1. Create the GitHub repo `construction-twin-storm` and push `main`. If you use
    a different repo name, change `REPO` in `vite.config.ts`.
 2. In the repo, go to **Settings → Pages → Source** and choose **GitHub Actions**.
-3. Under **Settings → Secrets and variables → Actions → Variables**, add the
-   `VITE_*` values. They're public config, not secrets.
+3. Optional: under **Settings → Secrets and variables → Actions → Variables**,
+   add any `VITE_*` overrides. They're public config, not secrets.

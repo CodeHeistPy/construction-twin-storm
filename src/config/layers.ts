@@ -1,11 +1,12 @@
 // =============================================================================
-// How web scene layers map to the storyline, by TITLE (so a new scene only
-// needs its titles matched here). Layers matching no rule are left as the
-// scene has them; the console lists them on load so they can be added here.
+// How web scene layers map to roles, by TITLE (so a new scene only needs its
+// titles matched here). The views switch roles on or off (config/tour.ts);
+// layers matching no rule are left as the scene has them, and the console
+// lists them on load so they can be added here.
 //
-// Scene "Denver Office Park" (61a325c2…, 2026-10-16): "3D mesh", "Ortho",
-// "Denver Utilities" group (storm + sanitary), "Road_and_Rail" (not public),
-// Office_Park_Site + Office_Park_Building_1..4. No electrical layer yet.
+// Scene "Denver Office Park - copy" (fe60b2cf…): "3D mesh", "Ortho", the
+// "Denver Utilities" group (kept off), "Road_and_Rail" (not public),
+// Office_Park_Site + Office_Park_Building_1..4.
 // =============================================================================
 
 export const LAYER_RULES = {
@@ -36,13 +37,3 @@ export function roleOf(title: string | null | undefined): LayerRole {
   return null;
 }
 
-/**
- * Bold styling for utility layers so they read over the mesh and ortho (the
- * scene's defaults are thin and dark). Matched by title, first match wins.
- */
-export const UTILITY_STYLES: { match: RegExp; color: string; label: string }[] = [
-  { match: /storm/i, color: "#2dd4bf", label: "Stormwater" },
-  { match: /sanitary|sewer/i, color: "#a3e635", label: "Sanitary" },
-  { match: /electric/i, color: "#f87171", label: "Electrical" },
-  { match: /rail/i, color: "#e5e7eb", label: "Rail" },
-];

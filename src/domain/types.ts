@@ -28,16 +28,11 @@ export interface Activity {
   components?: number;
   /** WGS84 position of the work face; z is metres above ground. */
   location: { longitude: number; latitude: number; z: number };
-  /**
-   * Optional SQL where clause selecting this activity's BIM components in the
-   * building scene layer. Unused until the real scene + schedule link exist.
-   */
-  componentFilter?: string;
-  /** Where the activity comes from: the BIM install dates, or invented sample data. */
-  source: "bim" | "derived" | "sample";
+  /** Where the activity comes from: the BIM model (by level), or invented sample data. */
+  source: "bim" | "sample";
   /** BIM sublayer names whose components make up this activity. */
   bimSublayers?: string[];
-  /** SQL selecting this activity's components when they have no install date (derived work). */
+  /** SQL selecting this activity's components in its sublayers (e.g. "BldgLevel = 6"). */
   bimWhere?: string;
   /** Camera heading that best frames the work (e.g. from the south for the south face). */
   viewHeading?: number;
@@ -58,8 +53,6 @@ export interface WeatherHour {
   lightning: boolean;
   temperature: number;
 }
-
-export type WeatherSource = "scripted" | "live";
 
 export interface Threshold {
   /** Max sustained wind, m/s. */

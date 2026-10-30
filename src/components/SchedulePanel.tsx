@@ -16,14 +16,12 @@ interface Props {
   onSelect: (id: string | null) => void;
   /** Show weather decisions; false = just what's scheduled (before the weather is introduced). */
   decisions?: boolean;
-  /** Activity the current beat is about. */
-  focusId?: string | null;
   /** Show only this decision's activities (list and map); null = all. */
   filter?: Decision | null;
   onFilter?: (d: Decision | null) => void;
 }
 
-export default function SchedulePanel({ twin, selectedId, onSelect, decisions = true, focusId = null, filter = null, onFilter }: Props) {
+export default function SchedulePanel({ twin, selectedId, onSelect, decisions = true, filter = null, onFilter }: Props) {
   const by = (d: Decision) => twin.assessments.filter((a) => a.decision === d);
   // Postponed and Proceed are toggles (user, 2026-10-20): click to show only
   // those activities here and on the map, click again for all.
@@ -43,7 +41,7 @@ export default function SchedulePanel({ twin, selectedId, onSelect, decisions = 
       </header>
 
       {!decisions ? (
-        <ScheduledOnly twin={twin} selectedId={selectedId ?? focusId} onSelect={onSelect} />
+        <ScheduledOnly twin={twin} selectedId={selectedId} onSelect={onSelect} />
       ) : (
         <>
       <div className="summary summary-3">
@@ -66,7 +64,7 @@ export default function SchedulePanel({ twin, selectedId, onSelect, decisions = 
                 <ActivityRow
                   key={a.activity.id}
                   a={a}
-                  selected={a.activity.id === (selectedId ?? focusId)}
+                  selected={a.activity.id === selectedId}
                   onSelect={onSelect}
                   movedTo={twin.replanned ? twin.replans.find((r) => r.original.activity.id === a.activity.id) : undefined}
                 />
@@ -112,7 +110,7 @@ function ActivityRow({
       <div className="row1">
         <span className="id">{x.id}</span>
         <span className="name">{x.name}</span>
-        <span className={`src ${x.source}`}>{x.source === "bim" ? "BIM" : x.source === "derived" ? "Derived" : "Sample"}</span>
+        <span className={`src ${x.source}`}>{x.source === "bim" ? "BIM" : "Sample"}</span>
       </div>
       <div className="row2">
         {ACTIVITY_LABELS[x.type]} · {x.zone} · {fmtTime(x.start)}–{fmtTime(x.end)}
@@ -168,7 +166,7 @@ function ScheduledOnly({
               <div className="row1">
                 <span className="id">{x.id}</span>
                 <span className="name">{x.name}</span>
-                <span className={`src ${x.source}`}>{x.source === "bim" ? "BIM" : x.source === "derived" ? "Derived" : "Sample"}</span>
+                <span className={`src ${x.source}`}>{x.source === "bim" ? "BIM" : "Sample"}</span>
               </div>
               <div className="row2">
                 {ACTIVITY_LABELS[x.type]} · {x.zone} · {fmtTime(x.start)}–{fmtTime(x.end)}

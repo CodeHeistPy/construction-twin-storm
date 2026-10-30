@@ -11,8 +11,8 @@ do we tell the crews?*
   **Live:** https://codeheistpy.github.io/construction-twin-storm/ (repo
   github.com/CodeHeistPy/construction-twin-storm, public; first published 2026-10-19).
   Push only with the user's OK: every push goes live.
-- Storm: **scripted by default** (repeatable on stage); live Open-Meteo forecast
-  is an optional toggle, applied hour-for-hour to the demo day.
+- Storm: **scripted** (repeatable on stage), `data/storm.scripted.ts`. The live
+  Open-Meteo toggle had no UI and was removed in the 2026-10-30 cleanup.
 - Decisions: **deterministic rules engine** (`src/domain/rules.ts`) plus an AI
   *explanation* layer. Which AI approach is still open; don't add
   `@arcgis/ai-components` until the user decides.
@@ -20,7 +20,7 @@ do we tell the crews?*
   view (titled "Construction Schedule" until 2026-10-22) now SHOWS dates ("May 04, 2026", `fmtDate`, site time) on its pill and
   timeline, DISPLAY-SHIFTED (`displayDate`, site.ts) so the build-out ends on the
   real current date ("Oct 20, 2026 · Today" on 2026-10-20; data untouched); Elapsed / Remaining tiles are bare
-  numbers. Schedule Adjustment still says "Tomorrow" / "Day after tomorrow".
+  numbers. Schedule Adjustment says "Tomorrow" / "Day after tomorrow".
   `DEFAULT_DEMO_DATE` (2026-05-11) is the storm day; it is settled.
 - **Layer filter:** clicking a layer row in the progress panel shows only that
   trade's sublayers in Building 1 (`onlySublayers`); click again for all.
@@ -33,23 +33,36 @@ do we tell the crews?*
   segment (the presenter says so; there is no on-screen block config since
   2026-10-22, when the unused `config/buildingBlocks.ts` was removed).
 
-## The tour (user, 2026-10-19): web scene SLIDES, no Present mode
-Review feedback: the custom "Present" mode felt gimmicky. Now the app plays the
-web scene's own slides (filmstrip at the bottom, arrows/clicker), and the
-presenter calls out the building blocks verbally: **no block cues on screen**.
-The user authors the slides in Scene Viewer from **SLIDES.md**; the app matches
-slides by TITLE (`config/tour.ts` STOP_RULES) and adds data behaviour.
+## The tour: three built-in views, no Present mode
+The app is only the last beats of the story (user, 2026-10-20: the earlier beats,
+site, design and utilities, are told in Scene Viewer). Three views, stepped with the
+bar at the bottom (arrows / clicker), `STOP_RULES` in `config/tour.ts`:
+**Construction Progress** (4D; renamed from "Construction Schedule", 2026-10-22),
+**Schedule Adjustment** (weather alert + decisions) and **Completed Building**.
+The presenter calls out the building blocks verbally: **no block cues on screen**
+(review feedback: the old custom "Present" mode felt gimmicky). The cameras and
+~1 pm sun are BUILT IN (`SLIDE_VIEWS` in SceneCanvas, first copied from the user's
+slides in the original scene). The app loads the user's COPY of the scene
+(`fe60b2cf…`, Topographic basemap): the original uses the Photorealistic (Google 3D
+tiles) basemap, which needs a sign-in. The copy's basemap 3D "Trees" layer is hidden.
+Opening cold, the 4D waits for the view to finish loading (App `settled`) and marker
+pins retry ~30 s.
+**Removed 2026-10-30** (user: "remove anything not being used"; all in git history):
+the `?stops=slides` mode that played the scene's own slides (with SLIDES.md, title
+matching, the site/design/utilities stops, the Slice tool and the underground
+utilities + pipe-conflict analysis, `lib/utilities.ts`), the storm-cell overlay and
+weather effects, the conditions panel, the end-of-day outcome card and the live forecast.
 **PLAN AHEAD (user, 2026-10-20):** the presenter stands on the day BEFORE the
 storm (`PLAN_AHEAD_DAYS = 1`, `presenterToday()` in site.ts). The demo day
 (`demoDay()`, storm day, where the rules and re-plan run) shows as
 **"Tomorrow"**; the 4D ends on "Today" (day 185: frame up, fit-out on level 9); postponed work lands
 on the "Day after tomorrow" (`planDayLabel`). Alert: "Severe weather arriving
 tomorrow". Schedule Adjustment has no conditions panel; its Postponed / Proceed
-tiles filter the list and map markers. It OPENS on the plain schedule (all 14,
+tiles filter the list and map markers. It OPENS on the plain schedule (all 13,
 "scheduled" colours); the topbar "Weather alert" button (replaces Notify crews,
 `alertButton`) shows the alert and switches to postpone / proceed. The alert
 names tomorrow's real date (`displayDate`). 5 postponed / 8 proceed since the 2026-10-30 resequence (S-02 delivery
-moved to 7-10 AM, user). Both views: 3D mesh on, ortho off, the
+moved to 7-10 AM, user). All three views: 3D mesh on, ortho off, the
 Topographic 3D basemap with its 3D Buildings on and Trees off, Buildings 2-4 hidden.
 **Completed Building (user, 2026-10-21):** a third stop after Schedule Adjustment
 (`completion` rule, `SlideView` "completion": the schedule heading pulled back 1.75x, aimed
@@ -63,28 +76,6 @@ OAuth client ID are gone (git history: b987a0e..c7de68b). The user will switch t
 separate scene at the end to show the completed park.
 NO storm slip (user, 2026-10-21: unrealistic; a single weather day is absorbed by the
 schedule's weather allowance / float, so the completion date holds).
-**Since 2026-10-20 the app is only the last beats** (three since Completed Building, 2026-10-21) (user: the earlier
-beats are told in Scene Viewer): **Construction Progress** (4D; user renamed it from
-"Construction Schedule", 2026-10-22) and **Schedule
-Adjustment** (weather alert + decisions), `APP_STOPS` in tour.ts. Their views
-are BUILT INTO the app (`SlideView` presets `schedule`/`adjustment` in
-SceneCanvas `SLIDE_VIEWS`: the exact cameras and ~1 pm sun copied from the
-user's slides in the original scene), so the app ignores the scene's slides
-(`?stops=slides` opts back in). It loads the user's COPY of the scene
-(`fe60b2cf…`, Topographic basemap): the original now uses the Photorealistic
-(Google 3D tiles) basemap, which needs a sign-in. The copy's basemap 3D
-"Trees" layer is hidden. Opening cold, the 4D waits for the view to finish
-loading (App `settled`) and marker pins retry ~30 s.
-History, for the slides the app used to play:
-The user's own slides, in order: **Development Site for Office
-Park** (reality, ortho) → [*Construction Site*: deleted from the scene 2026-10-19; a re-added one
-is still skipped via `SKIP_SLIDES`] → **Current Design** → **Structural View** (added 2026-10-19; no rule, plays as authored) →
-**Current Utilities** (Foundation: pipes below grade + conflicts; ground stays
-opaque, the slice starts above ground and the presenter drags it down with the
-**Slice** tool) → **Construction Schedule** (4D build-out on the slide's
-camera; orbit keeps its framing) → **Schedule Adjustment** (the weather alert
-pops here, user: the separate "What could change it" stop is gone; decision,
-re-plan + notify). No weather slider.
 Activities: one per fit-out trade on its working level (levels 4-9) and 7
 SAMPLE site activities placed on real assets (Building 1 faces/core, podium,
 storm MH 2835760). BIM markers are PINNED to a real part once the view settles:
@@ -144,8 +135,7 @@ Every block must tie to an outcome (user: "keep me honest").
 |---|---|
 | Web scene | App: `fe60b2cfed534542a82d8cd8bb54df27` "Denver Office Park - copy" (public, Topographic basemap, 2026-10-20). Original `61a325c274ea4118999c9079c8b6e356` "Denver Office Park" (public, but its Photorealistic basemap needs a sign-in; holds the user's Scene Viewer story). arcaec.maps.arcgis.com |
 | Reality capture | "3D mesh" (IntegratedMeshLayer) + "Ortho" (tiled imagery), both public |
-| Utilities | "Denver Utilities" group: sanitary manholes/main, storm manholes/inlets/main (City of Denver open data), clipped to the site at load (`clipToSite`). **Electrical: user adding.** Storm mains have upelev/downelev (ft) + width/height (in); sanitary has diameter. Inverts do NOT match the scene ground (1,598.6 m invert vs 1,590.5 m Existing_Ground at Building 2), so pipes draw at a nominal 3 m depth; inverts shown as attributes only. |
-| Utility conflicts (bbox footprints) | Building 1: 15 in VCP sanitary main. Building 2: two 48 in RCP storm mains + a storm manhole. |
+| Utilities | "Denver Utilities" group (City of Denver open data): kept OFF by the app (role "utilities" in `config/layers.ts`); shown in the Scene Viewer part of the story. |
 | Site | -104.991665, 39.699590 (Denver), `America/Denver` |
 | Building with install dates | `Office_Park_Building_1` (Building Scene Layer) |
 | Install field | `Installation_Date`, **string** `YYYY.MM.DD`, on 11 component sublayers |
@@ -167,7 +157,7 @@ Re-run it after the model is republished.
   work-shift hours (assumed 7:00–15:30), whether doors are exterior,
   storm timing and intensity, plenary length, presenter, and screen.
 - Whether to keep the two SAMPLE logistics activities (crane pick, delivery).
-- The slides themselves (SLIDES.md), the time-enabled radar layer (link), the electrical layer, and sharing for Road_and_Rail / Bridges / Roadway_Ground (Roadway_Ground is removed at load: a failed ground layer stalls ground-relative layers).
+- Sharing for Road_and_Rail / Bridges / Roadway_Ground (Roadway_Ground is removed at load: a failed ground layer stalls ground-relative layers).
 
 ## Conventions
 - All weather in SI internally (m/s, mm/h). Convert only in `lib/units.ts`.
@@ -203,28 +193,19 @@ Re-run it after the model is republished.
   `layers` must be set imperatively (all loaded BSLs, Building 1 first).
 - **A failed ground layer stalls everything ground-relative** (layer views
   never finish). SceneCanvas removes failed ground layers at load.
-- `slide.applyTo` hides every layer not in the slide, including ours:
-  `restoreAppLayers(view)` re-shows them afterwards. It also re-applies BSL
-  **sublayer** visibility, asynchronously, so hiding Buildings 2-4 during the
-  4D needs a watcher (`isolateBuilding`).
 - A **Building Explorer level filter** (e.g. left on level 8) applies to every
   BSL and overrides our renderers: the 4D showed nothing. SceneCanvas clears it
   (`explorer.level = undefined`) whenever the app colours Building 1.
 - Building 1 elements with a null `BldgLevel` (crown spires, some railings, all
   plumbing fixtures) are outside the 13,935 tracked parts and stay hidden.
-- **Hidden parent group = suspended children.** The scene now groups the
-  buildings under "Building Design"; built-in stops switch on parent groups of
+- **Hidden parent group = suspended children.** The scene groups the
+  buildings under "Building Design"; the views switch on parent groups of
   anything they show.
 - The 4D orbit must start only after camera flights finish (it uses
   goTo animate:false every frame and would strand a flight mid-way).
 - Per-sublayer BldgLevel counts come from the layer statistics (extraction
   script `levels`). The tile index featureCount overcounts; don't use it.
-- **Utilities slide slice:** the slide's saved slice (elements.analyses) is handed to
-  the Slice tool; utility layers are in its excludedLayers (a slice hides everything
-  on the cut side); a horizontal saved plane STARTS above ground (user): kept as
-  saved (resaved 2026-10-19 at ~1,669 m, ~78 m over the 1,590 m ground) and only lifted to 1.5 m over the HIGHEST ground
-  across its footprint (3x3 samples) if a re-save puts it below grade.
 - The site's Planting (trees) is off on EVERY stop (user; `ALWAYS_HIDDEN` in tour.ts).
-- Per-stop building sublayer hiding (`hideSublayers`, `isolateBuilding`) uses
-  `keepOff()`: slides re-apply sublayer visibility asynchronously.
-  Utility site-copies keep the original layer ids (slides list layers by id).
+- Building sublayer hiding (`hideSublayers`, `isolateBuilding`: Buildings 2-4 off in
+  all three views) uses `keepOff()` watchers: the scene can re-apply sublayer
+  visibility asynchronously after we hide them.

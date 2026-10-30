@@ -1,7 +1,8 @@
-import bimSchedule from "../data/bim-schedule.json";
+// Named imports: only these parts of the extract are bundled (not its per-day install log).
+import { levels as LEVEL_COUNTS, source, sublayers as SCHEDULE_SUBLAYERS } from "../data/bim-schedule.json";
 import curtainWallStoreys from "../data/curtain-wall-storeys.json";
 import typeSplits from "../data/type-splits.json";
-import { SITE, demoDay } from "../config/site";
+import { demoDay } from "../config/site";
 import type { Activity, ActivityType, Decision } from "../domain/types";
 import { atHour } from "./time";
 
@@ -38,14 +39,7 @@ export type TodayClass = Decision | "rescheduled" | "scheduled" | "building" | "
 // geometry (data/curtain-wall-storeys.json).
 // =============================================================================
 
-export const BIM_LAYER_TITLE = bimSchedule.source.layerTitle;
-export const BIM_DATE_FIELD = bimSchedule.source.field;
-export const BIM_MALFORMED = bimSchedule.malformed;
-/** The model's own install-date range (reference only; sequencing is by level). */
-export const BIM_RANGE = (() => {
-  const days = Object.keys(bimSchedule.byDay);
-  return { first: days[0], last: days[days.length - 1] };
-})();
+export const BIM_LAYER_TITLE = source.layerTitle;
 
 export const MAX_LEVEL = 16;
 /** The step on which the whole frame is up (the structure works one level per step). */
@@ -87,7 +81,7 @@ const tradeOf = new Map(TRADES.flatMap((t) => t.sublayers.map((s) => [s, t] as c
 const ALL_TRADE_SUBLAYERS = TRADES.flatMap((t) => t.sublayers);
 
 /** Sublayers that carry the install-date field (the renderer handles these and the structure). */
-export const DATED_SUBLAYERS = bimSchedule.sublayers.filter((s) => s.hasDate).map((s) => s.name);
+export const DATED_SUBLAYERS = SCHEDULE_SUBLAYERS.filter((s) => s.hasDate).map((s) => s.name);
 /** Everything else in a trade (structure, walls, ceilings...). */
 export const STRUCTURE_SUBLAYERS = ALL_TRADE_SUBLAYERS.filter((s) => !DATED_SUBLAYERS.includes(s));
 /** Room volumes: hidden while the building goes up. */
@@ -106,11 +100,6 @@ export const BUILDING_1 = { longitude: -104.99117, latitude: 39.698635, height: 
 const LEVEL_HEIGHT_M = 3.96;
 
 const DAY_MS = 86_400_000;
-
-/** YYYY-MM-DD for a site-midnight instant. */
-export function dayKey(day: Date): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: SITE.timeZone }).format(day);
-}
 
 /** Days per level (and per step). */
 function daysPerLevel(): number {
@@ -168,7 +157,7 @@ const STOREYS = curtainWallStoreys.sublayers as unknown as Record<string, Storey
 
 /** Element counts per level for a sublayer (model statistics; curtain wall by real storey). */
 const levelCounts = (sublayer: string): Record<string, number> =>
-  STOREYS[sublayer]?.counts ?? ((bimSchedule as { levels?: Record<string, Record<string, number>> }).levels ?? {})[sublayer] ?? {};
+  STOREYS[sublayer]?.counts ?? (LEVEL_COUNTS as Record<string, Record<string, number>>)[sublayer] ?? {};
 
 type TypeSplit = { match: string; trade: string; counts: Record<string, number> };
 /**
@@ -333,11 +322,6 @@ export function bimActivities(day: Date): Activity[] {
     });
   });
   return out;
-}
-
-/** Superseded by the level model (kept so callers don't break). */
-export function derivedActivities(_day: Date): Activity[] {
-  return [];
 }
 
 /**

@@ -51,7 +51,7 @@ export default function BuildTimeline({ today, value, onChange, autoplay = true,
     if (!autoplay) return;
     onChange(toFinish ? today : start);
     stopAt.current = toFinish ? total : todayAt;
-    // Mounted once the schedule slide has landed (App), so a short beat is enough.
+    // Mounted once the view has loaded (App `settled`), so a short beat is enough.
     const t = window.setTimeout(() => setPlaying(true), 800);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps

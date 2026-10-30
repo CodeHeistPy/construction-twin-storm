@@ -1,16 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArcgisBuildingExplorer, ArcgisExpand, ArcgisLayerList, ArcgisScene, ArcgisSlice } from "@arcgis/map-components-react";
+import { ArcgisBuildingExplorer, ArcgisExpand, ArcgisLayerList, ArcgisScene } from "@arcgis/map-components-react";
 import type { ArcgisBuildingExplorer as BuildingExplorerElement } from "@arcgis/map-components/components/arcgis-building-explorer/customElement";
-import type { ArcgisSlice as SliceElement } from "@arcgis/map-components/components/arcgis-slice/customElement";
-import type SliceAnalysis from "@arcgis/core/analysis/SliceAnalysis";
 import Graphic from "@arcgis/core/Graphic";
 import GraphicsLayer from "@arcgis/core/layers/GraphicsLayer";
 import Point from "@arcgis/core/geometry/Point";
-import Polygon from "@arcgis/core/geometry/Polygon";
 import type SceneView from "@arcgis/core/views/SceneView";
 import SunLighting from "@arcgis/core/views/3d/environment/SunLighting";
-import RainyWeather from "@arcgis/core/views/3d/environment/RainyWeather";
-import CloudyWeather from "@arcgis/core/views/3d/environment/CloudyWeather";
 import SunnyWeather from "@arcgis/core/views/3d/environment/SunnyWeather";
 import type BuildingSceneLayer from "@arcgis/core/layers/BuildingSceneLayer";
 import type BuildingComponentSublayer from "@arcgis/core/layers/buildingSublayers/BuildingComponentSublayer";
@@ -20,11 +15,9 @@ import UniqueValueRenderer from "@arcgis/core/renderers/UniqueValueRenderer";
 import * as webMercatorUtils from "@arcgis/core/geometry/support/webMercatorUtils";
 import * as reactiveUtils from "@arcgis/core/core/reactiveUtils";
 import { SITE, WEBSCENE_ID } from "../config/site";
-import type { CameraPreset, SceneMode, SlideView } from "../config/tour";
+import type { SceneMode, SlideView } from "../config/tour";
 import Camera from "@arcgis/core/Camera";
 import { roleOf } from "../config/layers";
-import type FeatureLayer from "@arcgis/core/layers/FeatureLayer";
-import { clipToSite, findConflicts, styleFor, styleSurface, styleUnderground, type Conflict } from "../lib/utilities";
 import type { Activity, Decision } from "../domain/types";
 import {
   BIM_LAYER_TITLE,
@@ -39,7 +32,6 @@ import {
   TRADES,
   type TodayClass,
 } from "../lib/bim";
-import { ellipseRing } from "../lib/geo";
 import type { Twin } from "../state/useTwin";
 
 /** Display status: a decision, postponed work that has been re-planned, or scheduled (no call yet). */
@@ -59,30 +51,8 @@ export const DECISION_COLORS: Record<Status, string> = {
   go: "#3ddc84",
 };
 
-/** Our own layers (storm, markers, conflicts). Slides don't know them, so re-show after a slide. */
-const APP_LAYER_TITLES = new Set(["Storm cell (scripted)", "Planned activities", "Utility conflicts"]);
-export function restoreAppLayers(view: SceneView): void {
-  view.map?.layers.forEach((l) => {
-    // The conflicts layer is NOT re-shown here: it belongs to the utilities
-    // stop only (re-showing it on every slide made the flags flash).
-    if (APP_LAYER_TITLES.has(l.title ?? "") && l.title !== "Utility conflicts") l.visible = true;
-  });
-}
-
-/**
- * Hide the utility networks (group + members). Authored slides after Current
- * Utilities still list them as visible; outside the utilities stop they must
- * stay off (user, 2026-10-20).
- */
-export function hideUtilities(view: SceneView): void {
-  view.map?.allLayers.forEach((l) => {
-    if (l.type !== "graphics" && roleOf(l.title) === "utilities") l.visible = false;
-  });
-}
-
 export interface CameraRequest {
-  /** "none" = leave the camera where it is. */
-  preset: CameraPreset | "focus" | "none";
+  preset: SlideView;
   /** Bump to re-fly to the same preset. */
   key: number;
 }
@@ -90,23 +60,17 @@ export interface CameraRequest {
 interface Props {
   twin: Twin;
   mode: SceneMode;
-  /** Activity the beat is about (work-face zoom + highlight). */
-  focusId: string | null;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   camera: CameraRequest;
-  /** Apply layer visibility by role (built-in stops). Authored slides set their own. */
-  applyLayers: boolean;
   /** 4D: the date Building 1 is shown as of (site-midnight instant). */
   timelineDay: Date;
   onView?: (view: SceneView) => void;
   /** Slowly orbit Building 1 (while the 4D build-out plays). */
   orbit?: boolean;
-  /** The stop being flown TO shows utilities (set at take-off, not landing). */
-  allowUtilities?: boolean;
-  /** Hide the other buildings (2-4) so the 4D build-out has the stage (and the frame rate). */
+  /** Hide the other buildings (2-4) so Building 1 has the stage (and the frame rate). */
   isolateBuilding?: boolean;
-  /** Building sublayers to keep off on this stop. */
+  /** Building sublayers to keep off. */
   hideSublayers?: { layer: string; sublayers: string[] }[];
   /** Metres above Building 1's ground the orbit circles (mid-height of what's built). */
   orbitTargetAbove?: number;
@@ -114,7 +78,6 @@ interface Props {
   markerFilter?: Decision | null;
   /** Building 1: show only these sublayers (one trade, picked in the progress panel); null = all. */
   onlySublayers?: string[] | null;
-  onConflicts?: (c: Conflict[]) => void;
 }
 
 const mesh = (color: number[], mix: "tint" | "replace" = "replace") => ({
@@ -151,18 +114,9 @@ function statusRenderer(valueExpression: string) {
 }
 
 /** How one sublayer's "today" components show in a given mode. */
-function todayClass(mode: SceneMode, decision: Decision, replanned: boolean, inFocus: boolean, hasFocus: boolean): TodayClass {
-  switch (mode.bim) {
-    case "progress":
-      return "hidden";
-    case "scheduled":
-      return hasFocus && !inFocus ? "dim" : "scheduled";
-    case "outcome":
-      return decision === "postpone" ? "rescheduled" : "done";
-    default:
-      if (hasFocus && !inFocus) return "dim";
-      return replanned && decision === "postpone" ? "rescheduled" : decision;
-  }
+function todayClass(mode: SceneMode, decision: Decision, replanned: boolean): TodayClass {
+  if (mode.bim === "scheduled") return "scheduled";
+  return replanned && decision === "postpone" ? "rescheduled" : decision;
 }
 
 /** Marker status for an activity in a given mode. */
@@ -170,12 +124,6 @@ function markerStatus(mode: SceneMode, decision: Decision, replanned: boolean): 
   if (mode.bim === "scheduled") return "scheduled";
   return replanned && decision === "postpone" ? "rescheduled" : decision;
 }
-
-/** Minimum clearance of a saved horizontal slice above the ground on the utilities stop (m). */
-const SLICE_ABOVE_GRADE_M = 1.5;
-
-/** Envelope sublayers made see-through when the focus work is inside the building. */
-const ENVELOPE = ["Walls", "CurtainWallPanels", "CurtainWallMullions", "Roofs"];
 
 /** A point on the terrain surface (absolute z), for camera targets. */
 async function onGround(view: SceneView, longitude: number, latitude: number, above = 0): Promise<Point> {
@@ -198,22 +146,8 @@ async function onGround(view: SceneView, longitude: number, latitude: number, ab
   return p;
 }
 
-interface Shot {
-  at: { longitude: number; latitude: number };
-  /** Metres above ground to aim at. */
-  above?: number;
-  scale: number;
-  tilt: number;
-  heading: number;
-}
-
-const mid = (a: { longitude: number; latitude: number }, b: { longitude: number; latitude: number }) => ({
-  longitude: (a.longitude + b.longitude) / 2,
-  latitude: (a.latitude + b.latitude) / 2,
-});
-
 /**
- * The user's two slide views, copied from the original web scene's slides
+ * The views' cameras, copied from the user's slides in the original web scene
  * (Web Mercator camera positions, absolute z: Denver is ~1,600 m up; sun times
  * as saved, about 1 pm site time).
  */
@@ -224,23 +158,10 @@ const SLIDE_VIEWS: Record<SlideView, { position: { x: number; y: number; z: numb
   completion: { position: { x: -11687978.246085212, y: 4822395.644396591, z: 1747.5090383375527 }, heading: 110, tilt: 70.1, sun: 1773601198000 },
   adjustment: { position: { x: -11687625.02634604, y: 4822451.720885995, z: 1706.327830764465 }, heading: 167.50746775902107, tilt: 60.71242942782043, sun: 1773601198000 },
 };
-const isSlideView = (p: string): p is SlideView => p in SLIDE_VIEWS;
-
-const SHOTS: Record<Exclude<CameraPreset, SlideView>, Shot> = {
-  site: { at: SITE, scale: 3500, tilt: 60, heading: 20 },
-  development: { at: mid(SITE, BUILDING_1), scale: 2600, tilt: 62, heading: 340 },
-  building: { at: BUILDING_1, above: 30, scale: 900, tilt: 70, heading: 25 },
-  overview: { at: SITE, scale: 60_000, tilt: 55, heading: 30 },
-  // Low, looking across Buildings 1-2 at pipe depth (where the conflicts are).
-  underground: { at: { longitude: -104.99105, latitude: 39.69815 }, above: -2, scale: 900, tilt: 72, heading: 250 },
-  storm: { at: { longitude: SITE.longitude - 0.08, latitude: SITE.latitude - 0.06 }, scale: 220_000, tilt: 50, heading: 225 },
-};
-
 /**
- * Switch building sublayers off and keep them off: a slide's flight re-applies
- * its saved sublayer visibility asynchronously, after we've hidden them. The
- * returned cleanup puts back what the slide had; the next slide then applies
- * its own visibility on top.
+ * Switch building sublayers off and keep them off (the scene can re-apply its
+ * saved visibility asynchronously, after we've hidden them). The returned
+ * cleanup puts back what was there.
  */
 function keepOff(subs: { visible: boolean }[]): () => void {
   const authored = new Map(subs.map((s) => [s, s.visible]));
@@ -261,7 +182,7 @@ function keepOff(subs: { visible: boolean }[]): () => void {
   };
 }
 
-/** The orbit circles this point on Building 1: metres above its ground, about mid-height of the structure on "Today" (level 8). */
+/** The orbit circles this point on Building 1: metres above its ground (the build-out view's framing). */
 const ORBIT_TARGET_ABOVE_M = 16;
 
 /**
@@ -291,12 +212,7 @@ function towardBuilding(lon: number, lat: number): { heading: number; metres: nu
   return { heading: ((Math.atan2(dx, dy) * 180) / Math.PI + 360) % 360, metres: Math.hypot(dx, dy) };
 }
 
-function shotFor(a: Activity): Shot {
-  // Wide enough to read the whole band of today's parts on the building.
-  return { at: a.location, above: a.location.z, scale: 1000, tilt: 66, heading: a.viewHeading ?? 30 };
-}
-
-export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect, camera, applyLayers, timelineDay, onView, onConflicts, orbit = false, allowUtilities = false, isolateBuilding = false, hideSublayers, markerFilter = null, onlySublayers = null, orbitTargetAbove = ORBIT_TARGET_ABOVE_M }: Props) {
+export default function SceneCanvas({ twin, mode, selectedId, onSelect, camera, timelineDay, onView, orbit = false, isolateBuilding = false, hideSublayers, markerFilter = null, onlySublayers = null, orbitTargetAbove = ORBIT_TARGET_ABOVE_M }: Props) {
   const [view, setView] = useState<SceneView | null>(null);
   const [loaded, setLoaded] = useState(false);
   // One WebScene for the life of the app. Letting <arcgis-scene> load it from
@@ -306,11 +222,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       ? new WebScene({ portalItem: { id: WEBSCENE_ID } })
       : new WebScene({ basemap: "dark-gray-vector", ground: "world-elevation" }),
   );
-  const layers = useRef<{ activities: GraphicsLayer; storm: GraphicsLayer; conflicts: GraphicsLayer } | null>(null);
-  const utilitiesRef = useRef<FeatureLayer[]>([]);
-  const conflictsRef = useRef<Conflict[] | null>(null);
-  const onConflictsRef = useRef(onConflicts);
-  onConflictsRef.current = onConflicts;
+  const activitiesRef = useRef<GraphicsLayer | null>(null);
   useEffect(() => {
     if (view) onView?.(view);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -318,72 +230,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
   const explorerRef = useRef<BuildingExplorerElement>(null);
-  const sliceRef = useRef<SliceElement>(null);
-  const allowUtilitiesRef = useRef(allowUtilities);
-  allowUtilitiesRef.current = allowUtilities;
-  const undergroundRef = useRef(mode.underground);
-  undergroundRef.current = mode.underground;
 
-  // A slide can carry its own slice (Scene Viewer saves it in the slide's
-  // elements). Hand that slice to the Slice tool so the presenter can move /
-  // flip / clear it, instead of the tool starting a second, separate one.
-  useEffect(() => {
-    if (!view) return;
-    const sync = () => {
-      const slice = view.analyses.find((a) => a.type === "slice") as SliceAnalysis | undefined;
-      if (!slice) return;
-      const tool = sliceRef.current;
-      if (tool && tool.analysis !== slice) tool.analysis = slice;
-      // The pipes must NOT be sliced: a slice hides everything on the cut-away
-      // side, so the pipes vanished exactly where the ground was removed (and
-      // on the kept side they're under opaque ground). Excluded, they sit in
-      // the opening at depth.
-      for (const l of utilitiesRef.current) {
-        if (!slice.excludedLayers.includes(l)) slice.excludedLayers.add(l);
-      }
-      // On the utilities stop the slice STARTS above the ground (user): the
-      // presenter drags it down live. The slide's saved plane (~1,607 m) already
-      // is; if a re-saved one ever dips below grade, lift it just clear of the
-      // highest ground under it. Footprint, heading and size are kept.
-      const shape = slice.shape;
-      if (undergroundRef.current && shape?.position && Math.abs(shape.tilt) < 5 && !checked.has(slice)) {
-        checked.add(slice);
-        const pos = shape.position;
-        // The ground slopes across the footprint, so sample a 3x3 grid over the
-        // plane (its width/height are in the position's map units, rotated by
-        // its heading) and compare with the HIGHEST point.
-        const r = ((shape.heading ?? 0) * Math.PI) / 180;
-        const samples: Promise<Point>[] = [];
-        for (const u of [-0.5, 0, 0.5])
-          for (const w of [-0.5, 0, 0.5]) {
-            const dx = u * shape.width;
-            const dy = w * shape.height;
-            const pt = pos.clone();
-            pt.x = pos.x + dx * Math.cos(r) + dy * Math.sin(r);
-            pt.y = pos.y - dx * Math.sin(r) + dy * Math.cos(r);
-            const ll = webMercatorUtils.webMercatorToGeographic(pt) as Point;
-            samples.push(onGround(view, ll.longitude!, ll.latitude!, 0));
-          }
-        Promise.all(samples).then((pts) => {
-          const zs = pts.map((g) => g.z).filter((z): z is number => z !== undefined && Number.isFinite(z));
-          if (!zs.length) return;
-          const highest = Math.max(...zs);
-          if ((pos.z ?? 0) >= highest + SLICE_ABOVE_GRADE_M) return; // already above grade
-          const next = shape.clone();
-          const p = pos.clone();
-          p.z = highest + SLICE_ABOVE_GRADE_M;
-          next.position = p;
-          slice.shape = next;
-        });
-      }
-    };
-    const checked = new WeakSet<object>();
-    sync();
-    const h = view.analyses.on("change", sync);
-    return () => h.remove();
-    // Re-run on entering the utilities stop too (the slide may add its slice
-    // first); the "already above grade" check makes repeats harmless.
-  }, [view, loaded, mode.underground]);
   /** Activity id -> where its components actually are in Building 1 (client-side query). */
   const [placed, setPlaced] = useState<Map<string, Activity["location"]>>(new Map());
   const located = (a: Activity): Activity => ({ ...a, location: placed.get(a.id) ?? a.location });
@@ -397,15 +244,14 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     groups: Map<BuildingGroupSublayer, boolean>;
   } | null>(null);
 
-  // One-time setup once the view is ready: our layers, lighting, click.
+  // One-time setup once the view is ready: the markers layer, lighting, click.
   useEffect(() => {
     if (!view || !map) return;
-    const storm = new GraphicsLayer({ title: "Storm cell (scripted)", elevationInfo: { mode: "on-the-ground" } });
     const activities = new GraphicsLayer({ title: "Planned activities", elevationInfo: { mode: "relative-to-ground" } });
-    const conflicts = new GraphicsLayer({ title: "Utility conflicts", listMode: "hide", elevationInfo: { mode: "relative-to-ground" } });
-    map.addMany([storm, activities, conflicts]);
-    layers.current = { activities, storm, conflicts };
+    map.add(activities);
+    activitiesRef.current = activities;
     view.environment.lighting = new SunLighting({ directShadowsEnabled: true });
+    view.environment.weather = new SunnyWeather({ cloudCover: 0.2 });
 
     const handle = view.on("click", async (e) => {
       const hit = await view.hitTest(e, { include: [activities] });
@@ -414,8 +260,8 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     });
     return () => {
       handle.remove();
-      map.removeMany([storm, activities, conflicts]);
-      layers.current = null;
+      map.remove(activities);
+      activitiesRef.current = null;
     };
   }, [view, map]);
 
@@ -448,22 +294,6 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
         .map((l) => l.title)
         .toArray();
       if (unmatched.length) console.info("[layers] not in LAYER_RULES (left as-is):", unmatched);
-
-      // Utilities: collect them; styled for the surface or underground per stop.
-      const cityWide = map.allLayers
-        .filter((l) => l.type === "feature" && roleOf(l.title) === "utilities" && !!styleFor(l.title ?? ""))
-        .toArray() as FeatureLayer[];
-      utilitiesRef.current = (
-        await Promise.all(
-          cityWide.map((l) =>
-            clipToSite(l).catch((e) => {
-              console.warn(`[utilities] could not clip ${l.title}; using the live layer`, e);
-              return l;
-            }),
-          ),
-        )
-      ).filter(Boolean);
-      for (const fl of utilitiesRef.current) styleSurface(fl, styleFor(fl.title ?? "")!.color);
 
       const buildings = map.allLayers
         .filter((l) => l.type === "building-scene" && l.loadStatus === "loaded")
@@ -501,31 +331,8 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     };
   }, [view, map]);
 
-  // Utilities only ever show on the utilities stop. Slides after it still list
-  // them as visible and switch them on part-way through their flight, so watch
-  // the layers and switch them straight back off (no flash).
-  useEffect(() => {
-    if (!view || !map || !loaded) return;
-    const nets = map.allLayers
-      .filter((l) => l.type !== "graphics" && roleOf(l.title) === "utilities")
-      .toArray();
-    if (!allowUtilities) nets.forEach((l) => (l.visible = false));
-    const handles = nets.map((l) =>
-      reactiveUtils.watch(
-        () => l.visible,
-        (v) => {
-          if (v && !allowUtilitiesRef.current) l.visible = false;
-        },
-      ),
-    );
-    return () => handles.forEach((h) => h.remove());
-  }, [view, map, loaded, allowUtilities]);
-
-  // During the 4D build-out only Building 1 (and the site) draw: Buildings 2-4
-  // go off for focus and frame rate (hidden sublayers aren't fetched). The
-  // slide's flight re-applies its sublayer visibility after this runs, so keep
-  // them off with a watcher. On leaving, put back what the build-out slide had;
-  // the next slide then applies its own visibility on top.
+  // Only Building 1 (and the site) draw: Buildings 2-4 go off for focus and
+  // frame rate (hidden sublayers aren't fetched), kept off with a watcher.
   useEffect(() => {
     if (!map || !loaded || !isolateBuilding) return;
     const tops = map.allLayers
@@ -535,7 +342,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     return keepOff(tops);
   }, [map, loaded, isolateBuilding]);
 
-  // Per-stop sublayers off (e.g. the site's Planting on Current Design), same way.
+  // Sublayers kept off (the site's Planting), the same way.
   const hideKey = JSON.stringify(hideSublayers ?? []);
   useEffect(() => {
     const wanted = JSON.parse(hideKey) as NonNullable<Props["hideSublayers"]>;
@@ -547,10 +354,9 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     return keepOff(subs);
   }, [map, loaded, hideKey]);
 
-  // Built-in stops set layer visibility by role. (Authored slides set their own.)
-  // Group members follow their group (the scene ships the utilities off).
+  // Layer visibility by role. Group members follow their group.
   useEffect(() => {
-    if (!map || !loaded || !applyLayers) return;
+    if (!map || !loaded) return;
     const L = mode.layers;
     map.allLayers.forEach((l) => {
       if (l.type === "graphics") return;
@@ -584,46 +390,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
         parent = parent.parent as typeof parent;
       }
     });
-  }, [map, loaded, applyLayers, mode.layers]);
-
-  // Underground: see-through ground, pipes at depth, conflicts flagged.
-  useEffect(() => {
-    if (!view || !map || !loaded) return;
-    const ground = map.ground;
-    const handles: { remove(): void }[] = [];
-    let cancelled = false;
-    for (const fl of utilitiesRef.current) {
-      const color = styleFor(fl.title ?? "")!.color;
-      if (mode.underground) styleUnderground(fl, color);
-      else styleSurface(fl, color);
-    }
-    layers.current?.conflicts.removeAll();
-    if (layers.current) layers.current.conflicts.visible = mode.underground;
-    if (!mode.underground) {
-      hideUtilities(view);
-      ground.opacity = 1;
-      ground.navigationConstraint = { type: "stay-above" };
-      // Don't carry the utilities slide's slice into the next stops.
-      view.analyses.removeMany(view.analyses.filter((a) => a.type === "slice"));
-      return;
-    }
-    // Ground stays opaque: the presenter reveals the pipes with the Slice tool
-    // (user, 2026-10-20). Allow the camera below grade for the cut view.
-    ground.opacity = 1;
-    ground.navigationConstraint = { type: "none" };
-    (async () => {
-      if (!conflictsRef.current) conflictsRef.current = await findConflicts(utilitiesRef.current);
-      if (cancelled) return;
-      const found = conflictsRef.current;
-      onConflictsRef.current?.(found);
-      // No 3D conflict flags and no red highlight on the conflicting pipes
-      // (both removed per user, 2026-10-20). The conflicts panel remains.
-    })();
-    return () => {
-      cancelled = true;
-      handles.forEach((h) => h.remove());
-    };
-  }, [view, map, loaded, mode.underground]);
+  }, [map, loaded, mode.layers]);
 
   // A picked Proceed activity on a floor below the top: cut Building 1 away
   // above that floor so the work inside shows (user, 2026-10-21). Postponed,
@@ -639,15 +406,12 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
   useEffect(() => {
     const bim = bimRef.current;
     if (!loaded || !bim) return;
-    const focus = twin.assessments.find((a) => a.activity.id === focusId)?.activity;
-    const focusSubs = new Set(focus?.bimSublayers ?? []);
     const decisionFor = new Map<string, Decision>();
     for (const { activity, decision } of twin.assessments)
       for (const s of activity.bimSublayers ?? []) decisionFor.set(s, decision);
 
-    // Every Building 1 element renders from its install date: the model's own
-    // date, or a DERIVED one by level and trade where the model has none
-    // (lib/bim.ts). The structure therefore rises from the ground up in 4D.
+    // Every Building 1 element renders from its trade's working level on the
+    // date (lib/bim.ts), so the building rises from the ground up in 4D.
     const building = mode.bim === "timeline";
     const design = mode.bim === "design";
     for (const [group, authored] of bim.groups) group.visible = design ? authored : true;
@@ -668,15 +432,11 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
         continue;
       }
       // Sublayers with work in today's plan take its decision colour; the rest
-      // just show what's in place (today's derived work counts as done).
+      // just show what's in place.
       const classFor = (sublayer: string): TodayClass =>
-        decisionFor.has(sublayer)
-          ? todayClass(mode, decisionFor.get(sublayer)!, twin.replanned, focusSubs.has(sublayer), !!focus)
-          : mode.bim === "progress"
-            ? "hidden"
-            : "done";
+        decisionFor.has(sublayer) ? todayClass(mode, decisionFor.get(sublayer)!, twin.replanned) : "done";
       // Split-off parts (core shear walls, curtain-wall doors) take their own
-      // trade's call: a level 8 shear wall goes red with the postponed structure.
+      // trade's call: a curtain-wall door goes red with the postponed glazing.
       const splitKey = splitTrade(name);
       const splitRep = splitKey ? TRADES.find((t) => t.key === splitKey)?.sublayers[0] : undefined;
       const cls = classFor(name);
@@ -685,15 +445,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     for (const sub of bim.hide) {
       sub.renderer = building ? statusRenderer(`return "upcoming";`) : (bim.original.get(sub)?.clone() ?? null);
     }
-
-    // Inside work: make the envelope see-through so the highlighted parts show.
-    const seeThrough = !!focus && focus.type === "interior";
-    bim.layer.allSublayers.forEach((s) => {
-      if (s.type === "building-component" && ENVELOPE.includes(s.modelName ?? "")) {
-        (s as BuildingComponentSublayer).opacity = seeThrough ? 0.15 : 1;
-      }
-    });
-  }, [loaded, mode, focusId, twin.assessments, twin.day, twin.replanned, timelineDay, cutAbove]);
+  }, [loaded, mode, twin.assessments, twin.day, twin.replanned, timelineDay, cutAbove]);
 
   // A layer picked in the progress panel: only that trade's parts draw.
   const onlyKey = onlySublayers?.join(",") ?? "";
@@ -746,8 +498,8 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       const next = new Map<string, Activity["location"]>();
       const targets = JSON.parse(bimTargets) as [string, string, string[]][];
       // Parts stream in after the camera lands, so a first pass can miss some
-      // trades: retry those for up to ~30 s (the app now opens cold on these
-      // stops, so nothing is preloaded by earlier slides).
+      // trades: retry those for up to ~30 s (the app opens cold, so nothing is
+      // preloaded).
       for (let attempt = 0; attempt < 12 && !cancelled; attempt++) {
         if (attempt) await new Promise((r) => setTimeout(r, 2500));
         for (const [id, bimWhere, sublayers] of targets) {
@@ -800,16 +552,16 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
 
   // Activity markers.
   useEffect(() => {
-    const layer = layers.current?.activities;
+    const layer = activitiesRef.current;
     if (!layer) return;
     layer.removeAll();
     if (!mode.markers) return;
     layer.addMany(
       twin.assessments.filter(({ decision }) => !markerFilter || decision === markerFilter).map(({ activity, decision }) => {
         const a = located(activity);
-        const selected = a.id === selectedId || a.id === focusId;
+        const selected = a.id === selectedId;
         // With a pin picked, the rest fade so the picked one stands out (user, 2026-10-20).
-        const faded = !!(selectedId || focusId) && !selected;
+        const faded = !!selectedId && !selected;
         const alpha = faded ? 0.22 : 1;
         const color = hex(DECISION_COLORS[markerStatus(mode, decision, twin.replanned)], alpha);
         return new Graphic({
@@ -852,93 +604,18 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
         });
       }),
     );
-  }, [map, mode, twin.assessments, twin.replanned, selectedId, focusId, placed, markerFilter]);
+  }, [map, mode, twin.assessments, twin.replanned, selectedId, placed, markerFilter]);
 
-  // Scripted storm cell: outer rain shield + core, moving with the clock.
+  // Camera: the view's exact saved camera (absolute position, no terrain
+  // sampling needed) and its saved sun. The first shot jumps.
   useEffect(() => {
-    const layer = layers.current?.storm;
-    if (!layer) return;
-    layer.removeAll();
-    const s = twin.storm;
-    if (!s || !mode.storm) return;
-    const ring = (rx: number, ry: number) =>
-      new Polygon({ rings: [ellipseRing(s.longitude, s.latitude, rx, ry, 90 - s.heading)], spatialReference: { wkid: 4326 } });
-    layer.addMany([
-      new Graphic({
-        geometry: ring(28_000, 16_000),
-        symbol: {
-          type: "polygon-3d",
-          symbolLayers: [{ type: "fill", material: { color: [80, 140, 255, 0.18] }, outline: { color: [120, 170, 255, 0.6], size: 1.5 } }],
-        },
-      }),
-      new Graphic({
-        geometry: ring(9_000, 5_000),
-        symbol: {
-          type: "polygon-3d",
-          symbolLayers: [{ type: "fill", material: { color: [255, 80, 120, 0.3] }, outline: { color: [255, 120, 150, 0.9], size: 2 } }],
-        },
-      }),
-    ]);
-  }, [map, twin.storm, mode.storm]);
-
-  // Sun follows the clock; scene weather follows conditions (only once the storm is in the story).
-  useEffect(() => {
-    // Authored slides bring their own lighting and weather: don't override
-    // them (the sun used to jump to the app's clock on every slide).
-    if (!view || !applyLayers) return;
+    if (!view) return;
+    const v = SLIDE_VIEWS[camera.preset];
     const lighting = view.environment.lighting;
-    // The slide views keep their saved sun; other stops follow the clock.
-    if (lighting instanceof SunLighting) lighting.date = isSlideView(camera.preset) ? new Date(SLIDE_VIEWS[camera.preset].sun) : twin.clock;
-    const w = twin.now;
-    if (!w || !mode.storm) {
-      view.environment.weather = new SunnyWeather({ cloudCover: 0.2 });
-    } else if (w.precipitation >= 1) {
-      view.environment.weather = new RainyWeather({
-        cloudCover: Math.min(1, 0.6 + w.precipitation / 50),
-        precipitation: Math.min(1, w.precipitation / 20),
-      });
-    } else if (w.windSpeed >= 8 || w.precipitation > 0) {
-      view.environment.weather = new CloudyWeather({ cloudCover: 0.7 });
-    } else {
-      view.environment.weather = new SunnyWeather({ cloudCover: 0.2 });
-    }
-  }, [view, twin.clock, twin.now, mode.storm, applyLayers, camera.preset]);
-
-  // Camera: presets, or the beat's focus activity. Targets are terrain-sampled
-  // (a missing z means sea level, ~1,600 m under Denver). The first shot jumps.
-  useEffect(() => {
-    if (!view || camera.preset === "none") return;
-    const animation = camera.key === 0 ? { animate: false } : { duration: 2500 };
-    if (isSlideView(camera.preset)) {
-      // An exact saved camera: absolute position, no terrain sampling needed.
-      const v = SLIDE_VIEWS[camera.preset];
-      view
-        .goTo(new Camera({ position: new Point({ ...v.position, spatialReference: { wkid: 102100 } }), heading: v.heading, tilt: v.tilt }), animation)
-        .catch(() => undefined);
-      return;
-    }
-    let shot: Shot | undefined;
-    if (camera.preset === "focus") {
-      const a = twin.assessments.find((x) => x.activity.id === focusId)?.activity;
-      shot = a ? shotFor(located(a)) : SHOTS.building;
-    } else if (camera.preset === "storm" && twin.storm) {
-      // Frame the site and wherever the storm is right now, looking toward it.
-      const st = twin.storm;
-      const km = Math.max(20, Math.abs(st.distanceKm));
-      shot = { at: mid(SITE, st), scale: km * 1000 * 4.5, tilt: 52, heading: (st.heading + 180) % 360 };
-    } else shot = SHOTS[camera.preset];
-    const s = shot;
-    let cancelled = false;
-    onGround(view, s.at.longitude, s.at.latitude, s.above ?? 0).then((target) => {
-      if (cancelled) return;
-      view
-        .goTo({ target, scale: s.scale, tilt: s.tilt, heading: s.heading }, animation)
-        .catch(() => undefined);
-    });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (lighting instanceof SunLighting) lighting.date = new Date(v.sun);
+    view
+      .goTo(new Camera({ position: new Point({ ...v.position, spatialReference: { wkid: 102100 } }), heading: v.heading, tilt: v.tilt }), camera.key === 0 ? { animate: false } : { duration: 2500 })
+      .catch(() => undefined);
   }, [view, camera]);
 
   // Fly to an activity picked in the panel or on the map: the same close,
@@ -993,7 +670,7 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       const lookTilt = (Math.atan2(radius, height) * 180) / Math.PI; // 0 = down, 90 = level
       // Aim offset so the target lands mid-way in the padded (visible) area,
       // not mid-screen (the panel covers the left). Start from EXACTLY the
-      // current camera (the slide's view already frames the building), so the
+      // current camera (the view's saved camera already frames the building), so the
       // first orbit frame doesn't move; then each frame measure where the target
       // lands and drift the aim gently toward the visible centre. (A computed
       // first guess overshot: the camera panned left, then swung back; user,
@@ -1058,20 +735,10 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
     const measure = () => {
       const rect = (sel: string) => document.querySelector(sel)?.getBoundingClientRect();
       const left = rect(".panel-left");
-      const right = rect(".panel-right");
       const top = rect(".topbar");
-      const presenter = rect(".presenter");
       const gap = 12;
-      const padding = {
-        left: left ? left.right + gap : 0,
-        right: right ? window.innerWidth - right.left + gap : 0,
-        top: top ? top.bottom + gap : 0,
-        // Keep camera targets above the presenter card.
-        bottom: presenter ? window.innerHeight - presenter.top + gap : 0,
-      };
-      // Authored slides were framed full-screen in Scene Viewer: padding would
-      // shift that framing (and re-centre mid-flight as panels come and go).
-      view.padding = applyLayers ? padding : { left: 0, right: 0, top: 0, bottom: 0 };
+      const padding = { left: left ? left.right + gap : 0, right: 0, top: top ? top.bottom + gap : 0, bottom: 0 };
+      view.padding = padding;
       // Slotted components (the expands) ignore view.padding; offset via CSS.
       const scene = document.querySelector<HTMLElement>(".scene");
       scene?.style.setProperty("--ui-left", `${padding.left}px`);
@@ -1104,9 +771,6 @@ export default function SceneCanvas({ twin, mode, focusId, selectedId, onSelect,
       </ArcgisExpand>
       <ArcgisExpand slot="top-left" group="scene-tools" expandIcon="organization" expandTooltip="Building Explorer">
         <ArcgisBuildingExplorer ref={explorerRef} />
-      </ArcgisExpand>
-      <ArcgisExpand slot="top-left" group="scene-tools" expandIcon="slice" expandTooltip="Slice">
-        <ArcgisSlice ref={sliceRef} />
       </ArcgisExpand>
     </ArcgisScene>
   );

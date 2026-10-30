@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activitiesOnDay, assessActivity, weatherAt } from "./rules";
+import { activitiesOnDay, assessActivity } from "./rules";
 import type { Activity, Threshold, WeatherHour } from "./types";
 
 const day = new Date(2026, 9, 20);
@@ -76,10 +76,5 @@ describe("helpers", () => {
   it("activitiesOnDay keeps overlapping activities only", () => {
     const tomorrow = { ...activity(0, 1), start: new Date(2026, 9, 21, 7), end: new Date(2026, 9, 21, 9) };
     expect(activitiesOnDay([activity(7, 9), tomorrow], day)).toHaveLength(1);
-  });
-
-  it("weatherAt returns the containing hour", () => {
-    const w = Array.from({ length: 24 }, (_, h) => hour(h, { windSpeed: h }));
-    expect(weatherAt(w, new Date(2026, 9, 20, 14, 30))?.windSpeed).toBe(14);
   });
 });

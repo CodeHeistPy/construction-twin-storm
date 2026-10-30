@@ -3,23 +3,20 @@ import { useEffect } from "react";
 export interface TourStop {
   id: string;
   title: string;
-  thumbnail?: string;
 }
 
 interface Props {
   stops: TourStop[];
   index: number;
   onGo: (i: number) => void;
-  /** Authored slides vs built-in fallback. */
-  source: "slides" | "built-in";
 }
 
 /**
- * The web scene's slides as a slim bar: ‹ title › plus a dot per slide (click
- * to jump, hover for the title). Arrow keys and clicker PageUp/PageDown step.
- * Kept small on purpose (user, 2026-10-20): the scene is the show.
+ * The views as a slim bar: ‹ title › plus a dot per view (click to jump, hover
+ * for the title). Arrow keys and clicker PageUp/PageDown step. Kept small on
+ * purpose (user, 2026-10-20): the scene is the show.
  */
-export default function TourStrip({ stops, index, onGo, source }: Props) {
+export default function TourStrip({ stops, index, onGo }: Props) {
   const last = stops.length - 1;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -36,7 +33,7 @@ export default function TourStrip({ stops, index, onGo, source }: Props) {
   if (!stops.length) return null;
   const current = stops[index];
   return (
-    <nav className="tour-bar" aria-label="Slides" data-source={source}>
+    <nav className="tour-bar" aria-label="Views">
       <button type="button" className="step" onClick={() => onGo(Math.max(0, index - 1))} disabled={index <= 0} aria-label="Previous slide">
         ‹
       </button>

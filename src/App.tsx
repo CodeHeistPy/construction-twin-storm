@@ -1,65 +1,26 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type SceneView from "@arcgis/core/views/SceneView";
 import * as reactiveUtils from "@arcgis/core/core/reactiveUtils";
 import type WebScene from "@arcgis/core/WebScene";
-import type Slide from "@arcgis/core/webscene/Slide";
-import { ALWAYS_HIDDEN, APP_STOPS, PLAIN, ruleFor, STOP_RULES, type CameraPreset, type StopBehaviour, type StopRule } from "./config/tour";
+import { ALWAYS_HIDDEN, PLAIN, STOP_RULES, type StopBehaviour } from "./config/tour";
 import { presenterToday, SITE } from "./config/site";
 import BuildTimeline from "./components/BuildTimeline";
-import ConditionsPanel from "./components/ConditionsPanel";
-import ConflictsPanel from "./components/ConflictsPanel";
-import OutcomeCard from "./components/OutcomeCard";
 import ProgressPanel from "./components/ProgressPanel";
-import SceneCanvas, { hideUtilities, restoreAppLayers, type CameraRequest } from "./components/SceneCanvas";
+import SceneCanvas, { type CameraRequest } from "./components/SceneCanvas";
 import SchedulePanel from "./components/SchedulePanel";
-import TourStrip, { type TourStop } from "./components/TourStrip";
+import TourStrip from "./components/TourStrip";
 import WeatherAlert from "./components/WeatherAlert";
-import type { Conflict } from "./lib/utilities";
 import type { Decision } from "./domain/types";
 import { useTwin } from "./state/useTwin";
 import { buildStart, TRADES } from "./lib/bim";
 
-/** Clock hour of the weather stop, for the outcome card's "hours of warning". */
-const ALERT_HOUR = STOP_RULES.find((r) => r.behaviour.alert || r.behaviour.alertButton)?.behaviour.hour ?? 9;
-
-interface Entry {
-  stop: TourStop;
-  rule?: StopRule;
-  /** Present when the stop is an authored web scene slide. */
-  slide?: Slide;
-}
-
-/**
- * Authored slides, plus a camera-less stop for each `insertIfMissing` rule no
- * slide covers, placed after the last slide of an earlier storyline rule
- * (e.g. "What could change it" lands after "Construction Schedule").
- */
-function withInserted(authored: Entry[]): Entry[] {
-  const out = [...authored];
-  const covered = new Set(authored.map((e) => e.rule?.key));
-  STOP_RULES.forEach((rule, ruleIndex) => {
-    if (!rule.insertIfMissing || covered.has(rule.key)) return;
-    const earlier = new Set(STOP_RULES.slice(0, ruleIndex).map((r) => r.key));
-    let at = 0;
-    out.forEach((e, i) => {
-      if (e.rule && earlier.has(e.rule.key)) at = i + 1;
-    });
-    out.splice(at, 0, { stop: { id: rule.key, title: rule.builtIn.title }, rule });
-  });
-  return out;
-}
+const STOPS = STOP_RULES.map((r) => ({ id: r.key, title: r.title }));
 
 export default function App() {
   const twin = useTwin();
   const [view, setView] = useState<SceneView | null>(null);
-  const [entries, setEntries] = useState<Entry[]>([]);
   const [index, setIndex] = useState(-1);
   const [behaviour, setBehaviour] = useState<StopBehaviour>(PLAIN);
-  // What the 3D scene shows. Applied only once a slide's camera has landed, so
-  // re-rendering the building / pipes / markers never stutters the flight.
-  const [sceneMode, setSceneMode] = useState(PLAIN.scene);
-  const goToken = useRef(0);
-  const [applyLayers, setApplyLayers] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [camera, setCamera] = useState<CameraRequest>({ preset: "schedule", key: 0 });
   const [showAlert, setShowAlert] = useState(false);
@@ -68,7 +29,6 @@ export default function App() {
   // The app opens on the build-out: start at the ground, so the wait for the
   // scene to load shows an empty site, not the finished state.
   const [timelineDay, setTimelineDay] = useState<Date>(() => buildStart());
-  const [conflicts, setConflicts] = useState<Conflict[] | null>(null);
   const [building, setBuilding] = useState(false);
   // Bumped by the progress panel's Reset: remounts the build-out, which then
   // replays from the ground up to Today.
@@ -81,7 +41,7 @@ export default function App() {
   const [decisionFilter, setDecisionFilter] = useState<Decision | null>(null);
   // The scene has streamed in since the stop changed (or 20 s passed). The 4D
   // and its orbit wait for this: a camera move every frame starves the first
-  // download, and the app now OPENS on the build-out (nothing is preloaded).
+  // download, and the app OPENS on the build-out (nothing is preloaded).
   const [settled, setSettled] = useState(false);
   useEffect(() => {
     if (!view) return;
@@ -100,123 +60,48 @@ export default function App() {
     };
   }, [view, index]);
 
-  // Stops = the web scene's slides, matched to behaviours by title. If none
-  // of the authored slides match yet, fall back to the built-in storyline.
-  useEffect(() => {
-    if (!view?.map) return;
-    let cancelled = false;
-    (view.map as WebScene)
-      .when()
-      .then((scene: WebScene) => {
-        if (cancelled) return;
-        // Only the slides for this app's stops (APP_STOPS), in the scene's order.
-        const authored: Entry[] = (scene.presentation?.slides?.toArray() ?? [])
-          .map((slide) => ({
-            stop: { id: slide.id, title: slide.title?.text ?? "Slide", thumbnail: slide.thumbnail?.url ?? undefined },
-            rule: ruleFor(slide.title?.text ?? ""),
-            slide,
-          }))
-          .filter((e) => e.rule && APP_STOPS.includes(e.rule.key));
-        // The two views are built into the app (tour.ts SlideView), so the
-        // scene's own slides are only used when asked for with ?stops=slides.
-        const useAuthored = new URLSearchParams(location.search).get("stops") === "slides" && authored.length > 0;
-        setEntries(
-          useAuthored
-            ? withInserted(authored)
-            : STOP_RULES.filter((rule) => APP_STOPS.includes(rule.key)).map((rule) => ({ stop: { id: rule.key, title: rule.builtIn.title }, rule })),
-        );
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [view]);
-
-  const fly = useCallback((preset: CameraPreset | "focus" | "none") => setCamera((c) => ({ preset, key: c.key + 1 })), []);
-
   const go = useCallback(
     (i: number) => {
-      const e = entries[i];
-      if (!e || !view) return;
-      const b = e.rule?.behaviour ?? PLAIN;
+      const rule = STOP_RULES[i];
+      if (!rule || !view) return;
+      const b = rule.behaviour;
       setIndex(i);
       setBehaviour(b);
       setSelectedId(null);
       setDecisionFilter(null);
       setLayerFilter(null);
-      setShowAlert(!!b.alert);
+      setShowAlert(false);
       setWeatherShown(false);
-      if (b.hour !== undefined) twin.setHour(b.hour);
       if (b.replan !== undefined) twin.setReplanned(b.replan);
       // The build-out starts at the ground; the Completed Building view plays on from today.
       setTimelineDay(b.scene.bim === "timeline" ? (b.completion ? today : buildStart()) : twin.day);
-      const token = ++goToken.current;
-      // Overlays the next stop doesn't have go NOW (at take-off); new ones
-      // arrive when the camera lands. Otherwise the utilities stop's flags and
-      // pipes linger through the flight to the next slide.
-      setSceneMode((prev) => ({
-        ...prev,
-        underground: prev.underground && b.scene.underground,
-        markers: prev.markers && b.scene.markers,
-        storm: prev.storm && b.scene.storm,
-      }));
-      const keepUtilitiesOff = () => {
-        if (!b.scene.underground) hideUtilities(view);
-      };
-      if (e.slide) {
-        // The slide owns camera, layers, ground and lighting, and flies at the
-        // SDK's own adaptive pace (as in Scene Viewer). We re-show our overlays
-        // and apply our scene changes once it lands.
-        setApplyLayers(false);
-        restoreAppLayers(view);
-        // A deliberate glide (the default is near-instant for short hops).
-        const flight = e.slide.applyTo(view, { speedFactor: 0.45, maxDuration: 4500 });
-        keepUtilitiesOff(); // the slide turns its layers on at take-off
-        flight
-          .then(() => {
-            restoreAppLayers(view);
-            keepUtilitiesOff();
-            if (goToken.current === token) setSceneMode(b.scene);
-          })
-          .catch(() => {
-            // Interrupted by the next click: that stop takes over.
-            if (goToken.current === token) setSceneMode(b.scene);
-          });
-      } else if (e.rule) {
-        // A camera-less stop (weather) leaves the previous slide's layers alone too.
-        setApplyLayers(e.rule.builtIn.camera !== "none");
-        keepUtilitiesOff();
-        setSceneMode(b.scene);
-        fly(e.rule.builtIn.camera);
-      }
+      setCamera((c) => ({ preset: rule.camera, key: c.key + 1 }));
     },
-    [entries, view, twin, fly],
+    [view, twin, today],
   );
 
-  // Open on the first stop once the tour is known.
+  // Open on the first view once the web scene has loaded.
   useEffect(() => {
-    if (entries.length && index === -1) go(0);
-  }, [entries, index, go]);
+    if (!view?.map || index !== -1) return;
+    let cancelled = false;
+    (view.map as WebScene)
+      .when()
+      .then(() => !cancelled && go(0))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [view, index, go]);
 
-  // The activity a stop is about.
   // Before the weather is revealed (alertButton stops), the stop shows the plain
   // schedule: every activity listed, building and pins in "scheduled" colours.
   const decided = !behaviour.alertButton || weatherShown;
   const shownMode = useMemo(
-    () => (decided || sceneMode.bim !== "decision" ? sceneMode : { ...sceneMode, bim: "scheduled" as const }),
-    [sceneMode, decided],
+    () => (decided || behaviour.scene.bim !== "decision" ? behaviour.scene : { ...behaviour.scene, bim: "scheduled" as const }),
+    [behaviour, decided],
   );
 
-  const focusId = useMemo(() => {
-    const f = behaviour.scene.focus;
-    if (!f) return null;
-    const bim = twin.assessments.filter((a) => a.activity.source === "bim");
-    const pick = f === "postponed" ? bim.find((a) => a.decision === "postpone") : bim.find((a) => a.decision !== "postpone");
-    return pick?.activity.id ?? null;
-  }, [behaviour, twin.assessments]);
-
-  // The 4D build-out starts once the schedule slide has landed.
-  const timeline = sceneMode.bim === "timeline";
+  const timeline = behaviour.scene.bim === "timeline";
 
   return (
     <div className="app">
@@ -225,23 +110,19 @@ export default function App() {
         onlySublayers={layerFilter ? (TRADES.find((t) => t.label === layerFilter)?.sublayers ?? null) : null}
         twin={twin}
         mode={shownMode}
-        focusId={focusId}
         selectedId={selectedId}
         onSelect={setSelectedId}
         camera={camera}
-        applyLayers={applyLayers}
         timelineDay={timelineDay}
         onView={setView}
-        onConflicts={setConflicts}
         orbit={building && timeline}
-        allowUtilities={behaviour.scene.underground}
         // The finished tower is ~67 m: circle its mid-height on the completion view.
         orbitTargetAbove={behaviour.completion ? 33 : undefined}
         // Buildings 2-4 off in all three views: Building 1 alone, from build-out
         // to completion (user, 2026-10-20 and 2026-10-22; the completed park is a
         // separate scene).
-        isolateBuilding={behaviour.scene.bim === "timeline" || behaviour.scene.bim === "decision"}
-        hideSublayers={[...ALWAYS_HIDDEN, ...(behaviour.hideSublayers ?? [])]}
+        isolateBuilding={index >= 0}
+        hideSublayers={ALWAYS_HIDDEN}
       />
 
       <header className="topbar">
@@ -265,11 +146,9 @@ export default function App() {
         )}
       </header>
 
-      {behaviour.left === "conflicts" && <ConflictsPanel conflicts={conflicts} />}
       {behaviour.left === "progress" && (
         <ProgressPanel
           twin={twin}
-          endOfDay={!!behaviour.outcome}
           asOf={timeline ? timelineDay : undefined}
           today={today}
           onReset={timeline ? () => setReplay((n) => n + 1) : undefined}
@@ -284,7 +163,6 @@ export default function App() {
           selectedId={selectedId}
           onSelect={setSelectedId}
           decisions={behaviour.decisions !== false && decided}
-          focusId={focusId}
           filter={decisionFilter}
           onFilter={(d) => {
             setDecisionFilter(d);
@@ -292,7 +170,6 @@ export default function App() {
           }}
         />
       )}
-      {behaviour.conditions && <ConditionsPanel twin={twin} />}
 
       <div className="bottom">
         {timeline && settled && (
@@ -305,16 +182,10 @@ export default function App() {
             toFinish={!!behaviour.completion}
           />
         )}
-        <TourStrip
-          stops={entries.map((e) => e.stop)}
-          index={index}
-          onGo={go}
-          source={entries.some((e) => e.slide) ? "slides" : "built-in"}
-        />
+        <TourStrip stops={STOPS} index={index} onGo={go} />
       </div>
 
       {showAlert && <WeatherAlert twin={twin} onClose={() => setShowAlert(false)} />}
-      {behaviour.outcome && <OutcomeCard twin={twin} alertHour={ALERT_HOUR} />}
     </div>
   );
 }

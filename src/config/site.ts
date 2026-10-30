@@ -3,8 +3,8 @@
 // real scene can be swapped in without code changes.
 //
 // Site confirmed by the user 2026-10-16: Office Park, Denver, at
-// -104.991665, 39.699590. Scene: "Denver Office Park" 61a325c2… (arcaec org,
-// public since 2026-10-16; replaced 7b4a2a02…).
+// -104.991665, 39.699590. Scene: the public copy fe60b2cf… of "Denver Office
+// Park" (arcaec org; see WEBSCENE_ID).
 // =============================================================================
 
 import { todayIn, zonedMidnight } from "../lib/time";
@@ -35,21 +35,15 @@ export const WEBSCENE_ID = env.VITE_WEBSCENE_ID?.trim() || "fe60b2cfed534542a82d
 export const PORTAL_URL = env.VITE_PORTAL_URL?.trim() || "https://arcaec.maps.arcgis.com";
 
 /**
- * ⚠️ PROVISIONAL demo "today", pending the user's pick. The BIM install dates
- * run Mar–Oct 2026, so the real date would show a finished building. May 11
- * mixes exterior work (32 curtain wall panels, 100 mullions) with interior work
- * (doors, lighting), which gives the storm something to postpone and something
- * to leave alone.
+ * The model's storm day (settled with the user). The build-out is timed from
+ * it (lib/bim.ts TODAY_STEP) and every date on screen is display-shifted
+ * (displayDate), so the build-out ends on the real current date.
  */
 export const DEFAULT_DEMO_DATE = "2026-05-11";
 
-/**
- * The "today" of the demo (YYYY-MM-DD via VITE_DEMO_DATE, else the default).
- * VITE_DEMO_DATE=today uses the real date (needed for live-forecast mode).
- */
+/** The storm day of the demo (YYYY-MM-DD via VITE_DEMO_DATE, else the default). */
 export function demoDay(): Date {
-  const raw = env.VITE_DEMO_DATE?.trim() || DEFAULT_DEMO_DATE;
-  const [y, m, d] = raw === "today" ? todayIn(SITE.timeZone) : raw.split("-").map(Number);
+  const [y, m, d] = (env.VITE_DEMO_DATE?.trim() || DEFAULT_DEMO_DATE).split("-").map(Number);
   return zonedMidnight(y, m, d, SITE.timeZone);
 }
 

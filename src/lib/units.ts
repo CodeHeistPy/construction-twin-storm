@@ -9,12 +9,6 @@ export const fmtWind = (ms: number) =>
 export const fmtPrecip = (mmh: number) =>
   imperial ? `${(mmh / 25.4).toFixed(2)} in/h` : `${mmh.toFixed(1)} mm/h`;
 
-export const fmtTemp = (c: number) =>
-  imperial ? `${Math.round((c * 9) / 5 + 32)}°F` : `${Math.round(c)}°C`;
-
-export const fmtDistance = (km: number) =>
-  imperial ? `${(Math.abs(km) * 0.621371).toFixed(0)} mi` : `${Math.abs(km).toFixed(0)} km`;
-
 export const fmtTime = (d: Date) =>
   d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: SITE.timeZone });
 

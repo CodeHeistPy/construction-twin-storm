@@ -80,15 +80,3 @@ export function activitiesOnDay(activities: Activity[], day: Date): Activity[] {
   const d1 = new Date(day.getTime() + 24 * 3_600_000);
   return activities.filter((a) => a.start < d1 && a.end > day);
 }
-
-/** The weather hour containing `time` (or the nearest one). */
-export function weatherAt(weather: WeatherHour[], time: Date): WeatherHour | undefined {
-  if (!weather.length) return undefined;
-  const t = time.getTime();
-  let best = weather[0];
-  for (const h of weather) {
-    if (h.time.getTime() <= t) best = h;
-    else break;
-  }
-  return best;
-}

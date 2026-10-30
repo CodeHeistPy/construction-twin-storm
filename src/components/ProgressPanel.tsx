@@ -31,8 +31,6 @@ function phaseAt(day: Date): string {
 
 interface Props {
   twin: Twin;
-  /** With `endOfDay`, today's work that ran counts as installed and moved work doesn't. */
-  endOfDay?: boolean;
   /** During the 4D build-out the panel follows the timeline date. */
   asOf?: Date;
   /** Restart the build-out from the ground. */
@@ -52,7 +50,7 @@ interface Props {
  * % complete ring with the current phase, three stat tiles, then one coloured
  * bar per construction layer. Days, never calendar dates.
  */
-export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, today = twin.day, layerFilter = null, onLayerFilter, showFinish = false }: Props) {
+export default function ProgressPanel({ twin, asOf, onReset, today = twin.day, layerFilter = null, onLayerFilter, showFinish = false }: Props) {
   const when = asOf ?? today;
   const p = useMemo(() => progressAsOf(when), [when]);
   // The layers shown, and the totals over just those, so the ring matches the list.
@@ -70,12 +68,7 @@ export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, t
   const elapsed = Math.max(0, Math.round((when.getTime() - start.getTime()) / DAY));
   const remaining = Math.max(0, Math.round((finish.getTime() - when.getTime()) / DAY));
 
-  // Parts that actually went in today = today's BIM work that wasn't postponed.
-  const ranToday = twin.assessments
-    .filter((a) => a.activity.source === "bim" && a.decision !== "postpone")
-    .reduce((n, a) => n + (a.activity.components ?? 0), 0);
-  const installed = shownInstalled + (endOfDay ? ranToday : 0);
-  const complete = pct(installed, shownTotal);
+  const complete = pct(shownInstalled, shownTotal);
   const level = Math.max(0, Math.min(MAX_LEVEL, levelAt(when)));
   const phase = phaseAt(when);
   // Once the frame is up, the floor the fit-out (interior walls) has reached.

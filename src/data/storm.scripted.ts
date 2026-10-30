@@ -1,6 +1,4 @@
-import { SITE } from "../config/site";
 import type { WeatherHour } from "../domain/types";
-import { offsetMeters } from "../lib/geo";
 import { atHour } from "../lib/time";
 
 // =============================================================================
@@ -57,20 +55,4 @@ export function scriptedWeather(day: Date): WeatherHour[] {
       temperature,
     }),
   );
-}
-
-/** Storm cell centre at a time: approaches from the SW, passes over ~15:00. */
-export function stormCellAt(day: Date, time: Date) {
-  const PEAK_HOUR = 15;
-  const SPEED_MS = 9; // ground speed of the cell, m/s
-  const hoursFromPeak = (time.getTime() - day.getTime()) / 3_600_000 - PEAK_HOUR;
-  const dist = hoursFromPeak * 3600 * SPEED_MS; // negative = still approaching
-  const heading = 45; // moving toward NE
-  const rad = (heading * Math.PI) / 180;
-  return {
-    ...offsetMeters(SITE.longitude, SITE.latitude, Math.sin(rad) * dist, Math.cos(rad) * dist),
-    heading,
-    /** km from site, signed: <0 approaching. */
-    distanceKm: dist / 1000,
-  };
 }
