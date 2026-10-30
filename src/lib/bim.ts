@@ -64,16 +64,20 @@ interface Trade {
   sublayers: string[];
 }
 
-/** ⚠️ ASSUMPTION: trade order and lags are a standard high-rise sequence. */
+/**
+ * Trade order on each floor (user, 2026-10-30): the framing first, then the
+ * interior, then the exterior glass; specialties and furniture last. Listed
+ * in that order (the progress panel follows it).
+ */
 export const TRADES: Trade[] = [
   { key: "structure", label: "Structure", work: "structural frame", type: "steel-erection", crew: "Ironworkers", lag: 0, sublayers: ["StructuralColumns", "Floors", "Stairs", "Roofs"] },
-  { key: "envelope", label: "Curtain wall", work: "curtain wall", type: "curtain-wall", crew: "Glazing", lag: 2, sublayers: ["CurtainWallPanels", "CurtainWallMullions"] },
-  { key: "walls", label: "Interior walls", work: "interior walls and stair railings", type: "interior", crew: "Masonry / drywall", lag: 3, sublayers: ["Walls", "StairsRailing"] },
-  { key: "finishes", label: "Doors & ceilings", work: "doors and ceilings", type: "interior", crew: "Carpentry / ceilings", lag: 4, sublayers: ["Doors", "Ceilings"] },
-  { key: "mep", label: "MEP fixtures", work: "lighting and plumbing fixtures", type: "interior", crew: "MEP", lag: 5, sublayers: ["LightingFixtures", "PlumbingFixtures"] },
+  { key: "walls", label: "Interior walls", work: "interior walls and stair railings", type: "interior", crew: "Masonry / drywall", lag: 1, sublayers: ["Walls", "StairsRailing"] },
+  { key: "finishes", label: "Doors & ceilings", work: "doors and ceilings", type: "interior", crew: "Carpentry / ceilings", lag: 2, sublayers: ["Doors", "Ceilings"] },
+  { key: "mep", label: "MEP fixtures", work: "lighting and plumbing fixtures", type: "interior", crew: "MEP", lag: 3, sublayers: ["LightingFixtures", "PlumbingFixtures"] },
+  { key: "envelope", label: "Curtain wall", work: "curtain wall", type: "curtain-wall", crew: "Glazing", lag: 4, sublayers: ["CurtainWallPanels", "CurtainWallMullions"] },
   // FireProtection in this model is 99 fire-extinguisher cabinets: a late specialty, not sprinkler work.
-  { key: "specialty", label: "Specialty & casework", work: "specialties, casework and fire-extinguisher cabinets", type: "interior", crew: "Millwork / specialties", lag: 6, sublayers: ["SpecialtyEquipment", "Casework", "FireProtection"] },
-  { key: "furniture", label: "Furniture", work: "furniture", type: "interior", crew: "FF&E", lag: 7, sublayers: ["Furniture", "FurnitureSystems"] },
+  { key: "specialty", label: "Specialty & casework", work: "specialties, casework and fire-extinguisher cabinets", type: "interior", crew: "Millwork / specialties", lag: 5, sublayers: ["SpecialtyEquipment", "Casework", "FireProtection"] },
+  { key: "furniture", label: "Furniture", work: "furniture", type: "interior", crew: "FF&E", lag: 6, sublayers: ["Furniture", "FurnitureSystems"] },
 ];
 
 const tradeOf = new Map(TRADES.flatMap((t) => t.sublayers.map((s) => [s, t] as const)));

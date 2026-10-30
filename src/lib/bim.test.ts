@@ -15,20 +15,20 @@ describe("level-driven schedule", () => {
   });
 
   it("puts each trade the right number of levels behind the structure", () => {
-    expect(workingLevel("envelope", today)).toBe(6);
-    expect(workingLevel("walls", today)).toBe(5);
-    expect(workingLevel("finishes", today)).toBe(4);
-    expect(workingLevel("mep", today)).toBe(3);
-    expect(workingLevel("specialty", today)).toBe(2);
-    expect(workingLevel("furniture", today)).toBe(1);
+    expect(workingLevel("walls", today)).toBe(7);
+    expect(workingLevel("finishes", today)).toBe(6);
+    expect(workingLevel("mep", today)).toBe(5);
+    expect(workingLevel("envelope", today)).toBe(4);
+    expect(workingLevel("specialty", today)).toBe(3);
+    expect(workingLevel("furniture", today)).toBe(2);
   });
 
-  it("follows the real-world order: frame, envelope, walls, ceilings, fixtures, specialties, furniture", () => {
-    const order = ["structure", "envelope", "walls", "finishes", "mep", "specialty", "furniture"];
+  it("follows the user's order: framing, interior, then the exterior glass, then specialties and furniture", () => {
+    const order = ["structure", "walls", "finishes", "mep", "envelope", "specialty", "furniture"];
     const lags = order.map((k) => TRADES.find((t) => t.key === k)!.lag);
     for (let i = 1; i < lags.length; i++) expect(lags[i]).toBeGreaterThan(lags[i - 1]);
-    // Interior work only on floors the curtain wall has already dried in.
-    expect(TRADES.find((t) => t.key === "walls")!.lag).toBeGreaterThan(TRADES.find((t) => t.key === "envelope")!.lag);
+    // The progress panel lists the trades in the same order.
+    expect(TRADES.map((t) => t.key)).toEqual(order);
   });
 
   it("counts every part once after the type splits (shear walls, curtain-wall doors)", () => {
@@ -93,7 +93,7 @@ describe("today's work", () => {
       expect(level).toBeLessThanOrEqual(TODAY_LEVEL);
       expect(a.name).toContain(`level ${level}`);
     }
-    expect(acts.find((a) => a.type === "curtain-wall")?.name).toContain("level 6");
+    expect(acts.find((a) => a.type === "curtain-wall")?.name).toContain("level 4");
   });
 
   it("counts progress below each trade's working level", () => {

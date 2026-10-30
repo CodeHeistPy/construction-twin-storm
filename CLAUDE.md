@@ -48,7 +48,7 @@ tomorrow". Schedule Adjustment has no conditions panel; its Postponed / Proceed
 tiles filter the list and map markers. It OPENS on the plain schedule (all 14,
 "scheduled" colours); the topbar "Weather alert" button (replaces Notify crews,
 `alertButton`) shows the alert and switches to postpone / proceed. The alert
-names tomorrow's real date (`displayDate`). 6 postponed / 7 proceed (S-02 delivery
+names tomorrow's real date (`displayDate`). 6 postponed / 8 proceed since 2026-10-30 (S-02 delivery
 moved to 7-10 AM, user). Both views: 3D mesh on, ortho off, the
 Topographic 3D basemap with its 3D Buildings on and Trees off, Buildings 2-4 hidden.
 **Completed Building (user, 2026-10-21):** a third stop after Schedule Adjustment
@@ -108,14 +108,16 @@ overshot and panned left then back (user, 2026-10-22).
 4D is LEVEL-DRIVEN (user, 2026-10-20: "keep building level in mind ...
 everything going up to only level 8"). `lib/bim.ts` TRADES: the structure rises
 a level at a time and is on **level 8 today** (demo day); each trade follows a
-fixed number of levels behind, in REAL-WORLD order (user, 2026-10-21): structure +
-core shear walls 0, curtain wall + curtain-wall doors 2 (dries the floor in), interior
-walls 3, doors/ceilings 4, MEP fixtures (lights, plumbing) 5, specialties/casework/
-fire-extinguisher cabinets 6 (FireProtection is 99 extinguisher cabinets), furniture 7.
+fixed number of levels behind, in the USER'S order (2026-10-30: "the framing would be
+completed first, then the interior and then the exterior glass"; floor by floor): structure +
+core shear walls 0, interior walls 1, doors/ceilings 2, MEP fixtures (lights, plumbing) 3,
+curtain wall + curtain-wall doors 4, specialties/casework/fire-extinguisher cabinets 5
+(FireProtection is 99 extinguisher cabinets), furniture 6. TRADES is listed in that order
+(the panel follows it). Before 2026-10-30 the glass went 2nd (lag 2).
 Shear walls and curtain-wall doors are split off their sublayer by Type
 (`TYPE_SPLITS`, counts from scripts/extract-type-splits.mjs -> data/type-splits.json).
-Panel hides Specialty & casework and Furniture. Today: 13 activities, 6 postponed / 7
-proceed (no furniture on level 1, so no furniture activity). Nothing above level 8
+Panel hides Specialty & casework and Furniture. Today: 14 activities, 6 postponed / 8
+proceed (furniture on level 2). Sample S-05 sealant is levels 1-3, behind the glazing. Nothing above level 8
 today; stairs go in one level behind the structure (`SUBLAYER_LAG`, user: a flight on
 the top level stood floating over the slab). The model's Installation_Date values are NOT used for sequencing (they
 don't follow the levels); counts per level come from the BldgLevel statistics.
@@ -126,7 +128,7 @@ vs. floor slab heights) into `src/data/curtain-wall-storeys.json` (OBJECTID_1
 runs; the renderer binary-searches them in Arcade). Re-measure if the model is
 republished. `InstanceElev`/`BldgLevel_Elev` give the wall's base, not the panel's.
 Today's BIM activities = each trade on its working level (bimWhere
-`BldgLevel = n`); today's curtain wall is level 6.
+`BldgLevel = n`); today's curtain wall is level 4.
 Pacing: see "4D pace" above; gentle orbit (faster starves redraws; one renderer
 step takes ~0.45 s to settle).
 Every block must tie to an outcome (user: "keep me honest").
