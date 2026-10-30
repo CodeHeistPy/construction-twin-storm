@@ -3,33 +3,32 @@ import curtainWallStoreys from "../data/curtain-wall-storeys.json";
 import typeSplits from "../data/type-splits.json";
 import { SITE, demoDay } from "../config/site";
 import type { Activity, ActivityType, Decision } from "../domain/types";
-import { atHour, zonedMidnight } from "./time";
+import { atHour } from "./time";
 
 /** How today's components of a sublayer are shown (see SceneCanvas renderer). */
 export type TodayClass = Decision | "rescheduled" | "scheduled" | "building" | "hidden" | "done" | "dim";
 
 // =============================================================================
-// LEVEL-DRIVEN SCHEDULE for Office_Park_Building_1 (user, 2026-10-20: "keep
-// building level in mind for the sequencing, everything going up to only
-// level 8"). The model's own Installation_Date values don't follow the levels
-// (and ~3,600 elements have none), so the 4D build-out, progress and today's
-// work all come from this model instead:
+// LEVEL-DRIVEN SCHEDULE for Office_Park_Building_1. The model's own
+// Installation_Date values don't follow the levels (and ~3,600 elements have
+// none), so the 4D build-out, progress and today's work all come from this
+// model instead (user, 2026-10-30: "framing for whole building, then the
+// interior, then the exterior glass"):
 //
-//   The structure rises one level at a time from the build start; on the demo
-//   day ("today") it is working level 8. Each trade follows a fixed number of
-//   levels behind it, in the order a high-rise floor is really built (user,
-//   2026-10-21: "ensure sequencing is logical"):
-//     structure + core shear walls ...... level 8 today (0 behind; stairs 1)
-//     curtain wall + curtain-wall doors . level 6       (2: dries the floor in)
-//     interior walls (CMU, partitions) .. level 5       (3: once dried in)
-//     doors, ceilings (grid) ............ level 4       (4)
-//     MEP fixtures (lights, plumbing) ... level 3       (5: lights drop into
-//                                                       the finished grid)
-//     specialties, casework, fire
-//       extinguisher cabinets ........... level 2       (6)
-//     furniture ......................... level 1       (7: fit-out)
-//   Nothing above level 8 exists today. Shear walls (Walls) and curtain-wall
-//   doors (Doors) are split off their sublayer by Type (TYPE_SPLITS).
+//   1. The frame rises a level per step until it tops out (level 16).
+//   2. Then each floor is fitted out from the bottom up, every trade a fixed
+//      number of levels behind the one before it:
+//        interior walls (CMU, partitions) ..... level 9 today
+//        doors, ceilings (grid) ............... level 8
+//        MEP fixtures (lights, plumbing) ...... level 7
+//        curtain wall + curtain-wall doors .... level 6  (glass after the interior)
+//        specialties, casework, fire
+//          extinguisher cabinets .............. level 5
+//        furniture ............................ level 4
+//   On the demo day the frame is up and the fit-out is mid-way, so the storm
+//   stops the glazing and outdoor work while the interior goes on. Shear walls
+//   (Walls) and curtain-wall doors (Doors) are split off their sublayer by Type
+//   (TYPE_SPLITS).
 //
 // Element counts per level come from the model's BldgLevel statistics
 // (scripts/extract-bim-schedule.mjs -> levels). The curtain wall is the
@@ -49,8 +48,12 @@ export const BIM_RANGE = (() => {
 })();
 
 export const MAX_LEVEL = 16;
-/** The structure's working level on the demo day. */
-export const TODAY_LEVEL = 8;
+/** The step on which the whole frame is up (the structure works one level per step). */
+export const TOPPED_OUT = MAX_LEVEL + 1;
+/** The step of the demo day: frame up, interior walls on level 9. */
+export const TODAY_STEP = TOPPED_OUT + 9;
+/** ⚠️ ASSUMPTION: a level a week, for the frame and for each fit-out trade. */
+const DAYS_PER_LEVEL = 7;
 
 interface Trade {
   key: string;
@@ -59,25 +62,25 @@ interface Trade {
   work: string;
   type: ActivityType;
   crew: string;
-  /** Levels behind the structure. */
+  /** Steps behind the structure's start (the fit-out trades start once the frame is up). */
   lag: number;
   sublayers: string[];
 }
 
 /**
- * Trade order on each floor (user, 2026-10-30): the framing first, then the
- * interior, then the exterior glass; specialties and furniture last. Listed
- * in that order (the progress panel follows it).
+ * The order (user, 2026-10-30): the whole frame first, then floor by floor the
+ * interior, then the exterior glass, then specialties and furniture. Listed in
+ * that order (the progress panel follows it).
  */
 export const TRADES: Trade[] = [
   { key: "structure", label: "Structure", work: "structural frame", type: "steel-erection", crew: "Ironworkers", lag: 0, sublayers: ["StructuralColumns", "Floors", "Stairs", "Roofs"] },
-  { key: "walls", label: "Interior walls", work: "interior walls and stair railings", type: "interior", crew: "Masonry / drywall", lag: 1, sublayers: ["Walls", "StairsRailing"] },
-  { key: "finishes", label: "Doors & ceilings", work: "doors and ceilings", type: "interior", crew: "Carpentry / ceilings", lag: 2, sublayers: ["Doors", "Ceilings"] },
-  { key: "mep", label: "MEP fixtures", work: "lighting and plumbing fixtures", type: "interior", crew: "MEP", lag: 3, sublayers: ["LightingFixtures", "PlumbingFixtures"] },
-  { key: "envelope", label: "Curtain wall", work: "curtain wall", type: "curtain-wall", crew: "Glazing", lag: 4, sublayers: ["CurtainWallPanels", "CurtainWallMullions"] },
+  { key: "walls", label: "Interior walls", work: "interior walls and stair railings", type: "interior", crew: "Masonry / drywall", lag: TOPPED_OUT, sublayers: ["Walls", "StairsRailing"] },
+  { key: "finishes", label: "Doors & ceilings", work: "doors and ceilings", type: "interior", crew: "Carpentry / ceilings", lag: TOPPED_OUT + 1, sublayers: ["Doors", "Ceilings"] },
+  { key: "mep", label: "MEP fixtures", work: "lighting and plumbing fixtures", type: "interior", crew: "MEP", lag: TOPPED_OUT + 2, sublayers: ["LightingFixtures", "PlumbingFixtures"] },
+  { key: "envelope", label: "Curtain wall", work: "curtain wall", type: "curtain-wall", crew: "Glazing", lag: TOPPED_OUT + 3, sublayers: ["CurtainWallPanels", "CurtainWallMullions"] },
   // FireProtection in this model is 99 fire-extinguisher cabinets: a late specialty, not sprinkler work.
-  { key: "specialty", label: "Specialty & casework", work: "specialties, casework and fire-extinguisher cabinets", type: "interior", crew: "Millwork / specialties", lag: 5, sublayers: ["SpecialtyEquipment", "Casework", "FireProtection"] },
-  { key: "furniture", label: "Furniture", work: "furniture", type: "interior", crew: "FF&E", lag: 6, sublayers: ["Furniture", "FurnitureSystems"] },
+  { key: "specialty", label: "Specialty & casework", work: "specialties, casework and fire-extinguisher cabinets", type: "interior", crew: "Millwork / specialties", lag: TOPPED_OUT + 4, sublayers: ["SpecialtyEquipment", "Casework", "FireProtection"] },
+  { key: "furniture", label: "Furniture", work: "furniture", type: "interior", crew: "FF&E", lag: TOPPED_OUT + 5, sublayers: ["Furniture", "FurnitureSystems"] },
 ];
 
 const tradeOf = new Map(TRADES.flatMap((t) => t.sublayers.map((s) => [s, t] as const)));
@@ -109,19 +112,18 @@ export function dayKey(day: Date): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: SITE.timeZone }).format(day);
 }
 
-const keyToDay = (key: string) => {
-  const [y, m, d] = key.split("-").map(Number);
-  return zonedMidnight(y, m, d, SITE.timeZone);
-};
-
-/** When the timeline starts: the structure's first level (8 weeks before the model's first date). */
-export function buildStart(): Date {
-  return new Date(keyToDay(BIM_RANGE.first).getTime() - 8 * 7 * DAY_MS);
+/** Days per level (and per step). */
+function daysPerLevel(): number {
+  return DAYS_PER_LEVEL;
 }
 
-/** Days per level, set so the structure is mid-way through level 8 on the demo day. */
-function daysPerLevel(): number {
-  return (demoDay().getTime() - buildStart().getTime()) / DAY_MS / (TODAY_LEVEL + 0.5);
+/**
+ * When the timeline starts: the frame's first level, so the demo day lands
+ * mid-way through TODAY_STEP. Whole days, so the timeline lands exactly on
+ * "Today".
+ */
+export function buildStart(): Date {
+  return new Date(demoDay().getTime() - Math.round((TODAY_STEP + 0.5) * DAYS_PER_LEVEL) * DAY_MS);
 }
 
 /** Levels of structure progress at a date (fractional). */
@@ -129,34 +131,10 @@ function progressLevels(day: Date): number {
   return (day.getTime() - buildStart().getTime()) / DAY_MS / daysPerLevel();
 }
 
-/**
- * The curtain wall waits for the frame (user, 2026-10-30: "wait for all of the
- * structural to be up first ... ok for some of it to start at the very
- * bottom"). Its bottom storey goes in at the usual lag, over `bottomSteps`
- * structure levels; the rest waits until the frame tops out, then climbs at
- * `levelsPerStep` (~a floor a week, a unitized-wall pace), so the glass is the
- * last trade to finish the top.
- */
-const GLASS = { bottomSteps: 3, levelsPerStep: 2 };
-/** From this structure step on, the whole frame is up. */
-const TOPPED_OUT = MAX_LEVEL + 1;
-/** Lowest storey with curtain wall (by real storey). */
-const glassBottom = () => Math.min(...["CurtainWallPanels", "CurtainWallMullions"].flatMap((s) => Object.keys(levelCounts(s)).map(Number)));
-
-/**
- * The level a trade is working on at a date (below = done, above = not
- * started). Can be fractional: between levels, nothing in progress (the
- * curtain wall while it waits for the frame).
- */
+/** The level a trade is working on at a date (below = done, above = not started). */
 export function workingLevel(tradeKey: string, day: Date): number {
   const t = TRADES.find((x) => x.key === tradeKey)!;
-  const p = progressLevels(day);
-  const step = Math.floor(p);
-  if (t.key !== "envelope") return step - t.lag;
-  const bottom = glassBottom();
-  if (step < bottom + t.lag + GLASS.bottomSteps) return Math.min(step - t.lag, bottom);
-  if (step < TOPPED_OUT) return bottom + 0.5; // bottom storey done; the rest waits
-  return bottom + 1 + Math.floor((p - TOPPED_OUT) * GLASS.levelsPerStep);
+  return Math.floor(progressLevels(day)) - t.lag;
 }
 
 /**
@@ -178,12 +156,10 @@ export function levelAt(day: Date): number {
   return Math.min(MAX_LEVEL, workingLevel("structure", day));
 }
 
-/** When the last trade finishes the top level (the curtain wall, since it waits for the frame). */
+/** When the last trade (furniture) finishes the top level. */
 export function buildFinish(): Date {
-  const steps = TRADES.map((t) =>
-    t.key === "envelope" ? TOPPED_OUT + (MAX_LEVEL - glassBottom()) / GLASS.levelsPerStep : MAX_LEVEL + t.lag + 1,
-  );
-  return new Date(buildStart().getTime() + Math.max(...steps) * daysPerLevel() * DAY_MS);
+  const maxLag = Math.max(...TRADES.map((t) => t.lag));
+  return new Date(buildStart().getTime() + (MAX_LEVEL + maxLag + 1) * daysPerLevel() * DAY_MS);
 }
 
 type StoreyTable = { idField: string; counts: Record<string, number>; runs: [number, number, number][] };
@@ -262,7 +238,7 @@ export function splitTrade(sublayer: string): string | undefined {
  *
  * Elements with NO level (the crown spires, some railings, every plumbing
  * fixture) aren't in the tracked counts and would otherwise read as level 0,
- * i.e. standing above level 8 from day one. They stay hidden.
+ * i.e. standing on the ground before the frame reaches them. They stay hidden.
  */
 export function statusArcade(
   day: Date,
@@ -376,7 +352,7 @@ export function remainingWork(sublayers: string[], day: Date): { installDays: nu
   const working = workingLevel(trade.key, day);
   let parts = 0;
   let levels = 0;
-  for (let l = Math.max(0, Math.ceil(working)); l <= MAX_LEVEL; l++) {
+  for (let l = Math.max(0, working); l <= MAX_LEVEL; l++) {
     const n = trade.sublayers.reduce((sum, s) => sum + (levelCounts(s)[String(l)] ?? 0), 0);
     if (n) {
       parts += n;

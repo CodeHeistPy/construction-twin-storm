@@ -3,25 +3,24 @@ import { demoDay } from "../config/site";
 import curtainWallStoreys from "../data/curtain-wall-storeys.json";
 import bimSchedule from "../data/bim-schedule.json";
 import typeSplits from "../data/type-splits.json";
-import { bimActivities, buildFinish, buildStart, levelAt, MAX_LEVEL, progressAsOf, TODAY_LEVEL, TRADES, workingLevel } from "./bim";
+import { bimActivities, buildFinish, buildStart, levelAt, MAX_LEVEL, progressAsOf, TOPPED_OUT, TRADES, workingLevel } from "./bim";
 
 const DAY = 86_400_000;
 const today = demoDay();
 
 describe("level-driven schedule", () => {
-  it("has the structure working level 8 today, and nothing higher", () => {
-    expect(levelAt(today)).toBe(TODAY_LEVEL);
-    for (const t of TRADES) expect(workingLevel(t.key, today)).toBeLessThanOrEqual(TODAY_LEVEL);
+  it("has the whole frame up today", () => {
+    expect(levelAt(today)).toBe(MAX_LEVEL);
+    expect(workingLevel("structure", today)).toBeGreaterThan(MAX_LEVEL);
   });
 
-  it("puts each trade the right number of levels behind the structure", () => {
-    expect(workingLevel("walls", today)).toBe(7);
-    expect(workingLevel("finishes", today)).toBe(6);
-    expect(workingLevel("mep", today)).toBe(5);
-    // The curtain wall waits for the frame: only its bottom storey (2) so far.
-    expect(workingLevel("envelope", today)).toBe(2);
-    expect(workingLevel("specialty", today)).toBe(3);
-    expect(workingLevel("furniture", today)).toBe(2);
+  it("has the fit-out mid-way today, each trade a level behind the one before", () => {
+    expect(workingLevel("walls", today)).toBe(9);
+    expect(workingLevel("finishes", today)).toBe(8);
+    expect(workingLevel("mep", today)).toBe(7);
+    expect(workingLevel("envelope", today)).toBe(6);
+    expect(workingLevel("specialty", today)).toBe(5);
+    expect(workingLevel("furniture", today)).toBe(4);
   });
 
   it("follows the user's order: framing, interior, then the exterior glass, then specialties and furniture", () => {
@@ -32,19 +31,13 @@ describe("level-driven schedule", () => {
     expect(TRADES.map((t) => t.key)).toEqual(order);
   });
 
-  it("holds the curtain wall above its bottom storey until the frame is up, then glazes last", () => {
-    const start = buildStart().getTime();
-    const step = (today.getTime() - start) / 8.5; // ms per structure level
-    for (let k = 0; k <= 16; k++) {
-      const d = new Date(start + (k + 0.5) * step);
-      expect(workingLevel("envelope", d)).toBeLessThanOrEqual(2.5);
+  it("frames the whole building before any fit-out or glass", () => {
+    for (let d = buildStart().getTime(); d < buildFinish().getTime(); d += 3 * DAY) {
+      const day = new Date(d);
+      if (workingLevel("structure", day) > MAX_LEVEL) continue;
+      for (const t of TRADES.filter((x) => x.key !== "structure")) expect(workingLevel(t.key, day)).toBeLessThan(0);
     }
-    const toppedOut = new Date(start + 17.5 * step);
-    expect(workingLevel("envelope", toppedOut)).toBeGreaterThan(2.5);
-    // Last trade to finish: the finish date is the glass reaching the top.
-    const justBefore = new Date(buildFinish().getTime() - DAY);
-    expect(workingLevel("envelope", justBefore)).toBeLessThanOrEqual(16);
-    expect(workingLevel("furniture", justBefore)).toBeGreaterThan(16);
+    expect(TRADES.filter((t) => t.key !== "structure").every((t) => t.lag >= TOPPED_OUT)).toBe(true);
   });
 
   it("counts every part once after the type splits (shear walls, curtain-wall doors)", () => {
@@ -89,7 +82,7 @@ describe("level-driven schedule", () => {
   it("starts from the ground and rises over time", () => {
     expect(levelAt(buildStart())).toBe(0);
     const later = new Date(today.getTime() + 60 * DAY);
-    expect(levelAt(later)).toBeGreaterThan(TODAY_LEVEL);
+    expect(workingLevel("walls", later)).toBeGreaterThan(workingLevel("walls", today));
   });
 
   it("finishes with every element installed", () => {
@@ -101,15 +94,14 @@ describe("level-driven schedule", () => {
 });
 
 describe("today's work", () => {
-  it("is one activity per trade, on its working level, at or below level 8", () => {
+  it("is one activity per fit-out trade, on its working level; no steel erection (the frame is up)", () => {
     const acts = bimActivities(today);
-    expect(acts.length).toBeGreaterThanOrEqual(5);
+    expect(acts.map((a) => a.id)).toEqual(["L9-WAL", "L8-FIN", "L7-MEP", "L6-ENV", "L5-SPE", "L4-FUR"]);
     for (const a of acts) {
       const level = Number(a.bimWhere?.match(/BldgLevel = (\d+)/)?.[1]);
-      expect(level).toBeLessThanOrEqual(TODAY_LEVEL);
       expect(a.name).toContain(`level ${level}`);
     }
-    expect(acts.find((a) => a.type === "curtain-wall")?.name).toContain("level 2");
+    expect(acts.some((a) => a.type === "steel-erection")).toBe(false);
   });
 
   it("counts progress below each trade's working level", () => {

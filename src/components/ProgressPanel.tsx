@@ -25,8 +25,8 @@ function phaseAt(day: Date): string {
   const lastLevel = (key: string) => workingLevel(key, day) > MAX_LEVEL;
   if (TRADES.every((t) => lastLevel(t.key))) return "Complete";
   if (!lastLevel("structure")) return "Office Building 1 of 4"; // user, 2026-10-20 (was "Superstructure")
-  if (!lastLevel("envelope")) return "Building enclosure";
-  return "Interior fit-out";
+  // Frame up: each floor gets its interior, then its glass (user, 2026-10-30).
+  return "Fit-out & glazing";
 }
 
 interface Props {
@@ -78,6 +78,8 @@ export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, t
   const complete = pct(installed, shownTotal);
   const level = Math.max(0, Math.min(MAX_LEVEL, levelAt(when)));
   const phase = phaseAt(when);
+  // Once the frame is up, the floor the fit-out (interior walls) has reached.
+  const fitOut = workingLevel("structure", when) > MAX_LEVEL ? Math.max(0, Math.min(MAX_LEVEL, workingLevel("walls", when))) : null;
 
   return (
     <aside className="panel panel-left seq">
@@ -93,7 +95,7 @@ export default function ProgressPanel({ twin, endOfDay = false, asOf, onReset, t
           <b>{phase}</b>
           {phase !== "Complete" && (
             <small>
-              Level {level} of {MAX_LEVEL}
+              {fitOut === null ? `Level ${level} of ${MAX_LEVEL}` : `Frame complete · fit-out on level ${fitOut}`}
             </small>
           )}
           {showFinish && (

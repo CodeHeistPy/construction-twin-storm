@@ -42,19 +42,19 @@ slides by TITLE (`config/tour.ts` STOP_RULES) and adds data behaviour.
 **PLAN AHEAD (user, 2026-10-20):** the presenter stands on the day BEFORE the
 storm (`PLAN_AHEAD_DAYS = 1`, `presenterToday()` in site.ts). The demo day
 (`demoDay()`, storm day, where the rules and re-plan run) shows as
-**"Tomorrow"**; the 4D ends on "Today" (day 111, level 8); postponed work lands
+**"Tomorrow"**; the 4D ends on "Today" (day 185: frame up, fit-out on level 9); postponed work lands
 on the "Day after tomorrow" (`planDayLabel`). Alert: "Severe weather arriving
 tomorrow". Schedule Adjustment has no conditions panel; its Postponed / Proceed
 tiles filter the list and map markers. It OPENS on the plain schedule (all 14,
 "scheduled" colours); the topbar "Weather alert" button (replaces Notify crews,
 `alertButton`) shows the alert and switches to postpone / proceed. The alert
-names tomorrow's real date (`displayDate`). 6 postponed / 8 proceed since 2026-10-30 (S-02 delivery
+names tomorrow's real date (`displayDate`). 5 postponed / 8 proceed since the 2026-10-30 resequence (S-02 delivery
 moved to 7-10 AM, user). Both views: 3D mesh on, ortho off, the
 Topographic 3D basemap with its 3D Buildings on and Trees off, Buildings 2-4 hidden.
 **Completed Building (user, 2026-10-21):** a third stop after Schedule Adjustment
 (`completion` rule, `SlideView` "completion": the schedule heading pulled back 1.75x, aimed
 at mid-height of the 16-level tower; orbit target 33 m up). The 4D plays on from Today to
-the finish (`toFinish`) on Building 1, ending on "Substantial completion <date>".
+the finish (`toFinish`) on Building 1, ending on "Substantial completion <date>" (Jan 25, 2027 on screen on 2026-10-30).
 Building 1 ONLY here too (user, 2026-10-22: briefly showed Buildings 2-4, then reverted;
 the completed park is a separate scene). Same 4D pace as the build-out (`DAYS_PER_STEP`).
 **Photorealistic finale: tried and DROPPED (user, 2026-10-22).** Google 3D tiles via a
@@ -85,7 +85,7 @@ opaque, the slice starts above ground and the presenter drags it down with the
 camera; orbit keeps its framing) → **Schedule Adjustment** (the weather alert
 pops here, user: the separate "What could change it" stop is gone; decision,
 re-plan + notify). No weather slider.
-Activities: one per trade on its working level (levels 4-8) and 7
+Activities: one per fit-out trade on its working level (levels 4-9) and 7
 SAMPLE site activities placed on real assets (Building 1 faces/core, podium,
 storm MH 2835760). BIM markers are PINNED to a real part once the view settles:
 sample up to 60 parts of that level (curtain wall by real storey,
@@ -97,7 +97,7 @@ Picking an activity flies to its pin at
 scale 200 (same distance every pick), centred on the drawn pin (pins float >= 8 m
 up on a leader line so slabs and the podium never hide them), approached from
 OUTSIDE the building (heading = bearing pin -> Building 1), 1.8 s cubic ease.
-4D pace: 6 days per 0.75 s (~14 s to Today); space bar pauses. The orbit circles a
+4D pace: 7 days (one level) per 0.75 s (~20 s to Today, 185 days; ~9 s on to completion); space bar pauses. The orbit circles a
 fixed point on Building 1 (16 m up) at the camera's REAL distance and height (never from
 view.scale/center: that flew the camera ~2.7 km out on a cold load), aiming off-centre
 for the panel and correcting the aim each frame from toScreen, so the building
@@ -105,26 +105,26 @@ stays centred in the padded (visible) area at constant altitude.
 The orbit STARTS from the exact current camera (aim = its heading/tilt offsets) and
 eases the aim to the visible centre over ~1 s (time-based); a computed first aim
 overshot and panned left then back (user, 2026-10-22).
-4D is LEVEL-DRIVEN (user, 2026-10-20: "keep building level in mind ...
-everything going up to only level 8"). `lib/bim.ts` TRADES: the structure rises
-a level at a time and is on **level 8 today** (demo day); each trade follows a
-fixed number of levels behind, in the USER'S order (2026-10-30: "the framing would be
-completed first, then the interior and then the exterior glass"; floor by floor): structure +
-core shear walls 0, interior walls 1, doors/ceilings 2, MEP fixtures (lights, plumbing) 3,
-curtain wall + curtain-wall doors 4, specialties/casework/fire-extinguisher cabinets 5
-(FireProtection is 99 extinguisher cabinets), furniture 6. TRADES is listed in that order
-(the panel follows it). Before 2026-10-30 the glass went 2nd (lag 2).
-**Curtain wall waits for the frame** (user, 2026-10-30: "wait for all of the structural
-to be up first ... ok for some of it to start at the very bottom"): only its bottom
-storey (2) glazes at the usual lag, for 3 structure steps (so on the storm day too); the
-rest waits (working level 2.5 = nothing in progress) until the frame tops out (step 17),
-then climbs 2 levels per step (`GLASS` in bim.ts). The glass finishes last: substantial
-completion May 23, 2027 on screen (was May 15).
+4D is LEVEL-DRIVEN, in two phases (user, 2026-10-30: "framing for whole building, then
+the interior, then the exterior glass", and "the slider ... a different point in time that
+matches"; option "Frame done, floors finishing"). `lib/bim.ts`: the frame rises a level a
+step to the top (TOPPED_OUT = step 17); then each floor is fitted out from the bottom up,
+each trade one level behind the previous one (TRADES lags TOPPED_OUT + 0..5): interior walls,
+doors/ceilings, MEP fixtures, curtain wall + curtain-wall doors (glass AFTER the interior),
+specialties/casework/fire-extinguisher cabinets (FireProtection is 99 extinguisher
+cabinets), furniture. Core shear walls follow the frame. A step = 7 days (DAYS_PER_LEVEL).
+The demo day is TODAY_STEP = 26: frame complete, walls on level 9, ceilings 8, MEP 7,
+GLASS 6, specialties 5, furniture 4. buildStart is derived from it (whole days, so the
+timeline lands exactly on "Today"). TRADES is listed in that order (the panel follows it).
+History: before 2026-10-30 the structure was on level 8 today with every trade trailing
+it (glass 2nd); briefly the glass waited for the frame except its bottom storey.
 Shear walls and curtain-wall doors are split off their sublayer by Type
 (`TYPE_SPLITS`, counts from scripts/extract-type-splits.mjs -> data/type-splits.json).
-Panel hides Specialty & casework and Furniture. Today: 14 activities, 6 postponed / 8
-proceed (furniture on level 2). Sample S-05 sealant is level 2, behind the bottom glazing. Nothing above level 8
-today; stairs go in one level behind the structure (`SUBLAYER_LAG`, user: a flight on
+Panel hides Specialty & casework and Furniture; after topping out its phase reads "Fit-out &
+glazing · Frame complete · fit-out on level N". Today: 13 activities, 5 postponed (glass L6,
+crane hoist, drainage tie-in, podium waterproofing, sealant) / 8 proceed (interiors L4-9,
+delivery, paving, elevator rails); no steel erection (the frame is up). Sample S-05 sealant
+is levels 2-4, behind the glazing. Stairs go in one level behind the structure (`SUBLAYER_LAG`, user: a flight on
 the top level stood floating over the slab). The model's Installation_Date values are NOT used for sequencing (they
 don't follow the levels); counts per level come from the BldgLevel statistics.
 **Curtain wall exception:** multi-storey curtain walls are tagged to their BASE
@@ -134,7 +134,7 @@ vs. floor slab heights) into `src/data/curtain-wall-storeys.json` (OBJECTID_1
 runs; the renderer binary-searches them in Arcade). Re-measure if the model is
 republished. `InstanceElev`/`BldgLevel_Elev` give the wall's base, not the panel's.
 Today's BIM activities = each trade on its working level (bimWhere
-`BldgLevel = n`); today's curtain wall is level 2 (its bottom storey).
+`BldgLevel = n`); today's curtain wall is level 6.
 Pacing: see "4D pace" above; gentle orbit (faster starves redraws; one renderer
 step takes ~0.45 s to settle).
 Every block must tie to an outcome (user: "keep me honest").

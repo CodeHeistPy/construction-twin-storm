@@ -81,7 +81,7 @@ const ROWS: Row[] = [
   },
   {
     id: "S-05",
-    name: "Exterior sealant, Building 1 west face, level 2", // behind the bottom-storey glazing (the rest waits for the frame)
+    name: "Exterior sealant, Building 1 west face, levels 2–4", // behind the glazing (level 6 today)
     type: "exterior-finishes",
     trade: "Envelope",
     zone: "Building 1, west face",
